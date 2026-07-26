@@ -1,0 +1,188 @@
+import Image from "next/image";
+import Link from "next/link";
+import { audiences, industryPacks, marketplaceAssistants, phases, teamAi } from "@/lib/data";
+
+export default function HomePage() {
+  return (
+    <div>
+      <nav className="site-nav" aria-label="Primary">
+        <Link href="/" className="logo">
+          Atlas <span>AI</span>
+        </Link>
+        <div className="site-nav-links">
+          <a href="#everyone">Everyone</a>
+          <a href="#workforce">Workforce</a>
+          <a href="#beachhead">Beachhead</a>
+          <Link className="btn btn-primary" href="/onboarding">
+            Create your AI workforce
+          </Link>
+        </div>
+      </nav>
+
+      <header className="hero">
+        <div className="hero-media" aria-hidden="true">
+          <Image
+            src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=2400&q=80"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+          />
+        </div>
+        <div className="container hero-content">
+          <p className="brand-mark">
+            Atlas <span>AI</span>
+          </p>
+          <h1>Everyone deserves an AI employee.</h1>
+          <p>
+            Atlas — Your AI Workforce. Not one chatbot. An ecosystem of helpers for individuals,
+            families, events, businesses, nonprofits, and schools.
+          </p>
+          <div className="cta-row">
+            <Link className="btn btn-primary" href="/onboarding">
+              Choose who Atlas helps
+            </Link>
+            <Link className="btn btn-ghost" href="/app">
+              Open the business beachhead
+            </Link>
+          </div>
+          <div className="exchange" aria-label="Atlas examples">
+            <div className="exchange-line exchange-owner">“Atlas, plan my daughter’s birthday.”</div>
+            <div className="exchange-line exchange-reply">“How many guests are you expecting?”</div>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section className="section" id="everyone">
+          <div className="container">
+            <div className="section-head">
+              <h2>One platform. Many kinds of help.</h2>
+              <p>Create AI assistants that fit your life — then expand as your needs grow.</p>
+            </div>
+            <div className="module-grid">
+              {audiences.map((audience) => (
+                <article className="module" key={audience.id}>
+                  <h3>
+                    <span aria-hidden="true">{audience.emoji}</span> {audience.label}
+                    {"beachhead" in audience && audience.beachhead ? (
+                      <span className="badge" style={{ marginLeft: "0.5rem" }}>
+                        Launch focus
+                      </span>
+                    ) : null}
+                  </h3>
+                  <p>{audience.blurb}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="workforce" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="sarah">
+              <div>
+                <h2>Your AI Workforce</h2>
+                <p>
+                  Personal AI for life admin. Event AI for celebrations. Business AI for the front
+                  desk. Team AI so Atlas delegates to Sarah, Mike, Emma, David, and Alex. Plus a
+                  marketplace and industry packs.
+                </p>
+                <div className="cta-row">
+                  <Link className="btn btn-primary" href="/app/workforce">
+                    Explore the workforce
+                  </Link>
+                  <Link className="btn btn-ghost" href="/app/marketplace" style={{ color: "var(--foam)", borderColor: "rgba(244,248,247,0.28)" }}>
+                    Browse marketplace
+                  </Link>
+                </div>
+              </div>
+              <div className="sarah-card">
+                <h3>Jeff’s Plumbing · Team AI</h3>
+                <ul>
+                  {teamAi.map((member) => (
+                    <li key={member.name}>
+                      {member.name} → {member.role}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Marketplace + Industry Packs</h2>
+              <p>Install the assistants you need. Specialize with knowledge packs.</p>
+            </div>
+            <div className="split">
+              <div className="panel">
+                <h3>Installable assistants</h3>
+                <div className="list" style={{ marginTop: "0.8rem" }}>
+                  {marketplaceAssistants.slice(0, 6).map((item) => (
+                    <div className="list-row" key={item.name}>
+                      <span className="badge">{item.category}</span>
+                      <p>
+                        <strong>{item.name}</strong> · {item.installs} installs
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="panel">
+                <h3>Industry packs</h3>
+                <div className="pack-grid" style={{ marginTop: "0.8rem" }}>
+                  {industryPacks.map((pack) => (
+                    <div className="pack-chip" key={pack.name}>
+                      <span aria-hidden="true">{pack.emoji}</span>
+                      <strong>{pack.name}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="beachhead" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Start focused. Expand later.</h2>
+              <p>
+                Launch beachhead: small service businesses that need an AI receptionist and
+                scheduling. Once that wins, expand into personal assistants and celebration planning
+                on the same platform.
+              </p>
+            </div>
+            <div className="roadmap">
+              {phases.map((phase) => (
+                <div className="road-item" key={phase.phase}>
+                  <span>{phase.phase}</span>
+                  <strong>{phase.title}</strong>
+                  <p style={{ marginTop: "0.45rem", color: "var(--ink-soft)", fontSize: "0.88rem" }}>
+                    {phase.items.join(" · ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="container final-cta">
+          <h2>Everyone deserves an AI employee.</h2>
+          <p>Start with business. Grow into life, family, and events.</p>
+          <Link className="btn btn-dark" href="/onboarding">
+            Create your first AI helper
+          </Link>
+        </section>
+      </main>
+
+      <footer className="container footer">
+        <span>Atlas — Your AI Workforce</span>
+        <span>Beachhead: small service businesses</span>
+      </footer>
+    </div>
+  );
+}
