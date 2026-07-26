@@ -4,8 +4,8 @@ import { insights } from "@/lib/data";
 export default function InsightsPage() {
   return (
     <AppShell
-      title="AI Insights"
-      subtitle="Instead of just charts — advice you can act on today."
+      title="AI Reports"
+      subtitle="Instead of charts — Atlas explains what happened and what to do."
     >
       <div className="list">
         {insights.map((insight) => (

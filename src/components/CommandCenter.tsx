@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import {
   aiEmployees,
   commandSuggestions,
+  customEmployee,
   morningBriefing,
   owner,
 } from "@/lib/data";
@@ -35,8 +36,8 @@ export function CommandCenter() {
   const [messages, setMessages] = useState<ChatItem[]>(() => [
     {
       kind: "ai",
-      agentLabel: "CallFlow",
-      text: `${timeGreeting()}, ${owner.name}. Here’s what needs your attention before the day gets loud.`,
+      agentLabel: "Atlas",
+      text: `${timeGreeting()}, ${owner.name}. Nothing else needs to be checked — here’s what already happened.`,
     },
   ]);
 
@@ -109,8 +110,8 @@ export function CommandCenter() {
         ...prev,
         {
           kind: "ai",
-          agentLabel: "CallFlow",
-          text: "Voice isn’t available in this browser. Type a command instead — same results.",
+          agentLabel: "Atlas",
+          text: "Voice isn’t available in this browser. Type instead — same Atlas brain.",
         },
       ]);
       return;
@@ -125,7 +126,6 @@ export function CommandCenter() {
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results[0]?.[0]?.transcript;
       if (transcript) {
-        setInput(transcript);
         pushResult(runOwnerCommand(transcript), transcript);
         setInput("");
       }
@@ -136,18 +136,20 @@ export function CommandCenter() {
   return (
     <div className="command-layout">
       <section className="briefing panel">
-        <p className="briefing-kicker">Owner briefing</p>
+        <p className="briefing-kicker">Atlas never sleeps</p>
         <h2>
           {greeting}, {owner.name}.
         </h2>
-        <p className="briefing-sub">{owner.business} · your AI employees are already working</p>
+        <p className="briefing-sub">
+          {owner.business} · {customEmployee.name} is your {customEmployee.role}
+        </p>
         <ul className="briefing-list">
           {morningBriefing.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
         <div className="employee-row">
-          {aiEmployees.map((employee) => (
+          {aiEmployees.slice(0, 5).map((employee) => (
             <div className="employee-pill" key={employee.id}>
               <span aria-hidden="true">{employee.emoji}</span>
               <div>
@@ -162,8 +164,8 @@ export function CommandCenter() {
       <section className="panel command-panel">
         <div className="command-head">
           <div>
-            <h2>Talk to your business</h2>
-            <p>One assistant on the surface. Specialized employees underneath.</p>
+            <h2>Talk to Atlas</h2>
+            <p>Type, speak, upload later — one AI brain that actually runs the business.</p>
           </div>
           <button className={`btn ${listening ? "btn-primary" : "btn-outline"}`} type="button" onClick={onSpeakToggle}>
             {listening ? "Listening…" : "Speak"}
@@ -223,8 +225,8 @@ export function CommandCenter() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder='Try “How’s the business doing?” or “Book John for Friday at 3.”'
-            aria-label="Command your AI employees"
+            placeholder='Ask Atlas: “How is business?” or “What’s the most important thing today?”'
+            aria-label="Talk to Atlas"
           />
           <button className="btn btn-dark" type="submit">
             Send

@@ -15,7 +15,7 @@ export default function MissedCallsPage() {
   return (
     <AppShell
       title="Missed Calls"
-      subtitle="Customer calls. Nobody answers. CallFlow recovers the job instantly."
+      subtitle="Customer calls. Nobody answers. Atlas recovers the job instantly."
     >
       <div className="split">
         <section className="panel">

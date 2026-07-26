@@ -15,9 +15,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "CallFlow AI — Hire an AI Employee",
+  title: "Atlas AI — The AI employee that can actually run a business",
   description:
-    "You can’t afford another employee? You don’t need one. Hire an AI Employee for reception, missed calls, booking, quotes, reviews, and follow-up.",
+    "Atlas is the world’s first AI employee that can actually run a business — reception, scheduling, sales, finance, marketing, and operations in one assistant.",
   icons: { icon: "/favicon.svg" },
 };
 

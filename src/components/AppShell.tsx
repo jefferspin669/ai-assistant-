@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems } from "@/lib/data";
+import { customEmployee, navItems, owner } from "@/lib/data";
 
 export function AppShell({
   title,
@@ -21,9 +21,11 @@ export function AppShell({
     <div className="app-shell">
       <aside className="sidebar">
         <Link href="/" className="sidebar-brand">
-          CallFlow <span>AI</span>
+          Atlas <span>AI</span>
         </Link>
-        <p className="sidebar-tag">AI Employee for Smith Plumbing</p>
+        <p className="sidebar-tag">
+          {customEmployee.name} · {customEmployee.role} for {owner.business}
+        </p>
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -36,11 +38,11 @@ export function AppShell({
         </nav>
         <div className="sidebar-foot">
           <div className="ai-chip">
-            <strong>5 AI employees online</strong>
-            <span>Reception · Sales · Scheduler · Marketing · Analyst</span>
+            <strong>{customEmployee.name} is online</strong>
+            <span>Never sleeps · {customEmployee.languages.join(" · ")}</span>
           </div>
           <Link href="/onboarding" className="ghost-link">
-            Change industry template
+            Customize your AI employee
           </Link>
         </div>
       </aside>

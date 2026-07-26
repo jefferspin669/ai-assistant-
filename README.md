@@ -1,28 +1,10 @@
-# CallFlow AI
+# Atlas AI
 
-Hire an AI Employee that helps run a small business.
+Project Codename: **Atlas AI**
 
-> “I can’t afford another employee.”  
-> “You don’t need one. Hire an AI Employee.”
+> The world’s first AI employee that can actually run a business.
 
-## Vision
-
-Owners open the app to a morning briefing, then type or speak naturally:
-
-- “Book John for Friday at 3.”
-- “Who hasn’t paid?”
-- “How’s the business doing?”
-- “Move tomorrow’s jobs because it’s going to rain.”
-
-One assistant on the surface. Specialized AI employees underneath:
-
-- Receptionist
-- Sales Manager
-- Scheduler
-- Marketing Manager
-- Business Analyst
-
-Routine tasks run automatically. High-impact actions ask for confirmation first.
+Instead of opening 10 apps, owners open Atlas — and it already knows what happened.
 
 ## Run
 
@@ -32,6 +14,17 @@ npm run dev
 ```
 
 - Marketing: http://localhost:3000
-- Onboarding: http://localhost:3000/onboarding
-- Command Center: http://localhost:3000/app
+- Create AI employee: http://localhost:3000/onboarding
+- Atlas Command Center: http://localhost:3000/app
 - AI Employees: http://localhost:3000/app/employees
+- AI Brain: http://localhost:3000/app/brain
+- Voice Mode: http://localhost:3000/app/voice
+- Customer Timeline: http://localhost:3000/app/timeline
+
+## Phases
+
+1. Missed calls, AI receptionist, scheduling, CRM
+2. Quotes, invoices, payments, follow-up
+3. Voice assistant, analytics, recommendations
+4. Marketing, inventory, employee management
+5. Industry-specific AI, integrations, marketplace

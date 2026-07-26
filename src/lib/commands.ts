@@ -1,4 +1,13 @@
-export type AgentId = "receptionist" | "sales" | "scheduler" | "marketing" | "analyst";
+export type AgentId =
+  | "ceo"
+  | "receptionist"
+  | "sales"
+  | "success"
+  | "marketing"
+  | "finance"
+  | "scheduler"
+  | "operations"
+  | "hr";
 
 export type CommandResult = {
   agent: AgentId;
@@ -16,118 +25,103 @@ function includesAny(text: string, words: string[]) {
 export function runOwnerCommand(input: string): CommandResult {
   const q = input.toLowerCase().trim();
 
-  if (includesAny(q, ["how’s the business", "hows the business", "how is the business", "business doing"])) {
+  if (includesAny(q, ["most important", "focus on today", "top priority"])) {
     return {
-      agent: "analyst",
-      agentLabel: "Business Analyst",
+      agent: "ceo",
+      agentLabel: "CEO Assistant",
       needsConfirm: false,
       reply:
-        "Revenue is up 12% from last month. You have five new leads, two overdue invoices totaling $1,850, and your conversion rate improved to 46%.",
+        "Your business is running well. I handled 94 routine tasks overnight. Your top priority today is approving the estimate for Johnson Construction, worth $18,400.",
     };
   }
 
-  if (includesAny(q, ["fill my tuesday", "fill tuesday", "fill my schedule", "open time slots"])) {
+  if (includesAny(q, ["how is business", "how's business", "how’s business", "business doing"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas",
+      needsConfirm: false,
+      reply:
+        "Strong day forming. Yesterday: $4,280. Overnight: 9 bookings, 47 messages handled, 2 cancellations. Three invoices are overdue ($2,310). Next six days are fully scheduled. Want the two revenue opportunities?",
+    };
+  }
+
+  if (includesAny(q, ["who canceled", "who cancelled", "canceled", "cancelled"])) {
+    return {
+      agent: "scheduler",
+      agentLabel: "Scheduler",
+      needsConfirm: false,
+      reply: "John Smith canceled his 2:30 PM filter replacement. That opens a drive-efficient slot near Alex’s afternoon route.",
+    };
+  }
+
+  if (includesAny(q, ["fill his spot", "fill the spot", "fill john"])) {
     return {
       agent: "scheduler",
       agentLabel: "Scheduler",
       needsConfirm: true,
       reply:
-        "I found six customers waiting for appointments. If I contact them, I estimate I can fill four of your six open Tuesday slots.",
-      confirmPrompt: "Contact waitlist customers to fill Tuesday?",
-      doneLabel: "Scheduler is texting the waitlist now. I’ll update you as slots fill.",
+        "I found 6 waitlist customers near John’s neighborhood. I can text the top 3 and likely fill the slot within an hour.",
+      confirmPrompt: "Contact waitlist customers to fill John’s spot?",
+      doneLabel: "Contacting waitlist customers now. I’ll lock the first confirmation.",
     };
   }
 
-  if (includesAny(q, ["book john"]) || (q.includes("book") && q.includes("friday") && q.includes("3"))) {
+  if (includesAny(q, ["how much money", "made today", "revenue today", "make today"])) {
     return {
-      agent: "receptionist",
-      agentLabel: "Receptionist",
+      agent: "finance",
+      agentLabel: "Finance Manager",
+      needsConfirm: false,
+      reply: "$3,482 so far today — three completed jobs and one signed estimate deposit.",
+    };
+  }
+
+  if (includesAny(q, ["find the ac", "ac install from april", "find the"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas",
       needsConfirm: false,
       reply:
-        "Booked John for Friday at 3:00 PM with Sam. Confirmation text sent, and it’s on Google Calendar.",
+        "Found it: April 12 AC install for Elena Brooks. Contract, warranty, photos, and voice note are in her timeline. She prefers mornings and always requests John.",
     };
   }
 
-  if (includesAny(q, ["missed their appointment", "missed appointment", "no-show", "no show"])) {
-    return {
-      agent: "receptionist",
-      agentLabel: "Receptionist",
-      needsConfirm: true,
-      reply: "I found 3 no-shows from this week. I can call each one, apologize, and offer the next open slot.",
-      confirmPrompt: "Call all no-show customers now?",
-      doneLabel: "Calling the 3 no-show customers and offering reschedule options.",
-    };
-  }
-
-  if (includesAny(q, ["send a quote", "quote to sarah", "quote"])) {
+  if (includesAny(q, ["johnson", "approve the", "18,400", "estimate"])) {
     return {
       agent: "sales",
       agentLabel: "Sales Manager",
       needsConfirm: true,
       reply:
-        "I drafted a quote for Sarah based on her last inquiry (filter replacement + tune-up) for $289. Ready to send by text and email.",
-      confirmPrompt: "Send Sarah’s $289 quote now?",
-      doneLabel: "Quote sent to Sarah. I’ll follow up in 24 hours if she doesn’t open it.",
+        "Johnson Construction estimate is ready: remodel package $18,400, 40% deposit, start window next Tuesday.",
+      confirmPrompt: "Approve and send the $18,400 Johnson Construction estimate?",
+      doneLabel: "Estimate approved and sent. Deposit invoice queued for when they sign.",
     };
   }
 
-  if (includesAny(q, ["revenue", "how much did we make", "this month"])) {
+  if (includesAny(q, ["overdue", "who hasn’t paid", "hasnt paid", "hasn't paid", "invoices"])) {
     return {
-      agent: "analyst",
-      agentLabel: "Business Analyst",
+      agent: "finance",
+      agentLabel: "Finance Manager",
       needsConfirm: false,
       reply:
-        "This month you’ve made $28,420 so far — up 12% versus last month. AI-booked jobs account for $9,160 of that.",
+        "Three overdue invoices: Nina Alvarez $890, Tom Rivera $960, and Harbor Dental $460. Total $2,310. I can send reminders automatically.",
     };
   }
 
-  if (includesAny(q, ["who hasn’t paid", "hasnt paid", "hasn't paid", "overdue", "unpaid"])) {
+  if (includesAny(q, ["opportunities", "increase revenue"])) {
     return {
-      agent: "sales",
-      agentLabel: "Sales Manager",
+      agent: "ceo",
+      agentLabel: "CEO Assistant",
       needsConfirm: false,
       reply:
-        "Two overdue invoices: Nina Alvarez $890 (3 days) and Tom Rivera $960 (5 days). Total $1,850. Want me to send payment reminders?",
-    };
-  }
-
-  if (includesAny(q, ["rain", "move tomorrow", "reschedule tomorrow", "weather"])) {
-    return {
-      agent: "scheduler",
-      agentLabel: "Scheduler",
-      needsConfirm: true,
-      reply:
-        "Tomorrow has 5 outdoor-adjacent jobs. I can move them to Thursday/Friday and text customers with two new time options each.",
-      confirmPrompt: "Reschedule tomorrow’s jobs because of rain?",
-      doneLabel: "Customers are being offered Thursday/Friday windows. I’ll lock in replies as they come in.",
-    };
-  }
-
-  if (includesAny(q, ["promotion", "campaign", "coupon", "marketing"])) {
-    return {
-      agent: "marketing",
-      agentLabel: "Marketing Manager",
-      needsConfirm: true,
-      reply: "I can draft a weekend HVAC filter promo to 842 past customers. Estimated reach cost is low; conversion lift usually ~6%.",
-      confirmPrompt: "Send the weekend filter promo?",
-      doneLabel: "Campaign queued for Friday 10 AM. I’ll report opens and bookings Saturday morning.",
-    };
-  }
-
-  if (includesAny(q, ["review", "5-star", "sarah left"])) {
-    return {
-      agent: "marketing",
-      agentLabel: "Marketing Manager",
-      needsConfirm: false,
-      reply: "Sarah’s 5-star Google review is live. I already replied with a thank-you note in your voice.",
+        "Opportunity 1: fill Tuesday gaps from the waitlist (~$1,800). Opportunity 2: maintenance plan push to past AC installs (~$2,400/mo recurring).",
     };
   }
 
   return {
-    agent: "analyst",
-    agentLabel: "Assistant",
+    agent: "ceo",
+    agentLabel: "Atlas",
     needsConfirm: false,
     reply:
-      "I can book jobs, chase no-shows, send quotes, check revenue, find unpaid invoices, or reshape the schedule. Try: “How’s the business doing?”",
+      "I can brief the business, fill canceled spots, find documents, approve estimates, chase invoices, or tell you the top priority. Try: “What’s the most important thing I should focus on today?”",
   };
 }
