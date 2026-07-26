@@ -15,18 +15,10 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Vera — Local Business AI Employee",
+  title: "CallFlow AI — Hire an AI Employee",
   description:
-    "One subscription for an AI receptionist that books appointments, follows up with customers, sends quotes, requests reviews, answers FAQs, and handles missed calls — so your team can focus on the work.",
-  icons: {
-    icon: "/favicon.svg",
-  },
-  openGraph: {
-    title: "Vera — Local Business AI Employee",
-    description:
-      "Automate the repetitive front-desk work. Keep the people who make your business great.",
-    type: "website",
-  },
+    "You can’t afford another employee? You don’t need one. Hire an AI Employee for reception, missed calls, booking, quotes, reviews, and follow-up.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({

@@ -1,35 +1,44 @@
-# Vera — Local Business AI Employee
+# CallFlow AI
 
-One subscription that gives small businesses an AI teammate for front-desk work:
+Hire an AI Employee for your local business.
+
+> “I can’t afford another employee.”  
+> “You don’t need one. Hire an AI Employee.”
+
+CallFlow AI is a single dashboard for:
 
 - AI receptionist
-- Appointment booking
-- Customer follow-up
-- Quotes
-- Review requests
-- FAQ chatbot
-- Missed-call handling
+- Missed-call recovery
+- Website chatbot
+- Appointments
+- Customer CRM
+- AI quotes + e-sign
+- Review manager
+- Marketing center
+- Analytics + AI insights
+- Team + payments
+- Industry templates
 
-Vera automates repetitive tasks so owners and staff can stay on the work that needs people.
-
-## Stack
-
-- Next.js (App Router)
-- TypeScript
-- CSS (custom design system)
-
-## Develop
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+- Marketing site: [http://localhost:3000](http://localhost:3000)
+- Industry onboarding: [http://localhost:3000/onboarding](http://localhost:3000/onboarding)
+- Dashboard: [http://localhost:3000/app](http://localhost:3000/app)
 
-## Build
+## Build order (roadmap)
 
-```bash
-npm run build
-npm start
-```
+1. Missed-call texting
+2. Customer dashboard
+3. Appointment booking
+4. AI receptionist
+5. Website chatbot
+6. CRM
+7. Quotes and invoices
+8. Payments
+9. Analytics
+10. Industry-specific AI
