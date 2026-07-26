@@ -1,23 +1,28 @@
 # CallFlow AI
 
-Hire an AI Employee for your local business.
+Hire an AI Employee that helps run a small business.
 
 > “I can’t afford another employee.”  
 > “You don’t need one. Hire an AI Employee.”
 
-CallFlow AI is a single dashboard for:
+## Vision
 
-- AI receptionist
-- Missed-call recovery
-- Website chatbot
-- Appointments
-- Customer CRM
-- AI quotes + e-sign
-- Review manager
-- Marketing center
-- Analytics + AI insights
-- Team + payments
-- Industry templates
+Owners open the app to a morning briefing, then type or speak naturally:
+
+- “Book John for Friday at 3.”
+- “Who hasn’t paid?”
+- “How’s the business doing?”
+- “Move tomorrow’s jobs because it’s going to rain.”
+
+One assistant on the surface. Specialized AI employees underneath:
+
+- Receptionist
+- Sales Manager
+- Scheduler
+- Marketing Manager
+- Business Analyst
+
+Routine tasks run automatically. High-impact actions ask for confirmation first.
 
 ## Run
 
@@ -26,19 +31,7 @@ npm install
 npm run dev
 ```
 
-- Marketing site: [http://localhost:3000](http://localhost:3000)
-- Industry onboarding: [http://localhost:3000/onboarding](http://localhost:3000/onboarding)
-- Dashboard: [http://localhost:3000/app](http://localhost:3000/app)
-
-## Build order (roadmap)
-
-1. Missed-call texting
-2. Customer dashboard
-3. Appointment booking
-4. AI receptionist
-5. Website chatbot
-6. CRM
-7. Quotes and invoices
-8. Payments
-9. Analytics
-10. Industry-specific AI
+- Marketing: http://localhost:3000
+- Onboarding: http://localhost:3000/onboarding
+- Command Center: http://localhost:3000/app
+- AI Employees: http://localhost:3000/app/employees

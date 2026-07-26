@@ -1,18 +1,15 @@
-import Link from "next/link";
+import { CommandCenter } from "@/components/CommandCenter";
 import { AppShell } from "@/components/AppShell";
-import { activityFeed, insights, todayStats } from "@/lib/data";
+import { activityFeed, todayStats } from "@/lib/data";
 
 export default function DashboardPage() {
   return (
     <AppShell
-      title="Today’s Activity"
-      subtitle="One screen with everything happening across your AI Employee."
-      action={
-        <Link className="btn btn-dark" href="/app/missed-calls">
-          Review missed calls
-        </Link>
-      }
+      title="Command Center"
+      subtitle="Understand. Recommend. Act — with your permission when it matters."
     >
+      <CommandCenter />
+
       <div className="stat-grid">
         {todayStats.map((stat) => (
           <div className="stat" key={stat.label}>
@@ -23,31 +20,17 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="split">
-        <section className="panel">
-          <h2>Live feed</h2>
-          <div className="list">
-            {activityFeed.map((item) => (
-              <div className="list-row" key={item.time + item.text}>
-                <span className="time">{item.time}</span>
-                <p>{item.text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <h2>AI Insights</h2>
-          <div className="list">
-            {insights.map((insight) => (
-              <div className="insight" key={insight.title}>
-                <strong>{insight.title}</strong>
-                <p style={{ color: "var(--ink-soft)" }}>{insight.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+      <section className="panel">
+        <h2>While you were away</h2>
+        <div className="list">
+          {activityFeed.map((item) => (
+            <div className="list-row" key={item.time + item.text}>
+              <span className="time">{item.time}</span>
+              <p>{item.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </AppShell>
   );
 }

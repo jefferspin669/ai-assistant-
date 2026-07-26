@@ -36,8 +36,8 @@ export function AppShell({
         </nav>
         <div className="sidebar-foot">
           <div className="ai-chip">
-            <strong>Sarah</strong>
-            <span>Online · covering the front desk</span>
+            <strong>5 AI employees online</strong>
+            <span>Reception · Sales · Scheduler · Marketing · Analyst</span>
           </div>
           <Link href="/onboarding" className="ghost-link">
             Change industry template

@@ -15,6 +15,87 @@ export const industries = [
 
 export type Industry = (typeof industries)[number];
 
+export const owner = {
+  name: "Mike",
+  business: "Smith Plumbing & HVAC",
+};
+
+export const morningBriefing = [
+  "You have 8 appointments today.",
+  "Two customers haven’t paid their invoices.",
+  "Three missed calls came in overnight.",
+  "I booked one appointment while you were asleep.",
+  "Your busiest time today is 2–4 PM.",
+  "Sarah left a 5-star review.",
+  "I recommend ordering more HVAC filters this week.",
+];
+
+export const aiEmployees = [
+  {
+    id: "receptionist",
+    name: "Receptionist",
+    emoji: "🧑‍💼",
+    role: "Front desk",
+    status: "Online",
+    canAuto: ["Answer common questions", "Book routine appointments", "Send confirmations"],
+    needsConfirm: ["Transfer urgent calls after hours", "Override capacity"],
+    duties: ["Answers calls", "Books appointments", "Greets customers"],
+  },
+  {
+    id: "sales",
+    name: "Sales Manager",
+    emoji: "💰",
+    role: "Revenue",
+    status: "Online",
+    canAuto: ["Draft quotes", "Follow up on warm leads", "Track conversions"],
+    needsConfirm: ["Send final pricing", "Discount above 10%"],
+    duties: ["Creates quotes", "Follows up on leads", "Tracks conversions"],
+  },
+  {
+    id: "scheduler",
+    name: "Scheduler",
+    emoji: "📅",
+    role: "Calendar",
+    status: "Online",
+    canAuto: ["Reminders", "Offer reschedule links", "Optimize same-day routes"],
+    needsConfirm: ["Move a full day’s jobs", "Cancel multiple appointments"],
+    duties: ["Optimizes routes and appointments", "Handles cancellations"],
+  },
+  {
+    id: "marketing",
+    name: "Marketing Manager",
+    emoji: "📣",
+    role: "Growth",
+    status: "Online",
+    canAuto: ["Request reviews after jobs", "Send appointment reminders"],
+    needsConfirm: ["Mass promotions", "Holiday campaigns", "Coupons"],
+    duties: ["Sends promotions", "Requests reviews", "Creates campaigns"],
+  },
+  {
+    id: "analyst",
+    name: "Business Analyst",
+    emoji: "📊",
+    role: "Insights",
+    status: "Online",
+    canAuto: ["Surface trends", "Flag slow periods", "Suggest improvements"],
+    needsConfirm: ["Change prices", "Issue refunds"],
+    duties: ["Watches trends", "Finds slow periods", "Suggests improvements"],
+  },
+] as const;
+
+export type AgentId = (typeof aiEmployees)[number]["id"];
+
+export const commandSuggestions = [
+  "Book John for Friday at 3.",
+  "Call everyone who missed their appointment.",
+  "Send a quote to Sarah.",
+  "How much revenue did we make this month?",
+  "Who hasn’t paid?",
+  "Move tomorrow’s jobs because it’s going to rain.",
+  "How’s the business doing?",
+  "Can you fill my Tuesday schedule?",
+];
+
 export const todayStats = [
   { label: "Calls answered", value: "28", detail: "+6 vs yesterday" },
   { label: "Missed calls", value: "4", detail: "All recovered" },
@@ -26,12 +107,12 @@ export const todayStats = [
 ];
 
 export const activityFeed = [
-  { time: "2:14 PM", text: "AI booked water heater install for Jamie Cole — Thu 10:00 AM" },
-  { time: "1:52 PM", text: "Missed call recovered: Marcus left photos + preferred window" },
-  { time: "1:21 PM", text: "Chatbot captured lead asking about emergency service pricing" },
-  { time: "12:40 PM", text: "Review request sent after job #1842" },
-  { time: "11:08 AM", text: "Quote signed: Replace garbage disposal — $420" },
-  { time: "9:33 AM", text: "Urgent call transferred to you from receptionist" },
+  { time: "2:14 PM", text: "Scheduler booked water heater install for Jamie Cole — Thu 10:00 AM" },
+  { time: "1:52 PM", text: "Receptionist recovered missed call: Marcus left photos + preferred window" },
+  { time: "1:21 PM", text: "Sales Manager captured lead asking about emergency service pricing" },
+  { time: "12:40 PM", text: "Marketing Manager sent review request after job #1842" },
+  { time: "11:08 AM", text: "Sales Manager: quote signed — Replace garbage disposal — $420" },
+  { time: "9:33 AM", text: "Receptionist transferred urgent call to you" },
 ];
 
 export const insights = [
@@ -141,6 +222,8 @@ export const payments = [
   { customer: "Jamie Cole", amount: "$1,850", method: "Card", status: "Paid", when: "Today" },
   { customer: "Elena Brooks", amount: "$420", method: "ACH", status: "Paid", when: "Yesterday" },
   { customer: "Chris Park", amount: "$275", method: "Deposit", status: "Due", when: "Tomorrow" },
+  { customer: "Nina Alvarez", amount: "$890", method: "Invoice", status: "Overdue", when: "3 days" },
+  { customer: "Tom Rivera", amount: "$960", method: "Invoice", status: "Overdue", when: "5 days" },
 ];
 
 export const roadmap = [
@@ -157,17 +240,18 @@ export const roadmap = [
 ];
 
 export const navItems: { href: string; label: string; exact?: boolean }[] = [
-  { href: "/app", label: "Today", exact: true },
-  { href: "/app/receptionist", label: "AI Receptionist" },
+  { href: "/app", label: "Command Center", exact: true },
+  { href: "/app/employees", label: "AI Employees" },
+  { href: "/app/receptionist", label: "Receptionist" },
   { href: "/app/missed-calls", label: "Missed Calls" },
-  { href: "/app/chatbot", label: "AI Chatbot" },
-  { href: "/app/appointments", label: "Appointments" },
+  { href: "/app/chatbot", label: "Website Chat" },
+  { href: "/app/appointments", label: "Scheduler" },
   { href: "/app/customers", label: "Customer CRM" },
-  { href: "/app/quotes", label: "AI Quotes" },
-  { href: "/app/reviews", label: "Review Manager" },
+  { href: "/app/quotes", label: "Sales / Quotes" },
+  { href: "/app/reviews", label: "Reviews" },
   { href: "/app/marketing", label: "Marketing" },
   { href: "/app/analytics", label: "Analytics" },
-  { href: "/app/insights", label: "AI Insights" },
-  { href: "/app/team", label: "Team" },
+  { href: "/app/insights", label: "Analyst" },
+  { href: "/app/team", label: "Human Team" },
   { href: "/app/payments", label: "Payments" },
 ];

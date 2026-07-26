@@ -1,43 +1,31 @@
 import Image from "next/image";
 import Link from "next/link";
-import { roadmap } from "@/lib/data";
+import { aiEmployees, roadmap } from "@/lib/data";
 
 const modules = [
   {
-    title: "AI Receptionist",
-    copy: "Answers like your shop — books, transfers urgent calls, collects info, texts customers, and schedules callbacks.",
+    title: "Command Center",
+    copy: "Open the app to a morning briefing, then type or speak what you need done.",
   },
   {
-    title: "Missed Calls",
-    copy: "When nobody picks up, CallFlow texts instantly, collects the job details and photos, and sends you everything.",
+    title: "Specialized AI employees",
+    copy: "Receptionist, Sales Manager, Scheduler, Marketing Manager, and Business Analyst — one assistant on the surface.",
   },
   {
-    title: "Website Chatbot",
-    copy: "Answers prices, hours, services, and FAQs. If it can’t help, it captures a lead instead of losing the visit.",
+    title: "Missed-call recovery",
+    copy: "When nobody picks up, CallFlow texts instantly, collects job details and photos, and sends you everything.",
   },
   {
-    title: "Appointments",
-    copy: "Drag-and-drop calendar, staff schedules, Google sync, reminders, rescheduling, and no-show tracking.",
+    title: "Act, don’t just report",
+    copy: "Understand, recommend, and — with your permission — carry out routine work across connected systems.",
   },
   {
-    title: "Customer CRM",
-    copy: "Every customer profile stores calls, messages, quotes, jobs, payments, photos, and notes.",
+    title: "Smart oversight",
+    copy: "Reminders and FAQs run automatically. Refunds, price changes, and mass campaigns wait for confirmation.",
   },
   {
-    title: "AI Quotes",
-    copy: "Type the job. Get a professional estimate, export to PDF, and collect an electronic signature.",
-  },
-  {
-    title: "Review Manager",
-    copy: "After every completed job, automatically ask for the review — then track Google, Facebook, and response rate.",
-  },
-  {
-    title: "Marketing Center",
-    copy: "Send promotions, holiday specials, coupons, reminders, and birthday discounts from one place.",
-  },
-  {
-    title: "Analytics + AI Insights",
-    copy: "Charts for revenue and leads — plus advice like when you’re missing calls and which days make more money.",
+    title: "Industry templates",
+    copy: "Plumbing, HVAC, clinics, shops, and more — responses and workflows match how your business actually talks.",
   },
 ];
 
@@ -50,8 +38,8 @@ export default function HomePage() {
         </Link>
         <div className="site-nav-links">
           <a href="#product">Product</a>
-          <a href="#roadmap">Roadmap</a>
-          <a href="#sarah">AI Employee</a>
+          <a href="#converse">Conversation</a>
+          <a href="#employees">AI Employees</a>
           <Link className="btn btn-primary" href="/onboarding">
             Hire your AI Employee
           </Link>
@@ -72,17 +60,17 @@ export default function HomePage() {
           <p className="brand-mark">
             CallFlow <span>AI</span>
           </p>
-          <h1>Hire an AI Employee for your front desk.</h1>
+          <h1>Hire an AI Employee that helps run the business.</h1>
           <p>
-            One login. One screen. Reception, missed calls, booking, quotes, reviews, and follow-up —
-            without hiring another person.
+            Not another dashboard to dig through — a teammate that briefs you, recommends the next
+            move, and carries out the work.
           </p>
           <div className="cta-row">
-            <Link className="btn btn-primary" href="/onboarding">
-              Start with your industry
+            <Link className="btn btn-primary" href="/app">
+              Open Command Center
             </Link>
-            <Link className="btn btn-ghost" href="/app">
-              Open the dashboard
+            <Link className="btn btn-ghost" href="/onboarding">
+              Start with your industry
             </Link>
           </div>
           <div className="exchange" aria-label="Product pitch">
@@ -100,10 +88,10 @@ export default function HomePage() {
         <section className="section" id="product">
           <div className="container">
             <div className="section-head">
-              <h2>Everything on one dashboard.</h2>
+              <h2>Many apps collect information. Fewer help you act.</h2>
               <p>
-                When owners log in, they see today’s activity — calls answered, missed calls recovered,
-                leads, bookings, revenue estimate, conversations, and reviews.
+                CallFlow understands what’s happening, recommends what to do next, and — with your
+                permission — gets the routine work done.
               </p>
             </div>
             <div className="module-grid">
@@ -117,29 +105,51 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="section" id="sarah" style={{ paddingTop: 0 }}>
+        <section className="section" id="converse" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Just say what you need.</h2>
+              <p>
+                “How’s the business doing?” “Fill my Tuesday schedule.” “Move tomorrow’s jobs —
+                it’s going to rain.”
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">How’s the business doing?</div>
+              <div className="bubble bubble-ai">
+                Revenue is up 12% from last month. You have five new leads, two overdue invoices
+                totaling $1,850, and your conversion rate improved to 46%.
+              </div>
+              <div className="bubble bubble-user">Can you fill my Tuesday schedule?</div>
+              <div className="bubble bubble-ai">
+                I found six customers waiting for appointments. If I contact them, I estimate I can
+                fill four of your six open time slots. Would you like me to proceed?
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="employees" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="sarah">
               <div>
-                <h2>Meet Sarah — your AI employee.</h2>
+                <h2>One assistant. A whole AI staff behind it.</h2>
                 <p>
-                  Not another software tab. A teammate that answers 24/7, books appointments, sends
-                  invoices, follows up, collects payments, and learns your business over time.
+                  You talk naturally. Specialized employees handle reception, sales, scheduling,
+                  marketing, and analysis — each with clear duties and oversight rules.
                 </p>
-                <Link className="btn btn-primary" href="/onboarding">
-                  Put Sarah on your roster
+                <Link className="btn btn-primary" href="/app/employees">
+                  Meet the AI employees
                 </Link>
               </div>
               <div className="sarah-card">
-                <h3>Sarah</h3>
-                <p style={{ color: "rgba(244,248,247,0.75)" }}>AI Employee · Smith Plumbing</p>
+                <h3>Your roster</h3>
                 <ul>
-                  <li>Answers calls 24/7</li>
-                  <li>Books appointments</li>
-                  <li>Sends invoices</li>
-                  <li>Follows up with customers</li>
-                  <li>Collects payments</li>
-                  <li>Learns the business over time</li>
+                  {aiEmployees.map((employee) => (
+                    <li key={employee.id}>
+                      {employee.emoji} {employee.name} — {employee.duties[0].toLowerCase()}
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -149,10 +159,10 @@ export default function HomePage() {
         <section className="section" id="roadmap" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Built in the right order.</h2>
+              <h2>Add capabilities over time.</h2>
               <p>
-                Start with missed-call recovery — the moment revenue leaks — then expand into the full
-                AI employee stack.
+                Start with missed-call recovery, then grow into a full AI employee that helps run
+                the business — without trying to build everything at once.
               </p>
             </div>
             <div className="roadmap">
@@ -167,17 +177,17 @@ export default function HomePage() {
         </section>
 
         <section className="container final-cta">
-          <h2>You don’t need another hire.</h2>
-          <p>You need an AI Employee that never misses the front desk.</p>
-          <Link className="btn btn-dark" href="/onboarding">
-            Hire CallFlow AI
+          <h2>Good morning, Mike.</h2>
+          <p>Your AI employees already handled overnight calls. What should they do next?</p>
+          <Link className="btn btn-dark" href="/app">
+            Enter Command Center
           </Link>
         </section>
       </main>
 
       <footer className="container footer">
         <span>CallFlow AI</span>
-        <span>From CallbackFlow roots — built for local businesses.</span>
+        <span>Understand. Recommend. Act — with oversight.</span>
       </footer>
     </div>
   );
