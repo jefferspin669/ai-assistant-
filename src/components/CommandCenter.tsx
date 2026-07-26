@@ -21,23 +21,24 @@ type ChatItem =
       resolved?: "approved" | "cancelled";
     };
 
+function timeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export function CommandCenter() {
+  const greeting = useMemo(() => timeGreeting(), []);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
-  const [messages, setMessages] = useState<ChatItem[]>([
+  const [messages, setMessages] = useState<ChatItem[]>(() => [
     {
       kind: "ai",
       agentLabel: "CallFlow",
-      text: `Good morning, ${owner.name}. Here’s what needs your attention before the day gets loud.`,
+      text: `${timeGreeting()}, ${owner.name}. Here’s what needs your attention before the day gets loud.`,
     },
   ]);
-
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  }, []);
 
   function pushResult(result: CommandResult, spoken: string) {
     const next: ChatItem[] = [{ kind: "user", text: spoken }];
