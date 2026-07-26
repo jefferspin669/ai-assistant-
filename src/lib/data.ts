@@ -321,12 +321,137 @@ export const payments = [
   { customer: "Tom Rivera", amount: "$960", method: "Invoice", status: "Overdue", when: "5 days" },
 ];
 
+export const audiences = [
+  {
+    id: "individual",
+    label: "Individual",
+    emoji: "👤",
+    blurb: "A life manager for calendar, bills, trips, budgets, and documents.",
+  },
+  {
+    id: "family",
+    label: "Family",
+    emoji: "👨‍👩‍👧",
+    blurb: "Shared reminders, school schedules, groceries, and household planning.",
+  },
+  {
+    id: "events",
+    label: "Event organizer",
+    emoji: "🎉",
+    blurb: "Weddings, birthdays, reunions — guest lists, vendors, budgets, timelines.",
+  },
+  {
+    id: "business",
+    label: "Small business",
+    emoji: "🏢",
+    blurb: "AI receptionist, scheduling, CRM, quotes, invoices, and marketing.",
+    beachhead: true,
+  },
+  {
+    id: "nonprofit",
+    label: "Nonprofit",
+    emoji: "🏛️",
+    blurb: "Donor follow-up, event logistics, volunteer scheduling, and outreach.",
+  },
+  {
+    id: "school",
+    label: "School",
+    emoji: "🎓",
+    blurb: "Study plans, parent communication, calendars, and administrative help.",
+  },
+] as const;
+
+export const teamAi = [
+  { name: "Sarah", role: "Receptionist", focus: "Answers calls · books jobs · transfers emergencies" },
+  { name: "Mike", role: "Scheduler", focus: "Routes · cancellations · fills empty slots" },
+  { name: "Emma", role: "Sales", focus: "Estimates · lead follow-up · conversions" },
+  { name: "David", role: "Marketing", focus: "Posts · promos · review requests" },
+  { name: "Alex", role: "Finance", focus: "Invoices · payments · overdue chase" },
+];
+
+export const marketplaceAssistants = [
+  { name: "Legal Assistant", category: "Professional", installs: "12.4k" },
+  { name: "Real Estate Assistant", category: "Professional", installs: "9.8k" },
+  { name: "Restaurant Host", category: "Hospitality", installs: "15.1k" },
+  { name: "Tutor", category: "Education", installs: "22.0k" },
+  { name: "Fitness Coach", category: "Personal", installs: "18.6k" },
+  { name: "Travel Planner", category: "Personal", installs: "11.2k" },
+  { name: "Wedding Planner", category: "Events", installs: "27.3k" },
+  { name: "HR Assistant", category: "Business", installs: "8.4k" },
+  { name: "Bookkeeper", category: "Finance", installs: "14.7k" },
+];
+
+export const industryPacks = [
+  { name: "Medical", emoji: "🏥" },
+  { name: "Real Estate", emoji: "🏠" },
+  { name: "Trucking", emoji: "🚚" },
+  { name: "Barber Shops", emoji: "✂️" },
+  { name: "Restaurants", emoji: "🍕" },
+  { name: "Law Firms", emoji: "⚖️" },
+  { name: "HVAC", emoji: "🔧" },
+  { name: "Salons", emoji: "💄" },
+  { name: "Veterinarians", emoji: "🐶" },
+  { name: "Dentists", emoji: "🦷" },
+];
+
+export const personalCapabilities = [
+  "Manage your calendar",
+  "Pay bill reminders",
+  "Plan trips",
+  "Budget",
+  "Grocery lists",
+  "Study plans",
+  "Fitness goals",
+  "Store important documents",
+  "Schedule appointments",
+  "Answer questions about your own information",
+];
+
+export const personalPrompts = [
+  "Remind me to renew my driver’s license.",
+  "Find my car insurance.",
+  "How much did I spend on food this month?",
+];
+
+export const eventTypes = [
+  "Weddings",
+  "Birthday parties",
+  "Baby showers",
+  "Graduation parties",
+  "Family reunions",
+  "Company events",
+  "Holiday parties",
+  "Charity events",
+];
+
+export const eventPlan = {
+  prompt: "Plan a birthday party for 40 people with a $1,000 budget.",
+  checklist: [
+    "Confirm guest list (40)",
+    "Send invitations + track RSVPs",
+    "Reserve venue or backyard setup",
+    "Order cake + catering within $450",
+    "Decorations + playlist",
+    "Day-of timeline + reminders",
+  ],
+  budget: [
+    { item: "Food & cake", amount: "$450" },
+    { item: "Decorations", amount: "$180" },
+    { item: "Entertainment", amount: "$220" },
+    { item: "Misc / buffer", amount: "$150" },
+  ],
+};
+
 export const navItems: { href: string; label: string; exact?: boolean }[] = [
   { href: "/app", label: "Atlas", exact: true },
-  { href: "/app/employees", label: "AI Employees" },
-  { href: "/app/brain", label: "AI Brain" },
-  { href: "/app/voice", label: "Voice Mode" },
-  { href: "/app/timeline", label: "Customer Timeline" },
+  { href: "/app/workforce", label: "AI Workforce" },
+  { href: "/app/personal", label: "Personal AI" },
+  { href: "/app/events", label: "Event AI" },
+  { href: "/app/employees", label: "Team AI" },
+  { href: "/app/marketplace", label: "Marketplace" },
+  { href: "/app/industries", label: "Industry Packs" },
+  { href: "/app/brain", label: "AI Memory" },
+  { href: "/app/voice", label: "Voice" },
   { href: "/app/receptionist", label: "Receptionist" },
   { href: "/app/missed-calls", label: "Missed Calls" },
   { href: "/app/appointments", label: "Scheduler" },
@@ -334,8 +459,6 @@ export const navItems: { href: string; label: string; exact?: boolean }[] = [
   { href: "/app/quotes", label: "Sales" },
   { href: "/app/payments", label: "Finance" },
   { href: "/app/marketing", label: "Marketing" },
-  { href: "/app/reviews", label: "Reviews" },
   { href: "/app/analytics", label: "Dashboard" },
   { href: "/app/insights", label: "AI Reports" },
-  { href: "/app/team", label: "Human Team" },
 ];

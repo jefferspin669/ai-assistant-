@@ -1,10 +1,17 @@
-# Atlas AI
+# Atlas AI — Your AI Workforce
 
-Project Codename: **Atlas AI**
+> Everyone deserves an AI employee.
 
-> The world’s first AI employee that can actually run a business.
+Atlas is an ecosystem of AI helpers for:
 
-Instead of opening 10 apps, owners open Atlas — and it already knows what happened.
+- Individuals & families
+- Event organizers
+- Small businesses *(launch beachhead)*
+- Nonprofits & schools
+
+## Beachhead
+
+Start with small service businesses that need an AI receptionist and scheduling. Expand into personal assistants and celebration/event planning on the same platform.
 
 ## Run
 
@@ -13,18 +20,12 @@ npm install
 npm run dev
 ```
 
-- Marketing: http://localhost:3000
-- Create AI employee: http://localhost:3000/onboarding
-- Atlas Command Center: http://localhost:3000/app
-- AI Employees: http://localhost:3000/app/employees
-- AI Brain: http://localhost:3000/app/brain
-- Voice Mode: http://localhost:3000/app/voice
-- Customer Timeline: http://localhost:3000/app/timeline
-
-## Phases
-
-1. Missed calls, AI receptionist, scheduling, CRM
-2. Quotes, invoices, payments, follow-up
-3. Voice assistant, analytics, recommendations
-4. Marketing, inventory, employee management
-5. Industry-specific AI, integrations, marketplace
+- Marketing: `/`
+- Choose audience: `/onboarding`
+- Business Atlas: `/app`
+- Workforce overview: `/app/workforce`
+- Personal AI: `/app/personal`
+- Event AI: `/app/events`
+- Team AI: `/app/employees`
+- Marketplace: `/app/marketplace`
+- Industry Packs: `/app/industries`

@@ -4,8 +4,8 @@ import { memoryFacts } from "@/lib/data";
 export default function BrainPage() {
   return (
     <AppShell
-      title="AI Brain"
-      subtitle="Not just a chatbot — a real business assistant that understands text, voice, PDFs, invoices, and photos."
+      title="AI Memory"
+      subtitle="Each AI learns about its owner over time — with permission — so you don’t repeat yourself."
     >
       <div className="split">
         <section className="panel">
@@ -27,12 +27,23 @@ export default function BrainPage() {
         </section>
 
         <section className="panel">
-          <h2>AI Memory · Elena Brooks</h2>
-          <p style={{ color: "var(--ink-soft)", marginBottom: "0.8rem" }}>
-            Customer called 9 months ago? Prefers mornings? Has three dogs? Always requests John?
-            Atlas remembers.
-          </p>
-          <ul className="plain-list">
+          <h2>Learns with permission</h2>
+          <div className="list">
+            {[
+              "Preferred communication style",
+              "Business hours",
+              "Common customers",
+              "Recurring tasks",
+              "Frequently used templates",
+            ].map((item) => (
+              <div className="list-row" key={item}>
+                <span className="badge">Memory</span>
+                <p>{item}</p>
+              </div>
+            ))}
+          </div>
+          <h3 style={{ marginTop: "1rem" }}>Example · Elena Brooks</h3>
+          <ul className="plain-list" style={{ marginTop: "0.45rem" }}>
             {memoryFacts.map((fact) => (
               <li key={fact}>{fact}</li>
             ))}

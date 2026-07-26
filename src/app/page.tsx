@@ -1,33 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { aiEmployees, phases } from "@/lib/data";
-
-const pillars = [
-  {
-    title: "One AI brain",
-    copy: "Type, speak, upload a PDF, invoice, or photo — Atlas understands and acts across the business.",
-  },
-  {
-    title: "Never sleeps",
-    copy: "At 2 AM Atlas answers, asks questions, books, collects photos, creates estimates, and schedules techs.",
-  },
-  {
-    title: "Your own employee",
-    copy: "Name them Sarah. Set personality, language, and business knowledge. They learn every week.",
-  },
-  {
-    title: "Perfect memory",
-    copy: "Prefers mornings. Has three dogs. Always requests John. No employee ever forgets.",
-  },
-  {
-    title: "Specialized staff",
-    copy: "CEO Assistant, Receptionist, Sales, Success, Marketing, Finance, Scheduler, Ops, HR.",
-  },
-  {
-    title: "Built in phases",
-    copy: "Start with missed calls and CRM. Grow into voice, marketing, inventory, and marketplace.",
-  },
-];
+import { audiences, industryPacks, marketplaceAssistants, phases, teamAi } from "@/lib/data";
 
 export default function HomePage() {
   return (
@@ -37,11 +10,11 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#vision">Vision</a>
-          <a href="#employees">Employees</a>
-          <a href="#phases">Phases</a>
+          <a href="#everyone">Everyone</a>
+          <a href="#workforce">Workforce</a>
+          <a href="#beachhead">Beachhead</a>
           <Link className="btn btn-primary" href="/onboarding">
-            Create your AI employee
+            Create your AI workforce
           </Link>
         </div>
       </nav>
@@ -60,87 +33,76 @@ export default function HomePage() {
           <p className="brand-mark">
             Atlas <span>AI</span>
           </p>
-          <h1>The world’s first AI employee that can actually run a business.</h1>
+          <h1>Everyone deserves an AI employee.</h1>
           <p>
-            Instead of opening 10 apps, open Atlas. It already knows what happened — and what to do
-            next.
+            Atlas — Your AI Workforce. Not one chatbot. An ecosystem of helpers for individuals,
+            families, events, businesses, nonprofits, and schools.
           </p>
           <div className="cta-row">
-            <Link className="btn btn-primary" href="/app">
-              Open Atlas
+            <Link className="btn btn-primary" href="/onboarding">
+              Choose who Atlas helps
             </Link>
-            <Link className="btn btn-ghost" href="/onboarding">
-              Hire your AI employee
+            <Link className="btn btn-ghost" href="/app">
+              Open the business beachhead
             </Link>
           </div>
-          <div className="exchange" aria-label="Morning briefing tease">
-            <div className="exchange-line exchange-owner">Good morning, Jeff.</div>
-            <div className="exchange-line exchange-reply">
-              I handled 94 routine tasks overnight. Your top priority is approving Johnson
-              Construction — $18,400.
-            </div>
+          <div className="exchange" aria-label="Atlas examples">
+            <div className="exchange-line exchange-owner">“Atlas, plan my daughter’s birthday.”</div>
+            <div className="exchange-line exchange-reply">“How many guests are you expecting?”</div>
           </div>
         </div>
       </header>
 
       <main>
-        <section className="section" id="vision">
+        <section className="section" id="everyone">
           <div className="container">
             <div className="section-head">
-              <h2>Nothing else needs to be checked.</h2>
-              <p>
-                Revenue, overnight bookings, cancellations, overdue invoices, late technicians,
-                schedule health, and revenue opportunities — ready before you sit down.
-              </p>
+              <h2>One platform. Many kinds of help.</h2>
+              <p>Create AI assistants that fit your life — then expand as your needs grow.</p>
             </div>
             <div className="module-grid">
-              {pillars.map((pillar) => (
-                <article className="module" key={pillar.title}>
-                  <h3>{pillar.title}</h3>
-                  <p>{pillar.copy}</p>
+              {audiences.map((audience) => (
+                <article className="module" key={audience.id}>
+                  <h3>
+                    <span aria-hidden="true">{audience.emoji}</span> {audience.label}
+                    {"beachhead" in audience && audience.beachhead ? (
+                      <span className="badge" style={{ marginLeft: "0.5rem" }}>
+                        Launch focus
+                      </span>
+                    ) : null}
+                  </h3>
+                  <p>{audience.blurb}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="section" id="converse" style={{ paddingTop: 0 }}>
-          <div className="container">
-            <div className="section-head">
-              <h2>Ask Atlas what matters.</h2>
-              <p>The owner simply asks — Atlas already handled the rest.</p>
-            </div>
-            <div className="vision-chat">
-              <div className="bubble bubble-user">
-                Atlas, what’s the most important thing I should focus on today?
-              </div>
-              <div className="bubble bubble-ai">
-                Your business is running well. I handled 94 routine tasks overnight. Your top
-                priority today is approving the estimate for Johnson Construction, worth $18,400.
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section" id="employees" style={{ paddingTop: 0 }}>
+        <section className="section" id="workforce" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="sarah">
               <div>
-                <h2>One assistant. A full AI staff.</h2>
+                <h2>Your AI Workforce</h2>
                 <p>
-                  You talk to Atlas. Behind the scenes, specialized employees run reception, sales,
-                  finance, marketing, scheduling, operations, and HR.
+                  Personal AI for life admin. Event AI for celebrations. Business AI for the front
+                  desk. Team AI so Atlas delegates to Sarah, Mike, Emma, David, and Alex. Plus a
+                  marketplace and industry packs.
                 </p>
-                <Link className="btn btn-primary" href="/app/employees">
-                  Meet the AI employees
-                </Link>
+                <div className="cta-row">
+                  <Link className="btn btn-primary" href="/app/workforce">
+                    Explore the workforce
+                  </Link>
+                  <Link className="btn btn-ghost" href="/app/marketplace" style={{ color: "var(--foam)", borderColor: "rgba(244,248,247,0.28)" }}>
+                    Browse marketplace
+                  </Link>
+                </div>
               </div>
               <div className="sarah-card">
-                <h3>Roster</h3>
+                <h3>Jeff’s Plumbing · Team AI</h3>
                 <ul>
-                  {aiEmployees.map((employee) => (
-                    <li key={employee.id}>
-                      {employee.emoji} {employee.name}
+                  {teamAi.map((member) => (
+                    <li key={member.name}>
+                      {member.name} → {member.role}
                     </li>
                   ))}
                 </ul>
@@ -149,11 +111,50 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="section" id="phases" style={{ paddingTop: 0 }}>
+        <section className="section" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Ambitious vision. Achievable phases.</h2>
-              <p>Build the AI employee over time — not everything at once.</p>
+              <h2>Marketplace + Industry Packs</h2>
+              <p>Install the assistants you need. Specialize with knowledge packs.</p>
+            </div>
+            <div className="split">
+              <div className="panel">
+                <h3>Installable assistants</h3>
+                <div className="list" style={{ marginTop: "0.8rem" }}>
+                  {marketplaceAssistants.slice(0, 6).map((item) => (
+                    <div className="list-row" key={item.name}>
+                      <span className="badge">{item.category}</span>
+                      <p>
+                        <strong>{item.name}</strong> · {item.installs} installs
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="panel">
+                <h3>Industry packs</h3>
+                <div className="pack-grid" style={{ marginTop: "0.8rem" }}>
+                  {industryPacks.map((pack) => (
+                    <div className="pack-chip" key={pack.name}>
+                      <span aria-hidden="true">{pack.emoji}</span>
+                      <strong>{pack.name}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="beachhead" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Start focused. Expand later.</h2>
+              <p>
+                Launch beachhead: small service businesses that need an AI receptionist and
+                scheduling. Once that wins, expand into personal assistants and celebration planning
+                on the same platform.
+              </p>
             </div>
             <div className="roadmap">
               {phases.map((phase) => (
@@ -170,17 +171,17 @@ export default function HomePage() {
         </section>
 
         <section className="container final-cta">
-          <h2>Don’t open QuickBooks. Don’t dig through Gmail.</h2>
-          <p>Open Atlas. The business is already moving.</p>
+          <h2>Everyone deserves an AI employee.</h2>
+          <p>Start with business. Grow into life, family, and events.</p>
           <Link className="btn btn-dark" href="/onboarding">
-            Create your AI employee
+            Create your first AI helper
           </Link>
         </section>
       </main>
 
       <footer className="container footer">
-        <span>Atlas AI · Project Codename</span>
-        <span>Understand. Remember. Act.</span>
+        <span>Atlas — Your AI Workforce</span>
+        <span>Beachhead: small service businesses</span>
       </footer>
     </div>
   );

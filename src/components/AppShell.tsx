@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { customEmployee, navItems, owner } from "@/lib/data";
+import { customEmployee, navItems } from "@/lib/data";
 
 export function AppShell({
   title,
@@ -23,9 +23,7 @@ export function AppShell({
         <Link href="/" className="sidebar-brand">
           Atlas <span>AI</span>
         </Link>
-        <p className="sidebar-tag">
-          {customEmployee.name} · {customEmployee.role} for {owner.business}
-        </p>
+        <p className="sidebar-tag">Atlas — Your AI Workforce</p>
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);

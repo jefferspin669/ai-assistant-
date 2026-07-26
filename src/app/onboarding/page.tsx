@@ -1,17 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { industries, type Industry } from "@/lib/data";
+import { useMemo, useState } from "react";
+import { audiences, industries, type Industry } from "@/lib/data";
 
 const personalities = ["Friendly", "Professional", "Funny", "Serious"] as const;
-const languages = ["English", "Spanish", "French"] as const;
 
 export default function OnboardingPage() {
+  const [audience, setAudience] = useState<(typeof audiences)[number]["id"]>("business");
   const [selected, setSelected] = useState<Industry>("HVAC");
   const [name, setName] = useState("Sarah");
   const [personality, setPersonality] = useState<(typeof personalities)[number]>("Friendly");
-  const [language, setLanguage] = useState<(typeof languages)[number]>("English");
+
+  const nextHref = useMemo(() => {
+    if (audience === "events") return "/app/events";
+    if (audience === "individual" || audience === "family" || audience === "school") return "/app/personal";
+    if (audience === "nonprofit") return "/app/marketplace";
+    return "/app";
+  }, [audience]);
+
+  const selectedAudience = audiences.find((a) => a.id === audience)!;
 
   return (
     <div className="onboard">
@@ -20,72 +28,93 @@ export default function OnboardingPage() {
           <Link href="/" className="logo" style={{ color: "var(--ink)" }}>
             Atlas <span>AI</span>
           </Link>
-          <h1>Create your AI employee.</h1>
+          <h1>Everyone deserves an AI employee.</h1>
           <p style={{ color: "var(--ink-soft)" }}>
-            Not generic AI — an employee with a name, role, personality, language, and your business
-            knowledge.
+            Choose who Atlas helps first. We recommend starting with small service businesses — then
+            expand on the same platform.
           </p>
         </div>
 
-        <div className="split" style={{ marginBottom: "1rem" }}>
-          <div className="panel">
-            <div className="form-grid">
-              <label>
-                Employee name
-                <input value={name} onChange={(e) => setName(e.target.value)} />
-              </label>
-              <label>
-                Personality
-                <select value={personality} onChange={(e) => setPersonality(e.target.value as typeof personality)}>
-                  {personalities.map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Language
-                <select value={language} onChange={(e) => setLanguage(e.target.value as typeof language)}>
-                  {languages.map((l) => (
-                    <option key={l}>{l}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </div>
-          <div className="panel">
-            <h3>Preview</h3>
-            <div className="chat-mock">
-              <div className="bubble bubble-ai">
-                Hello! Thanks for calling Summit {selected}. I’m {name}, the office manager. How can
-                I help you today?
-              </div>
-              <div className="bubble bubble-user">My AC stopped working.</div>
-              <div className="bubble bubble-ai">
-                I’m sorry to hear that. Is the unit completely off, or is it blowing warm air?
-              </div>
-            </div>
-            <p style={{ marginTop: "0.8rem", color: "var(--ink-soft)", fontSize: "0.9rem" }}>
-              Tone: {personality} · Language: {language}
-            </p>
-          </div>
-        </div>
-
-        <h3 style={{ marginBottom: "0.75rem" }}>Industry knowledge</h3>
-        <div className="industry-grid">
-          {industries.map((industry) => (
+        <h3 style={{ marginBottom: "0.75rem" }}>Who is this for?</h3>
+        <div className="industry-grid" style={{ marginBottom: "1.25rem" }}>
+          {audiences.map((item) => (
             <button
-              key={industry}
+              key={item.id}
               type="button"
-              className={selected === industry ? "industry selected" : "industry"}
-              onClick={() => setSelected(industry)}
+              className={audience === item.id ? "industry selected" : "industry"}
+              onClick={() => setAudience(item.id)}
             >
-              <strong>{industry}</strong>
+              <strong>
+                {item.emoji} {item.label}
+              </strong>
+              <span style={{ display: "block", marginTop: "0.35rem", color: "var(--ink-soft)", fontWeight: 500 }}>
+                {item.blurb}
+              </span>
+              {"beachhead" in item && item.beachhead ? (
+                <span className="badge ok" style={{ marginTop: "0.55rem" }}>
+                  Beachhead
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
 
-        <Link className="btn btn-dark" href="/app">
-          Hire {name || "your AI employee"}
+        {audience === "business" ? (
+          <>
+            <div className="split" style={{ marginBottom: "1rem" }}>
+              <div className="panel">
+                <div className="form-grid">
+                  <label>
+                    AI employee name
+                    <input value={name} onChange={(e) => setName(e.target.value)} />
+                  </label>
+                  <label>
+                    Personality
+                    <select
+                      value={personality}
+                      onChange={(e) => setPersonality(e.target.value as typeof personality)}
+                    >
+                      {personalities.map((p) => (
+                        <option key={p}>{p}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div className="panel">
+                <h3>Preview</h3>
+                <div className="chat-mock">
+                  <div className="bubble bubble-ai">
+                    Hello! Thanks for calling Summit {selected}. I’m {name}. How can I help you today?
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 style={{ marginBottom: "0.75rem" }}>Industry pack</h3>
+            <div className="industry-grid">
+              {industries.map((industry) => (
+                <button
+                  key={industry}
+                  type="button"
+                  className={selected === industry ? "industry selected" : "industry"}
+                  onClick={() => setSelected(industry)}
+                >
+                  <strong>{industry}</strong>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="panel" style={{ marginBottom: "1rem" }}>
+            <h3>
+              {selectedAudience.emoji} {selectedAudience.label}
+            </h3>
+            <p style={{ color: "var(--ink-soft)", marginTop: "0.4rem" }}>{selectedAudience.blurb}</p>
+          </div>
+        )}
+
+        <Link className="btn btn-dark" href={nextHref}>
+          Continue to {selectedAudience.label}
         </Link>
       </div>
     </div>

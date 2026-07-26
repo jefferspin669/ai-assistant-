@@ -1,62 +1,43 @@
 import { AppShell } from "@/components/AppShell";
-import { aiEmployees, customEmployee } from "@/lib/data";
+import { teamAi } from "@/lib/data";
 
 export default function EmployeesPage() {
   return (
     <AppShell
-      title="AI Employees"
-      subtitle="Every business creates their own AI employee — then specializes the staff behind it."
+      title="Team AI"
+      subtitle="Businesses create multiple AI employees. You talk to Atlas — Atlas delegates."
     >
       <section className="panel employee-hero-card">
         <div>
-          <p className="briefing-kicker">Your AI employee</p>
-          <h2>
-            Meet {customEmployee.name}
-          </h2>
-          <p style={{ color: "var(--ink-soft)" }}>
-            {customEmployee.role} · {customEmployee.personality} ·{" "}
-            {customEmployee.languages.join(" / ")}
+          <p className="briefing-kicker">Example · Jeff’s Plumbing</p>
+          <h2>One owner. A full AI staff.</h2>
+          <p style={{ color: "rgba(244,248,247,0.8)" }}>
+            Sarah handles reception. Mike schedules. Emma sells. David markets. Alex runs finance.
+            Atlas routes every request to the right specialist.
           </p>
         </div>
         <ul className="plain-list">
-          <li>Knows pricing, policies, services, employees, inventory, FAQs</li>
-          <li>Learns every week from calls, jobs, and outcomes</li>
-          <li>Never forgets a customer preference</li>
+          <li>Owner talks naturally to Atlas</li>
+          <li>Atlas delegates to the right AI employee</li>
+          <li>Each role has auto actions + confirmation rules</li>
         </ul>
       </section>
 
       <div className="employee-grid">
-        {aiEmployees.map((employee) => (
-          <article className="panel employee-card" key={employee.id}>
+        {teamAi.map((member) => (
+          <article className="panel employee-card" key={member.name}>
             <div className="employee-card-top">
               <span className="employee-emoji" aria-hidden="true">
-                {employee.emoji}
+                👤
               </span>
               <div>
-                <h2>{employee.name}</h2>
+                <h2>{member.name}</h2>
                 <p>
-                  {employee.role} · <span className="badge ok">{employee.status}</span>
+                  {member.role} · <span className="badge ok">Online</span>
                 </p>
               </div>
             </div>
-            <h3>Duties</h3>
-            <ul className="plain-list">
-              {employee.duties.map((duty) => (
-                <li key={duty}>{duty}</li>
-              ))}
-            </ul>
-            <h3>Acts automatically</h3>
-            <ul className="plain-list">
-              {employee.canAuto.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-            <h3>Asks first</h3>
-            <ul className="plain-list confirm-list">
-              {employee.needsConfirm.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+            <p style={{ color: "var(--ink-soft)", marginTop: "0.7rem" }}>{member.focus}</p>
           </article>
         ))}
       </div>
