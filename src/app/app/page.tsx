@@ -45,6 +45,9 @@ export default function DashboardPage() {
           <div className="list">
             {[
               { href: "/app/brain", label: "Atlas Brain", text: "The memory of the whole business" },
+              { href: "/app/decisions", label: "Decision Engine", text: "Eight lenses before every major call" },
+              { href: "/app/executive-timeline", label: "Executive Timeline", text: "Everything important on one spine" },
+              { href: "/app/ceo-memory", label: "CEO Memory", text: "Ask why — months later, Atlas still knows" },
               { href: "/app/board", label: "Board Advisor", text: "Balanced AI expert debate on decisions" },
               { href: "/app/phone", label: "Phone System", text: "Answers, routes, books, pays" },
               { href: "/app/score", label: "Intelligence Score", text: "Health from 0–100 with next actions" },

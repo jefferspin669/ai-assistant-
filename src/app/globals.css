@@ -1035,6 +1035,18 @@ button.linkish:hover {
   align-items: center;
 }
 
+.exec-timeline .timeline-item strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.ceo-answer p {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.15rem;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;

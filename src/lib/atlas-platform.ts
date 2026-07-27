@@ -60,6 +60,9 @@ export const navGroups: NavGroup[] = [
       { href: "/app/insights", label: "Predictive Analytics" },
       { href: "/app/score", label: "Intelligence Score" },
       { href: "/app/board", label: "Board Advisor" },
+      { href: "/app/decisions", label: "Decision Engine" },
+      { href: "/app/executive-timeline", label: "Executive Timeline" },
+      { href: "/app/ceo-memory", label: "CEO Memory" },
       { href: "/app/digital-twin", label: "Digital Twin" },
       { href: "/app/security", label: "Security Center" },
     ],
@@ -1707,5 +1710,325 @@ export function boardReplyForQuestion(question: string) {
       { advisor: "Risk AI", stance: "Caution", say: "Watch concentration risk and contract terms." },
       { advisor: "CEO AI", stance: "Recommend", say: "Pilot small, measure for 30 days, then decide with a fuller cash buffer." },
     ],
+  };
+}
+
+export const decisionDimensions = [
+  { id: "financial", label: "Financial impact" },
+  { id: "legal", label: "Legal considerations" },
+  { id: "customer", label: "Customer experience" },
+  { id: "workload", label: "Employee workload" },
+  { id: "operational", label: "Operational effects" },
+  { id: "risk", label: "Risk level" },
+  { id: "return", label: "Expected return" },
+  { id: "alternatives", label: "Alternative options" },
+] as const;
+
+export const decisionCases = [
+  {
+    id: "supplier-switch",
+    title: "Switch primary parts supplier",
+    asked: "Should we leave Apex Supply for Meridian Parts?",
+    recommendation: "Approve the switch with a 60-day dual-source overlap.",
+    confidence: 84,
+    verdict: "Recommend",
+    scores: {
+      financial: { score: 82, note: "Parts cost −11% after transition; ~$18k annual savings." },
+      legal: { score: 78, note: "Exit clause clean; keep 30-day notice in writing." },
+      customer: { score: 88, note: "Fewer stockouts; callback rate projected −6%." },
+      workload: { score: 71, note: "Receiving needs a 2-week retrain; temporary overtime +4%." },
+      operational: { score: 86, note: "Lead time 4 days → 2 days; fill rate rises to 97%." },
+      risk: { score: 74, note: "Medium — dual-source until Meridian proves 8 weeks of quality." },
+      return: { score: 85, note: "Payback ~5 months including transition labor." },
+      alternatives: {
+        score: 80,
+        note: "Three options scored: stay Apex, switch Meridian, dual-source 90 days.",
+      },
+    },
+    alternatives: [
+      { name: "Stay with Apex", outcome: "Cost stays high; delivery risk continues.", score: 41 },
+      { name: "Full switch to Meridian", outcome: "Max savings; 3-week single-source risk.", score: 72 },
+      { name: "Dual-source 60 days then cutover", outcome: "Best risk/return balance.", score: 84 },
+    ],
+  },
+  {
+    id: "second-van",
+    title: "Purchase second service van",
+    asked: "Buy the Ford Transit now or wait until Q4?",
+    recommendation: "Buy now — utilization already justifies the asset.",
+    confidence: 79,
+    verdict: "Recommend",
+    scores: {
+      financial: { score: 76, note: "Payment $685/mo; overtime savings ~$920/mo." },
+      legal: { score: 90, note: "Standard commercial lease; insurance quote ready." },
+      customer: { score: 87, note: "Same-day windows expand north routes." },
+      workload: { score: 84, note: "Cuts technician overtime 6–8 hrs/week." },
+      operational: { score: 88, note: "Unlocks parallel job starts on peak days." },
+      risk: { score: 70, note: "Residual value risk if growth stalls — mitigated by strong bookings." },
+      return: { score: 81, note: "Expected ROI positive within 7 months." },
+      alternatives: {
+        score: 75,
+        note: "Lease vs buy vs rent peak weeks only — lease wins on cash.",
+      },
+    },
+    alternatives: [
+      { name: "Wait until Q4", outcome: "Miss summer peak capacity.", score: 48 },
+      { name: "Rent peak weeks only", outcome: "Flexible but $40+/day and unreliable.", score: 55 },
+      { name: "Lease Transit now", outcome: "Capacity + overtime relief this month.", score: 79 },
+    ],
+  },
+  {
+    id: "price-increase",
+    title: "Raise diagnostic fee $15",
+    asked: "Should we increase the diagnostic fee across all tickets?",
+    recommendation: "Phase it — raise for new customers first, grandfather 90 days.",
+    confidence: 73,
+    verdict: "Caution",
+    scores: {
+      financial: { score: 86, note: "+$4.2k/mo at current volume if retention holds." },
+      legal: { score: 92, note: "Update posted rates and confirmation scripts." },
+      customer: { score: 58, note: "Price-sensitive segment may push back; explain value." },
+      workload: { score: 80, note: "Front desk script refresh only." },
+      operational: { score: 77, note: "Minimal ops change; quote templates update." },
+      risk: { score: 62, note: "Review velocity risk if messaging is weak." },
+      return: { score: 74, note: "Strong if cancel rate stays under +2pts." },
+      alternatives: {
+        score: 78,
+        note: "Flat raise vs phased vs bundle into service packages.",
+      },
+    },
+    alternatives: [
+      { name: "Flat raise for everyone now", outcome: "Fast revenue; higher churn risk.", score: 61 },
+      { name: "Bundle into service packages", outcome: "Softer perception; slower cash.", score: 68 },
+      { name: "Phased raise + grandfather", outcome: "Protects loyalty while lifting ARPA.", score: 73 },
+    ],
+  },
+] as const;
+
+export function decisionForQuery(query: string) {
+  const q = query.toLowerCase();
+  if (q.includes("supplier") || q.includes("parts") || q.includes("meridian") || q.includes("apex")) {
+    return decisionCases[0];
+  }
+  if (q.includes("van") || q.includes("vehicle") || q.includes("transit") || q.includes("fleet")) {
+    return decisionCases[1];
+  }
+  if (q.includes("price") || q.includes("fee") || q.includes("diagnostic") || q.includes("raise")) {
+    return decisionCases[2];
+  }
+  return {
+    id: "custom",
+    title: "Custom decision review",
+    asked: query || "Evaluate this major decision",
+    recommendation: "Proceed only after financial, legal, CX, and capacity scores clear 70.",
+    confidence: 71,
+    verdict: "Caution" as const,
+    scores: {
+      financial: { score: 72, note: "Model 90-day cash impact before committing." },
+      legal: { score: 75, note: "Confirm contract terms and notice windows." },
+      customer: { score: 70, note: "Check appointment and complaint signals." },
+      workload: { score: 68, note: "Estimate hours added to team this month." },
+      operational: { score: 74, note: "Map routing, inventory, and schedule effects." },
+      risk: { score: 65, note: "Medium until a pilot proves the assumption." },
+      return: { score: 73, note: "Positive if leading indicators hold for 30 days." },
+      alternatives: { score: 77, note: "Score at least three options before locking in." },
+    },
+    alternatives: [
+      { name: "Do nothing", outcome: "Preserves status quo; may miss upside.", score: 45 },
+      { name: "Pilot for 30 days", outcome: "Limits downside while collecting proof.", score: 78 },
+      { name: "Full commit now", outcome: "Max speed; higher execution risk.", score: 60 },
+    ],
+  };
+}
+
+export const executiveTimelineCategories = [
+  "Funding",
+  "Hiring",
+  "Major customers",
+  "Lawsuits",
+  "Product launches",
+  "Revenue milestones",
+  "Equipment purchases",
+  "Acquisitions",
+  "Compliance deadlines",
+] as const;
+
+export const executiveTimeline = [
+  {
+    id: "t1",
+    date: "2025-08-12",
+    category: "Funding",
+    title: "Seed round closed — $850k",
+    detail: "Lead: North Harbor Angels. Runway extended to 18 months.",
+  },
+  {
+    id: "t2",
+    date: "2025-09-03",
+    category: "Hiring",
+    title: "Hired lead technician John Reyes",
+    detail: "Filled north-route capacity gap; overtime fell 11% in 30 days.",
+  },
+  {
+    id: "t3",
+    date: "2025-10-18",
+    category: "Major customers",
+    title: "Signed Harbor Property Group",
+    detail: "12-property maintenance retainer — largest B2B account to date.",
+  },
+  {
+    id: "t4",
+    date: "2025-11-02",
+    category: "Compliance deadlines",
+    title: "EPA refrigerant certification renewed",
+    detail: "All field techs current; audit packet stored in Atlas Vault.",
+  },
+  {
+    id: "t5",
+    date: "2025-12-09",
+    category: "Equipment purchases",
+    title: "Purchased second diagnostic kit set",
+    detail: "Cut shared-tool delays on parallel HVAC jobs.",
+  },
+  {
+    id: "t6",
+    date: "2026-01-15",
+    category: "Product launches",
+    title: "Membership plan launched",
+    detail: "Priority service + annual tune-up; 84 members in first month.",
+  },
+  {
+    id: "t7",
+    date: "2026-01-15",
+    category: "Major customers",
+    title: "Supplier switch approved (Apex → Meridian)",
+    detail: "CEO approved after Decision Engine review of three alternatives.",
+  },
+  {
+    id: "t8",
+    date: "2026-02-20",
+    category: "Revenue milestones",
+    title: "First $120k revenue month",
+    detail: "Driven by membership attach rate and Harbor retainer.",
+  },
+  {
+    id: "t9",
+    date: "2026-03-08",
+    category: "Hiring",
+    title: "Apprentice Maria Chen started",
+    detail: "Paired with John for 60-day mentorship track.",
+  },
+  {
+    id: "t10",
+    date: "2026-04-01",
+    category: "Compliance deadlines",
+    title: "Workers’ comp audit packet due",
+    detail: "Atlas assembled claims history and safety logs — due in 5 days.",
+  },
+  {
+    id: "t11",
+    date: "2026-05-14",
+    category: "Lawsuits",
+    title: "Vendor invoice dispute closed",
+    detail: "Settled under $2.4k; no ongoing liability. Counsel: closed.",
+  },
+  {
+    id: "t12",
+    date: "2026-06-01",
+    category: "Acquisitions",
+    title: "Exploring bolt-on: Ridgeline Plumbing assets",
+    detail: "LOI discussion only — Decision Engine flagged cash and culture risk.",
+  },
+  {
+    id: "t13",
+    date: "2026-07-10",
+    category: "Equipment purchases",
+    title: "Service van #2 leased",
+    detail: "Ford Transit — unlocks same-day north corridor coverage.",
+  },
+  {
+    id: "t14",
+    date: "2026-07-22",
+    category: "Funding",
+    title: "Line of credit renewed — $150k",
+    detail: "Same terms; unused. Emergency buffer for seasonal inventory.",
+  },
+] as const;
+
+export const ceoMemories = [
+  {
+    id: "m-supplier",
+    date: "January 15, 2026",
+    question: "Why did we switch suppliers?",
+    decision: "Approved switch from Apex Supply to Meridian Parts with 60-day dual-source overlap.",
+    answer:
+      "On January 15, supplier costs increased by 18%, delivery times doubled, and quality complaints rose. You approved the switch after reviewing three alternatives.",
+    triggers: ["supplier costs +18%", "delivery times doubled", "quality complaints rose"],
+    alternativesReviewed: ["Stay with Apex", "Full cutover to Meridian", "Dual-source 60 days then cutover"],
+    approvedBy: "CEO",
+    linkedDecisionId: "supplier-switch",
+  },
+  {
+    id: "m-van",
+    date: "July 10, 2026",
+    question: "Why did we lease a second van?",
+    decision: "Lease Ford Transit to expand same-day north routes.",
+    answer:
+      "On July 10, north-route overtime hit 14 hours/week, same-day accept rate fell to 61%, and Decision Engine showed lease payback under 7 months. You approved the Transit lease over waiting until Q4.",
+    triggers: ["overtime 14 hrs/week", "same-day accept 61%", "payback < 7 months"],
+    alternativesReviewed: ["Wait until Q4", "Rent peak weeks only", "Lease Transit now"],
+    approvedBy: "CEO",
+    linkedDecisionId: "second-van",
+  },
+  {
+    id: "m-price",
+    date: "March 2, 2026",
+    question: "Why did we raise the diagnostic fee?",
+    decision: "Phased +$15 diagnostic fee for new customers; grandfather existing 90 days.",
+    answer:
+      "On March 2, contribution margin on diagnostics had compressed 9% while competitor fees moved up. You approved a phased raise after reviewing flat, bundled, and grandfathered options — protecting loyalty while lifting ARPA.",
+    triggers: ["margin −9%", "competitor fees up", "ARPA lift opportunity"],
+    alternativesReviewed: ["Flat raise for everyone", "Bundle into packages", "Phased + grandfather"],
+    approvedBy: "CEO",
+    linkedDecisionId: "price-increase",
+  },
+  {
+    id: "m-location",
+    date: "November 20, 2025",
+    question: "Why did we delay the second location?",
+    decision: "Wait three months while building cash reserves.",
+    answer:
+      "On November 20, Board Advisor flagged a 22% cash-reserve hit and rising lease costs. You accepted CEO AI’s recommendation to wait three months while demand stays strong.",
+    triggers: ["cash reserves −22% if opened", "lease costs rising", "demand still strong"],
+    alternativesReviewed: ["Open immediately", "Sign LOI only", "Wait 90 days"],
+    approvedBy: "CEO",
+    linkedDecisionId: null,
+  },
+] as const;
+
+export function ceoMemoryForQuestion(question: string) {
+  const q = question.toLowerCase();
+  if (q.includes("supplier") || q.includes("parts") || q.includes("apex") || q.includes("meridian")) {
+    return ceoMemories[0];
+  }
+  if (q.includes("van") || q.includes("vehicle") || q.includes("fleet") || q.includes("transit")) {
+    return ceoMemories[1];
+  }
+  if (q.includes("fee") || q.includes("price") || q.includes("diagnostic") || q.includes("raise")) {
+    return ceoMemories[2];
+  }
+  if (q.includes("location") || q.includes("second") || q.includes("delay") || q.includes("wait")) {
+    return ceoMemories[3];
+  }
+  return {
+    id: "m-custom",
+    date: "Today",
+    question,
+    decision: "No exact match — Atlas searched decision history.",
+    answer:
+      "I don’t have a single matching decision yet. Ask about suppliers, the second van, diagnostic fees, or the delayed second location — or open Decision Engine to log a new one.",
+    triggers: ["search across CEO Memory", "link to Decision Engine", "executive timeline context"],
+    alternativesReviewed: [] as string[],
+    approvedBy: "—",
+    linkedDecisionId: null as string | null,
   };
 }
