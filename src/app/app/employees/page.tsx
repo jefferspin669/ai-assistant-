@@ -1,46 +1,60 @@
 import { AppShell } from "@/components/AppShell";
-import { teamAi } from "@/lib/data";
+import { digitalEmployees, teamAi } from "@/lib/data";
 
 export default function EmployeesPage() {
   return (
     <AppShell
-      title="Team AI"
-      subtitle="Businesses create multiple AI employees. You talk to Atlas — Atlas delegates."
+      title="AI Digital Employees"
+      subtitle="Instead of one AI — specialized teammates that share the same business memory."
     >
       <section className="panel employee-hero-card">
         <div>
-          <p className="briefing-kicker">Example · Jeff’s Plumbing</p>
-          <h2>One owner. A full AI staff.</h2>
+          <p className="briefing-kicker">Shared business memory</p>
+          <h2>Different expertise. One company brain.</h2>
           <p style={{ color: "rgba(244,248,247,0.8)" }}>
-            Sarah handles reception. Mike schedules. Emma sells. David markets. Alex runs finance.
-            Atlas routes every request to the right specialist.
+            CEO, CFO, Marketing, Sales, Support, Ops, HR, IT, Compliance, and Supply Chain — each
+            specialized, all aligned to your Business DNA.
           </p>
         </div>
         <ul className="plain-list">
-          <li>Owner talks naturally to Atlas</li>
-          <li>Atlas delegates to the right AI employee</li>
-          <li>Each role has auto actions + confirmation rules</li>
+          <li>You talk to Atlas</li>
+          <li>Atlas delegates to the right digital employee</li>
+          <li>Every role reads the same memory + DNA</li>
         </ul>
       </section>
 
       <div className="employee-grid">
-        {teamAi.map((member) => (
-          <article className="panel employee-card" key={member.name}>
+        {digitalEmployees.map((employee) => (
+          <article className="panel employee-card" key={employee.title}>
             <div className="employee-card-top">
               <span className="employee-emoji" aria-hidden="true">
-                👤
+                {employee.emoji}
               </span>
               <div>
-                <h2>{member.name}</h2>
+                <h2>{employee.title}</h2>
                 <p>
-                  {member.role} · <span className="badge ok">Online</span>
+                  <span className="badge ok">Online</span>
                 </p>
               </div>
             </div>
-            <p style={{ color: "var(--ink-soft)", marginTop: "0.7rem" }}>{member.focus}</p>
+            <p style={{ color: "var(--ink-soft)", marginTop: "0.7rem" }}>{employee.expertise}</p>
           </article>
         ))}
       </div>
+
+      <section className="panel">
+        <h2>Named roster example · Jeff’s Plumbing</h2>
+        <div className="list">
+          {teamAi.map((member) => (
+            <div className="list-row" key={member.name}>
+              <span className="badge">{member.role}</span>
+              <p>
+                <strong>{member.name}</strong> — {member.focus}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
     </AppShell>
   );
 }

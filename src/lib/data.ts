@@ -134,6 +134,7 @@ export const aiEmployees = [
 export const commandSuggestions = [
   "How is business?",
   "What’s the most important thing I should focus on today?",
+  "What are network trends for my industry?",
   "Who canceled?",
   "Fill his spot.",
   "How much money did we make today?",
@@ -442,12 +443,117 @@ export const eventPlan = {
   ],
 };
 
+export const digitalEmployees = [
+  {
+    title: "CEO",
+    emoji: "👨‍💼",
+    expertise: "Priorities, strategy, overnight briefings, decision queues",
+  },
+  {
+    title: "CFO",
+    emoji: "💰",
+    expertise: "Cashflow, invoices, payroll cues, expense patterns",
+  },
+  {
+    title: "Marketing Director",
+    emoji: "📈",
+    expertise: "Campaigns, social, offers, brand-consistent messaging",
+  },
+  {
+    title: "Sales Manager",
+    emoji: "🤝",
+    expertise: "Quotes, follow-ups, pipeline, close rates",
+  },
+  {
+    title: "Customer Support",
+    emoji: "🎧",
+    expertise: "Tickets, complaints, retention, review recovery",
+  },
+  {
+    title: "Operations Manager",
+    emoji: "⚙️",
+    expertise: "Jobs, routes, technicians, on-time performance",
+  },
+  {
+    title: "HR Manager",
+    emoji: "👷",
+    expertise: "Hiring, training, handbook, performance notes",
+  },
+  {
+    title: "IT Manager",
+    emoji: "💻",
+    expertise: "Integrations, access, system health, tooling",
+  },
+  {
+    title: "Compliance Officer",
+    emoji: "⚖️",
+    expertise: "Policies, audit trails, escalation rules",
+  },
+  {
+    title: "Supply Chain Manager",
+    emoji: "📦",
+    expertise: "Inventory, vendors, reorder alerts, parts",
+  },
+] as const;
+
+export const intelligenceInsights = [
+  {
+    industry: "Restaurants",
+    insight: "Restaurants in your region are seeing a 14% increase in takeout orders.",
+    signal: "Demand shift",
+    privacy: "Aggregated · no private customer data",
+  },
+  {
+    industry: "HVAC",
+    insight: "HVAC companies that respond within five minutes are closing 37% more leads.",
+    signal: "Speed-to-lead",
+    privacy: "Aggregated · no private customer data",
+  },
+  {
+    industry: "Plumbing",
+    insight: "Same-day photo collection during missed-call recovery lifts booking rate by 22%.",
+    signal: "Recovery playbook",
+    privacy: "Aggregated · no private customer data",
+  },
+  {
+    industry: "Salons",
+    insight: "Review requests sent within two hours of service convert 2.1× better than next-day sends.",
+    signal: "Reputation timing",
+    privacy: "Aggregated · no private customer data",
+  },
+];
+
+export const businessDna = [
+  { trait: "Writing style", value: "Clear, warm, short sentences. No corporate filler." },
+  { trait: "Brand voice", value: "Neighborly expert — helpful first, sales second." },
+  { trait: "Preferred discounts", value: "Up to 10% for repeat customers; never on emergency calls." },
+  { trait: "Customer service philosophy", value: "Own the problem, offer two options, confirm next step." },
+  { trait: "Escalation rules", value: "Transfer anything safety-related or over $2,500 immediately." },
+  { trait: "Tone", value: "Calm under pressure. Never blame the customer." },
+  { trait: "Pricing strategy", value: "Transparent ranges on chat; firm quotes after photos." },
+];
+
+export const dnaSamples = [
+  {
+    prompt: "Customer asks if you can do better on price.",
+    generic: "We may be able to offer a discount depending on availability.",
+    dna: "I can honor 10% for returning customers on maintenance visits — emergency calls stay at the listed rate so we can keep crews ready.",
+  },
+  {
+    prompt: "Customer is upset about a late tech.",
+    generic: "Sorry for the inconvenience. We’ll be there soon.",
+    dna: "You’re right to expect better. Alex is 15 minutes out — I’ve already texted an updated ETA and a $25 courtesy credit for the wait.",
+  },
+];
+
 export const navItems: { href: string; label: string; exact?: boolean }[] = [
   { href: "/app", label: "Atlas", exact: true },
   { href: "/app/workforce", label: "AI Workforce" },
+  { href: "/app/network", label: "Intelligence Network" },
+  { href: "/app/dna", label: "Business DNA" },
   { href: "/app/personal", label: "Personal AI" },
   { href: "/app/events", label: "Event AI" },
-  { href: "/app/employees", label: "Team AI" },
+  { href: "/app/employees", label: "Digital Employees" },
   { href: "/app/marketplace", label: "Marketplace" },
   { href: "/app/industries", label: "Industry Packs" },
   { href: "/app/brain", label: "AI Memory" },

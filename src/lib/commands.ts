@@ -25,6 +25,16 @@ function includesAny(text: string, words: string[]) {
 export function runOwnerCommand(input: string): CommandResult {
   const q = input.toLowerCase().trim();
 
+  if (includesAny(q, ["network", "industry trend", "trends for my industry", "benchmark"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Intelligence Network",
+      needsConfirm: false,
+      reply:
+        "Across the Atlas network (private data never shared): HVAC companies that respond within five minutes close 37% more leads. In your region, same-day photo capture on missed calls lifts bookings 22%. Want me to tighten your response SLA?",
+    };
+  }
+
   if (includesAny(q, ["most important", "focus on today", "top priority"])) {
     return {
       agent: "ceo",

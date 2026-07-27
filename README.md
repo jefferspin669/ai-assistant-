@@ -2,16 +2,15 @@
 
 > Everyone deserves an AI employee.
 
-Atlas is an ecosystem of AI helpers for:
+## Pillars
 
-- Individuals & families
-- Event organizers
-- Small businesses *(launch beachhead)*
-- Nonprofits & schools
+- **Intelligence Network** — anonymized industry trends across thousands of businesses
+- **AI Digital Employees** — CEO, CFO, Marketing, Sales, Support, Ops, HR, IT, Compliance, Supply Chain
+- **Business DNA** — learns brand voice, discounts, escalation rules, and pricing philosophy
 
 ## Beachhead
 
-Start with small service businesses that need an AI receptionist and scheduling. Expand into personal assistants and celebration/event planning on the same platform.
+Small service businesses (receptionist + scheduling), then expand to personal and event AI.
 
 ## Run
 
@@ -20,12 +19,6 @@ npm install
 npm run dev
 ```
 
-- Marketing: `/`
-- Choose audience: `/onboarding`
-- Business Atlas: `/app`
-- Workforce overview: `/app/workforce`
-- Personal AI: `/app/personal`
-- Event AI: `/app/events`
-- Team AI: `/app/employees`
-- Marketplace: `/app/marketplace`
-- Industry Packs: `/app/industries`
+- `/app/network` Intelligence Network
+- `/app/dna` Business DNA
+- `/app/employees` Digital Employees
