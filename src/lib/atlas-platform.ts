@@ -278,11 +278,143 @@ export const purchasingCompares = [
 ];
 
 export const trainingModules = [
-  { title: "Phone greeting + empathy", type: "Voice practice", progress: "100%" },
-  { title: "Refund policy roleplay", type: "Roleplay", progress: "80%" },
-  { title: "Safety quiz · ladder & PPE", type: "Quiz", progress: "100%" },
-  { title: "Capacitor diagnosis", type: "Interactive lesson", progress: "45%" },
+  {
+    id: "greeting",
+    title: "Phone greeting + empathy",
+    type: "Voice practice",
+    progress: 100,
+    learner: "Alex Rivera",
+    duration: "12 min",
+  },
+  {
+    id: "refund",
+    title: "Refund policy roleplay",
+    type: "Roleplay",
+    progress: 80,
+    learner: "Alex Rivera",
+    duration: "18 min",
+  },
+  {
+    id: "safety",
+    title: "Safety quiz · ladder & PPE",
+    type: "Quiz",
+    progress: 100,
+    learner: "Alex Rivera",
+    duration: "8 min",
+  },
+  {
+    id: "capacitor",
+    title: "Capacitor diagnosis",
+    type: "Interactive lesson",
+    progress: 45,
+    learner: "Alex Rivera",
+    duration: "22 min",
+  },
+] as const;
+
+export const trainingLearners = [
+  { name: "Alex Rivera", role: "New hire · Tech", overall: 81, modulesDone: 2, modulesTotal: 4 },
+  { name: "Sam Ortiz", role: "Tech", overall: 94, modulesDone: 4, modulesTotal: 4 },
+  { name: "Jordan Lee", role: "Apprentice", overall: 36, modulesDone: 1, modulesTotal: 4 },
 ];
+
+export const trainingLesson = {
+  id: "capacitor",
+  title: "Capacitor diagnosis",
+  steps: [
+    {
+      title: "Spot the symptoms",
+      body: "Customer says the outdoor unit hums but won’t start. Warm air inside. Atlas pulls similar past jobs from Brain.",
+    },
+    {
+      title: "Safety first",
+      body: "Power off at the disconnect. Discharge the capacitor with an insulated screwdriver before testing.",
+    },
+    {
+      title: "Read the label",
+      body: "Match µF rating and voltage. A 45/5 dual run is common on this unit family in Summit’s inventory.",
+    },
+    {
+      title: "Test and decide",
+      body: "If reading is more than 10% off spec, replace. Photograph the old part for the customer timeline.",
+    },
+  ],
+};
+
+export const trainingQuiz = {
+  title: "Safety quiz · ladder & PPE",
+  passScore: 80,
+  questions: [
+    {
+      prompt: "Before climbing, you should:",
+      choices: [
+        "Set the ladder on soft soil for cushion",
+        "Check level ground, angle, and secure footing",
+        "Have a customer hold the base every time",
+      ],
+      answer: 1,
+      explain: "Stable footing and correct angle prevent most ladder incidents.",
+    },
+    {
+      prompt: "Minimum PPE on a residential electrical panel job:",
+      choices: [
+        "Safety glasses and gloves rated for the task",
+        "Company shirt only",
+        "Ear plugs only when the compressor runs",
+      ],
+      answer: 0,
+      explain: "Eye protection and appropriate gloves are required before panel work.",
+    },
+    {
+      prompt: "If a customer asks you to skip lockout to “save time”:",
+      choices: [
+        "Skip once if they’re watching",
+        "Explain the policy and keep lockout in place",
+        "Ask them to sign a waiver on your phone",
+      ],
+      answer: 1,
+      explain: "Atlas coaches: never override safety for speed — document and continue correctly.",
+    },
+  ],
+};
+
+export const trainingVoiceScenario = {
+  title: "Late arrival empathy",
+  prompt: "A customer says the tech was late. Practice your response out loud or type it.",
+  tips: ["Acknowledge the delay", "Explain briefly", "Offer a concrete make-good"],
+  goodPhrases: ["sorry", "wait", "traffic", "morning", "window", "make"],
+  coachPass:
+    "Strong. You acknowledged, explained, and offered a fix. Score 92 — add the goodwill credit script if wait exceeded 45 minutes.",
+  coachRetry:
+    "Close. Include an apology, a short reason, and a clear next window. Try again — Atlas is listening.",
+};
+
+export const trainingRoleplay = {
+  title: "Refund policy roleplay",
+  customerOpener:
+    "This water heater install was two weeks ago and I’m not happy. I want a full refund today.",
+  hints: [
+    "Jobs under $500 within 14 days can be refunded in Payments.",
+    "Over $500 needs owner approval — Atlas can draft the note.",
+    "Stay calm, confirm details, don’t promise what policy forbids.",
+  ],
+  replies: [
+    {
+      match: ["refund", "money", "full"],
+      say: "I hear you. For installs over $500, I can start the refund request for the owner and get you an answer today. Can I confirm the job address and invoice number?",
+    },
+    {
+      match: ["unhappy", "not happy", "angry", "upset"],
+      say: "I’m sorry this didn’t meet expectations. Tell me what went wrong — I’ll log it on your timeline and escalate with options.",
+    },
+    {
+      match: ["today", "now", "immediately"],
+      say: "I can’t issue that amount on my own, but Atlas already drafted the owner approval with your notes. You’ll get a text as soon as Jeff decides.",
+    },
+  ],
+  fallback:
+    "Got it — I’m capturing that. Want me to review the warranty language from the knowledge base while we talk?",
+};
 
 export const qualitySignals = [
   { pattern: "Long wait", count: 5, severity: "High", ownerAlert: true },

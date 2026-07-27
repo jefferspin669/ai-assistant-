@@ -36,7 +36,7 @@ export default function TeamPage() {
           right: {
             title: "Alex’s training",
             list: trainingModules.map((mod) => ({
-              badge: mod.progress,
+              badge: `${mod.progress}%`,
               text: mod.title,
               sub: mod.type,
             })),

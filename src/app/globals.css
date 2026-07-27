@@ -646,6 +646,108 @@ img {
   font-size: 0.84rem;
 }
 
+.training-studio {
+  display: grid;
+  gap: 1rem;
+}
+
+.training-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.training-tab {
+  border: 1px solid var(--line);
+  background: var(--foam);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.training-tab.active,
+.training-tab:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--foam);
+}
+
+.train-track {
+  margin-top: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(15, 42, 50, 0.08);
+  overflow: hidden;
+}
+
+.train-track.tall {
+  height: 0.65rem;
+  margin-top: 0;
+}
+
+.train-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--sand));
+  transition: width 220ms ease;
+}
+
+.train-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.train-pct {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
+}
+
+.train-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.train-form {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.train-form input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.7rem 0.9rem;
+  background: var(--foam);
+}
+
+.quiz-choices {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.quiz-choice {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  cursor: pointer;
+}
+
+.quiz-choice.selected,
+.quiz-choice:hover {
+  border-color: var(--teal);
+  background: rgba(47, 143, 138, 0.08);
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;
