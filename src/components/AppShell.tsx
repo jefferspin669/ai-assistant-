@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { customEmployee, navItems } from "@/lib/data";
+import { customEmployee } from "@/lib/data";
+import { navGroups } from "@/lib/atlas-platform";
 
 export function AppShell({
   title,
@@ -23,16 +24,27 @@ export function AppShell({
         <Link href="/" className="sidebar-brand">
           Atlas <span>AI</span>
         </Link>
-        <p className="sidebar-tag">Atlas — Your AI Workforce</p>
+        <p className="sidebar-tag">The central AI that remembers</p>
         <nav className="sidebar-nav">
-          {navItems.map((item) => {
-            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-            return (
-              <Link key={item.href} href={item.href} className={active ? "nav-item active" : "nav-item"}>
-                {item.label}
-              </Link>
-            );
-          })}
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              {group.items.map((item) => {
+                const active = item.exact
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={active ? "nav-item active" : "nav-item"}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="sidebar-foot">
           <div className="ai-chip">

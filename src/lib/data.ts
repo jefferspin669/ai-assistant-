@@ -442,23 +442,4 @@ export const eventPlan = {
   ],
 };
 
-export const navItems: { href: string; label: string; exact?: boolean }[] = [
-  { href: "/app", label: "Atlas", exact: true },
-  { href: "/app/workforce", label: "AI Workforce" },
-  { href: "/app/personal", label: "Personal AI" },
-  { href: "/app/events", label: "Event AI" },
-  { href: "/app/employees", label: "Team AI" },
-  { href: "/app/marketplace", label: "Marketplace" },
-  { href: "/app/industries", label: "Industry Packs" },
-  { href: "/app/brain", label: "AI Memory" },
-  { href: "/app/voice", label: "Voice" },
-  { href: "/app/receptionist", label: "Receptionist" },
-  { href: "/app/missed-calls", label: "Missed Calls" },
-  { href: "/app/appointments", label: "Scheduler" },
-  { href: "/app/customers", label: "CRM" },
-  { href: "/app/quotes", label: "Sales" },
-  { href: "/app/payments", label: "Finance" },
-  { href: "/app/marketing", label: "Marketing" },
-  { href: "/app/analytics", label: "Dashboard" },
-  { href: "/app/insights", label: "AI Reports" },
-];
+export { navItems, navGroups } from "@/lib/atlas-platform";

@@ -1,52 +1,26 @@
-import { AppShell } from "@/components/AppShell";
+import { FeatureView } from "@/components/FeatureView";
 import { campaigns } from "@/lib/data";
+import { marketingAssets } from "@/lib/atlas-platform";
 
 export default function MarketingPage() {
   return (
-    <AppShell
-      title="Marketing Center"
-      subtitle="Send promotions, holiday specials, coupons, reminders, and birthday discounts."
-      action={<button className="btn btn-dark">New campaign</button>}
-    >
-      <section className="panel">
-        <h2>Campaigns</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Reach</th>
-            </tr>
-          </thead>
-          <tbody>
-            {campaigns.map((c) => (
-              <tr key={c.name}>
-                <td>
-                  <strong>{c.name}</strong>
-                </td>
-                <td>{c.type}</td>
-                <td>
-                  <span className={c.status === "Active" ? "badge ok" : "badge"}>{c.status}</span>
-                </td>
-                <td>{c.reach}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <div className="stat-grid">
-        {["Promotions", "Holiday specials", "Coupons", "Appointment reminders", "Birthday discounts"].map(
-          (item) => (
-            <div className="stat" key={item}>
-              <span>Channel ready</span>
-              <strong style={{ fontSize: "1.15rem" }}>{item}</strong>
-              <small>SMS + email</small>
-            </div>
-          ),
-        )}
-      </div>
-    </AppShell>
+    <FeatureView
+      title="Marketing AI"
+      subtitle="Facebook, Instagram, email, SMS, flyers, coupons, holiday promotions, and seasonal reminders — drafted by Atlas."
+      sections={[
+        {
+          type: "table",
+          title: "Campaigns",
+          headers: ["Name", "Type", "Status", "Reach"],
+          rows: campaigns.map((c) => [c.name, c.type, c.status, c.reach]),
+        },
+        {
+          type: "table",
+          title: "Ready creatives",
+          headers: ["Channel", "Asset", "Status"],
+          rows: marketingAssets.map((a) => [a.channel, a.item, a.status]),
+        },
+      ]}
+    />
   );
 }
