@@ -1,32 +1,14 @@
-import { FeatureView } from "@/components/FeatureView";
-import { apiConnectors } from "@/lib/atlas-platform";
+import { AppShell } from "@/components/AppShell";
+import { ApiStudio } from "@/components/ApiStudio";
 
 export default function DevelopersPage() {
   return (
-    <FeatureView
+    <AppShell
       title="Atlas API"
-      subtitle="Connect accounting, payments, calendars, email, SMS, shipping, e-commerce, and custom software."
+      subtitle="Connect accounting software, payment processors, calendar apps, email providers, SMS providers, shipping carriers, e-commerce platforms, and custom software."
       action={<button className="btn btn-dark">View API keys</button>}
-      sections={[
-        {
-          type: "panel",
-          title: "Connectors",
-          list: apiConnectors.map((connector) => ({
-            badge: "API",
-            text: connector.name,
-            sub: connector.examples,
-          })),
-        },
-        {
-          type: "panel",
-          title: "Developer surface",
-          list: [
-            { badge: "REST", badgeTone: "ok", text: "Customers, jobs, invoices, messages" },
-            { badge: "Webhooks", badgeTone: "ok", text: "Call ended · payment captured · job completed" },
-            { badge: "Auth", text: "Scoped API keys with least privilege" },
-          ],
-        },
-      ]}
-    />
+    >
+      <ApiStudio />
+    </AppShell>
   );
 }

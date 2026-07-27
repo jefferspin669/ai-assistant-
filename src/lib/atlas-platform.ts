@@ -1287,37 +1287,162 @@ export const appStoreCategories = [
 ] as const;
 
 export const apiConnectors = [
-  { name: "Accounting", examples: "QuickBooks · Xero" },
-  { name: "Payments", examples: "Stripe · Square" },
-  { name: "Calendar", examples: "Google · Outlook" },
-  { name: "Email", examples: "Gmail · Microsoft 365" },
-  { name: "SMS", examples: "Twilio · MessageBird" },
-  { name: "Shipping", examples: "UPS · USPS · FedEx" },
-  { name: "E-commerce", examples: "Shopify · WooCommerce" },
-  { name: "Custom", examples: "REST · webhooks · your stack" },
+  {
+    id: "accounting",
+    name: "Accounting software",
+    examples: "QuickBooks · Xero",
+    status: "Connected",
+    scope: "Invoices · expenses · payroll summaries",
+  },
+  {
+    id: "payments",
+    name: "Payment processors",
+    examples: "Stripe · Square",
+    status: "Connected",
+    scope: "Charges · refunds · payouts",
+  },
+  {
+    id: "calendar",
+    name: "Calendar apps",
+    examples: "Google · Outlook",
+    status: "Connected",
+    scope: "Jobs · availability · two-way sync",
+  },
+  {
+    id: "email",
+    name: "Email providers",
+    examples: "Gmail · Microsoft 365",
+    status: "Available",
+    scope: "Threads · templates · delivery events",
+  },
+  {
+    id: "sms",
+    name: "SMS providers",
+    examples: "Twilio · MessageBird",
+    status: "Connected",
+    scope: "Reminders · campaigns · two-way chat",
+  },
+  {
+    id: "shipping",
+    name: "Shipping carriers",
+    examples: "UPS · USPS · FedEx",
+    status: "Available",
+    scope: "Labels · tracking · delivery ETAs",
+  },
+  {
+    id: "ecommerce",
+    name: "E-commerce platforms",
+    examples: "Shopify · WooCommerce",
+    status: "Available",
+    scope: "Orders · catalog · fulfillment",
+  },
+  {
+    id: "custom",
+    name: "Custom software",
+    examples: "REST · webhooks · your stack",
+    status: "Available",
+    scope: "Scoped API keys · event subscriptions",
+  },
+] as const;
+
+export const apiSurfaces = [
+  { badge: "REST", tone: "ok" as const, text: "Customers, jobs, invoices, messages" },
+  { badge: "Webhooks", tone: "ok" as const, text: "Call ended · payment captured · job completed" },
+  { badge: "Auth", tone: "" as const, text: "Scoped API keys with least privilege" },
 ];
 
 export const agentGoals = [
   {
+    id: "second-location",
     goal: "Open a second location",
-    atlas: "Checklist created, cost estimate drafted, permits tracked, construction milestones watched, equipment ordered, owner brief every Friday.",
+    status: "In progress",
+    progress: 38,
+    atlas:
+      "Checklist created, cost estimate drafted, permits tracked, construction milestones watched, equipment ordered, owner brief every Friday.",
+    steps: [
+      { label: "Create checklist", done: true },
+      { label: "Estimate costs", done: true },
+      { label: "Coordinate permits", done: false },
+      { label: "Track construction milestones", done: false },
+      { label: "Order equipment", done: true },
+      { label: "Keep owner updated", done: true },
+    ],
   },
   {
+    id: "fill-tuesday",
     goal: "Fill next week’s empty Tuesday",
-    atlas: "Waitlist texted, three bookings confirmed, routes rebalanced, John assigned to preferred customers.",
+    status: "Ready",
+    progress: 100,
+    atlas:
+      "Waitlist texted, three bookings confirmed, routes rebalanced, John assigned to preferred customers.",
+    steps: [
+      { label: "Text waitlist", done: true },
+      { label: "Confirm bookings", done: true },
+      { label: "Rebalance routes", done: true },
+      { label: "Assign preferred techs", done: true },
+    ],
   },
-];
+  {
+    id: "quality-fix",
+    goal: "Fix long-wait quality issues",
+    status: "In progress",
+    progress: 55,
+    atlas: "ETA texts drafted, calendar buffers protected, training coach assigned, goodwill offers queued.",
+    steps: [
+      { label: "Draft ETA texts", done: true },
+      { label: "Protect morning buffers", done: true },
+      { label: "Assign training coach", done: false },
+      { label: "Send goodwill offers", done: false },
+    ],
+  },
+] as const;
 
 export const twinLayers = [
-  { layer: "Employees", signal: "4 techs · 92% on-time" },
-  { layer: "Customers", signal: "1,204 active · 46% convert" },
-  { layer: "Inventory", signal: "Filters low in 5 days" },
-  { layer: "Cash flow", signal: "Healthy · 6-week runway" },
-  { layer: "Marketing", signal: "Google Ads leading ROI" },
-  { layer: "Equipment", signal: "1 recovery machine on order" },
-  { layer: "Locations", signal: "HQ live · #2 at 38%" },
-  { layer: "Performance", signal: "Intelligence Score 86" },
-];
+  { id: "employees", layer: "Employees", signal: "4 techs · 92% on-time", value: 92 },
+  { id: "customers", layer: "Customers", signal: "1,204 active · 46% convert", value: 46 },
+  { id: "inventory", layer: "Inventory", signal: "Filters low in 5 days", value: 74 },
+  { id: "cash", layer: "Cash flow", signal: "Healthy · 6-week runway", value: 85 },
+  { id: "marketing", layer: "Marketing", signal: "Google Ads leading ROI", value: 79 },
+  { id: "equipment", layer: "Equipment", signal: "1 recovery machine on order", value: 80 },
+  { id: "locations", layer: "Locations", signal: "HQ live · #2 at 38%", value: 38 },
+  { id: "performance", layer: "Performance", signal: "Intelligence Score 86", value: 86 },
+] as const;
+
+export const twinSimulations = [
+  {
+    id: "saturdays",
+    prompt: "What if we open Saturdays and hire one apprentice?",
+    result:
+      "Model projects +11% weekly revenue, overtime down 8%, and Intelligence Score to 89 in 6 weeks — if Google Ads budget stays flat.",
+    deltas: [
+      { label: "Weekly revenue", value: "+11%" },
+      { label: "Overtime", value: "-8%" },
+      { label: "Intelligence Score", value: "89" },
+    ],
+  },
+  {
+    id: "ads-cut",
+    prompt: "What if we cut Google Ads 20%?",
+    result:
+      "Lead volume dips ~9% in 3 weeks. Score falls to 83 unless organic review velocity rises.",
+    deltas: [
+      { label: "Leads", value: "-9%" },
+      { label: "Ad spend", value: "-20%" },
+      { label: "Intelligence Score", value: "83" },
+    ],
+  },
+  {
+    id: "second-bay",
+    prompt: "What if location #2 opens one month early?",
+    result:
+      "Cash runway shortens to 4 weeks during buildout, then recovers if permit risk stays low.",
+    deltas: [
+      { label: "Runway", value: "4 wks" },
+      { label: "Capacity", value: "+18%" },
+      { label: "Risk", value: "Permit" },
+    ],
+  },
+] as const;
 
 export const marketplaceShares = [
   { name: "Missed-call recovery workflow", type: "Workflow", rating: "4.9" },

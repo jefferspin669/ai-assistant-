@@ -1,33 +1,14 @@
-import { FeatureView } from "@/components/FeatureView";
-import { twinLayers } from "@/lib/atlas-platform";
+import { AppShell } from "@/components/AppShell";
+import { TwinStudio } from "@/components/TwinStudio";
 
 export default function DigitalTwinPage() {
   return (
-    <FeatureView
+    <AppShell
       title="Digital Twin"
-      subtitle="A live digital model of the business — simulate changes before you decide."
-      sections={[
-        {
-          type: "panel",
-          title: "Live model",
-          list: twinLayers.map((layer) => ({
-            badge: "Twin",
-            text: layer.layer,
-            sub: layer.signal,
-          })),
-        },
-        {
-          type: "chat",
-          title: "Simulate",
-          bubbles: [
-            { role: "user", text: "What if we open Saturdays and hire one apprentice?" },
-            {
-              role: "ai",
-              text: "Model projects +11% weekly revenue, overtime down 8%, and Intelligence Score to 89 in 6 weeks — if Google Ads budget stays flat.",
-            },
-          ],
-        },
-      ]}
-    />
+      subtitle="A live digital model of employees, customers, inventory, cash flow, marketing, equipment, locations, and performance — simulate before you decide."
+      action={<button className="btn btn-dark">Run simulation</button>}
+    >
+      <TwinStudio />
+    </AppShell>
   );
 }
