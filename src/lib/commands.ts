@@ -107,6 +107,26 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["network", "industry trend", "trends for my industry", "benchmark"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Intelligence Network",
+      needsConfirm: false,
+      reply:
+        "Across the Atlas network (private data never shared): HVAC companies that respond within five minutes close 37% more leads. In your region, same-day photo capture on missed calls lifts bookings 22%. Want me to tighten your response SLA?",
+    };
+  }
+
+  if (includesAny(q, ["business dna", "brand voice", "our tone", "sound like us"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Business DNA",
+      needsConfirm: false,
+      reply:
+        "Your DNA is locked in: neighborly expert voice, 10% max loyalty discount (never on emergencies), escalate safety or anything over $2,500, and transparent chat ranges with firm quotes after photos.",
+    };
+  }
+
   if (includesAny(q, ["opportunities", "increase revenue"])) {
     return {
       agent: "ceo",

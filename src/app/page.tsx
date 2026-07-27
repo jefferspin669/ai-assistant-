@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { audiences, industryPacks, marketplaceAssistants, phases, teamAi } from "@/lib/data";
+import { digitalEmployeeRoster, intelligenceNetworkInsights } from "@/lib/atlas-platform";
+import { audiences, industryPacks, marketplaceAssistants, phases } from "@/lib/data";
 
 export default function HomePage() {
   return (
@@ -10,8 +11,8 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#everyone">Everyone</a>
-          <a href="#workforce">Workforce</a>
+          <a href="#network">Network</a>
+          <a href="#dna">Business DNA</a>
           <a href="#beachhead">Beachhead</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
@@ -85,12 +86,12 @@ export default function HomePage() {
                 <h2>Your AI Workforce</h2>
                 <p>
                   Personal AI for life admin. Event AI for celebrations. Business AI for the front
-                  desk. Team AI so Atlas delegates to Sarah, Mike, Emma, David, and Alex. Plus a
-                  marketplace and industry packs.
+                  desk. Digital employees share one business memory — plus a marketplace and industry
+                  packs.
                 </p>
                 <div className="cta-row">
-                  <Link className="btn btn-primary" href="/app/workforce">
-                    Explore the workforce
+                  <Link className="btn btn-primary" href="/app/digital-employees">
+                    Meet digital employees
                   </Link>
                   <Link className="btn btn-ghost" href="/app/marketplace" style={{ color: "var(--foam)", borderColor: "rgba(244,248,247,0.28)" }}>
                     Browse marketplace
@@ -98,15 +99,63 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="sarah-card">
-                <h3>Jeff’s Plumbing · Team AI</h3>
+                <h3>Digital staff</h3>
                 <ul>
-                  {teamAi.map((member) => (
-                    <li key={member.name}>
-                      {member.name} → {member.role}
+                  {digitalEmployeeRoster.slice(0, 6).map((employee) => (
+                    <li key={employee.title}>
+                      {employee.emoji} {employee.title}
                     </li>
                   ))}
                 </ul>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="network" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Atlas Intelligence Network</h2>
+              <p>
+                Thousands of businesses. Shared industry trends. Nobody’s private data exposed.
+              </p>
+            </div>
+            <div className="module-grid">
+              {intelligenceNetworkInsights.slice(0, 3).map((item) => (
+                <article className="module" key={item.insight}>
+                  <h3>{item.industry}</h3>
+                  <p>{item.insight}</p>
+                </article>
+              ))}
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/network">
+                Open Intelligence Network
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="dna" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Business DNA</h2>
+              <p>
+                Atlas learns your writing style, brand voice, discounts, service philosophy, and
+                escalation rules — then behaves like your company.
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">Can you do better on price?</div>
+              <div className="bubble bubble-ai">
+                I can honor 10% for returning customers on maintenance visits — emergency calls stay
+                at the listed rate so we can keep crews ready.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/dna">
+                View Business DNA
+              </Link>
             </div>
           </div>
         </section>
