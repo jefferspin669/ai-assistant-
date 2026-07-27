@@ -107,6 +107,36 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["facebook ads", "command language", "vip customer", "plain english automation"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Command Language",
+      needsConfirm: false,
+      reply:
+        "I can compile that into an automation. Example: increase Facebook ads 20% when lead quality stays above last month’s average — with a $400 daily cap and auto-revert. Open Business Command Language to activate.",
+    };
+  }
+
+  if (includesAny(q, ["governance", "audit log", "role-based", "data retention", "approval workflow"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Trust & Governance",
+      needsConfirm: false,
+      reply:
+        "Trust & Governance is on: pending approvals for ad spend and a CRM export, audit trail retained 7 years, role-based permissions, retention controls, and monthly compliance reports. Open Governance to approve or reject.",
+    };
+  }
+
+  if (includesAny(q, ["customer twin", "customer digital twin", "lifetime value", "personalized email", "elena brooks"])) {
+    return {
+      agent: "sales",
+      agentLabel: "Customer Digital Twin",
+      needsConfirm: false,
+      reply:
+        "Elena Brooks: Gold VIP, LTV $12,480, prefers text mornings with Sam, CSAT 4.9, filter reminder in 18 days. I can draft outreach from her living profile in Customer Digital Twin.",
+    };
+  }
+
   if (includesAny(q, ["marketplace", "install agent", "publish listing", "industry agent"])) {
     return {
       agent: "ceo",

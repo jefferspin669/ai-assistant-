@@ -28,6 +28,9 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - **AI Marketplace** (`/app/marketplace`) — developers publish agents, dashboards, automations, reports, integrations, templates; businesses install
 - **Global Business Memory** (`/app/global-memory`) — languages, time zones, tax, hours, holidays, currency, local regulations
 - **Explainable AI** (`/app/explainable`) — recommendations with why, data, risks, outcomes, confidence, and alternatives
+- **Business Command Language** (`/app/command-language`) — plain English → automations
+- **AI Trust & Governance** (`/app/governance`) — approvals, audit logs, RBAC, retention, compliance reports
+- **Customer Digital Twin** (`/app/customer-twin`) — living customer profiles for personalized interactions
 
 ## Atlas Brain
 
@@ -56,6 +59,9 @@ npm run dev
 - AI Marketplace: `/app/marketplace`
 - Global Business Memory: `/app/global-memory`
 - Explainable AI: `/app/explainable`
+- Business Command Language: `/app/command-language`
+- AI Trust & Governance: `/app/governance`
+- Customer Digital Twin: `/app/customer-twin`
 - App Store / API: `/app/app-store`, `/app/developers`
 
 ## Runtime security

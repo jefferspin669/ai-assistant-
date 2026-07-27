@@ -11,9 +11,9 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#marketplace">Marketplace</a>
-          <a href="#global-memory">Global Memory</a>
-          <a href="#explainable">Explainable AI</a>
+          <a href="#command-language">Command Language</a>
+          <a href="#governance">Trust & Governance</a>
+          <a href="#customer-twin">Customer Twin</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
           </Link>
@@ -370,6 +370,68 @@ export default function HomePage() {
             <div style={{ marginTop: "1.25rem" }}>
               <Link className="btn btn-dark" href="/app/explainable">
                 Open Explainable AI
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="command-language" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Business Command Language</h2>
+              <p>
+                Type plain English — Atlas turns it into automations with triggers, conditions,
+                actions, and safeguards.
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">
+                Increase Facebook ads by 20% if lead quality stays above last month’s average.
+              </div>
+              <div className="bubble bubble-ai">
+                Compiled: daily quality check → +20% budget when score ≥ 72 → cap $400/day →
+                auto-revert if quality drops.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/command-language">
+                Open Command Language
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="governance" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Trust & Governance</h2>
+              <p>
+                Approval workflows, audit logs, role-based permissions, data retention, human
+                approval for sensitive decisions, and compliance reporting — built for enterprise
+                adoption.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/governance">
+                Open Trust & Governance
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="customer-twin" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Customer Digital Twin</h2>
+              <p>
+                A living profile for every customer — purchase history, preferences, lifetime value,
+                service history, satisfaction, loyalty, and upcoming needs — so Atlas personalizes
+                every interaction.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/customer-twin">
+                Open Customer Twin
               </Link>
             </div>
           </div>
