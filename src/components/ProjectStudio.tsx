@@ -204,10 +204,13 @@ export function ProjectStudio() {
             {notified[selected.id] ? (
               <div className="list-row">
                 <span className="badge warn">Just now</span>
-                <p>Manual update pushed to {selected.team.join(", ")}.</p>
+                <p>
+                  Atlas updated everyone on “{selected.name}” — {selected.team.join(", ")}.
+                </p>
               </div>
             ) : null}
           </div>
+          {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
         </section>
       ) : null}
     </div>
