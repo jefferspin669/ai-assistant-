@@ -1,35 +1,14 @@
-import { FeatureView } from "@/components/FeatureView";
-import { meetingNotes } from "@/lib/atlas-platform";
+import { AppShell } from "@/components/AppShell";
+import { MeetingStudio } from "@/components/MeetingStudio";
 
 export default function MeetingsPage() {
   return (
-    <FeatureView
+    <AppShell
       title="AI Meeting Assistant"
       subtitle="Records meetings and creates notes, decisions, tasks, deadlines, and summaries."
-      sections={[
-        {
-          type: "split",
-          left: {
-            title: meetingNotes.title,
-            list: [
-              ...meetingNotes.notes.map((note) => ({ badge: "Note", text: note })),
-              ...meetingNotes.decisions.map((decision) => ({
-                badge: "Decision",
-                badgeTone: "ok" as const,
-                text: decision,
-              })),
-            ],
-          },
-          right: {
-            title: "Tasks",
-            list: meetingNotes.tasks.map((task) => ({
-              badge: task.due,
-              text: task.task,
-              sub: task.owner,
-            })),
-          },
-        },
-      ]}
-    />
+      action={<button className="btn btn-dark">New meeting</button>}
+    >
+      <MeetingStudio />
+    </AppShell>
   );
 }

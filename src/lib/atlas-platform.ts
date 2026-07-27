@@ -957,24 +957,174 @@ export const documentTypes = [
   "Policies",
   "Forms",
   "Proposals",
-];
+] as const;
+
+export const documentDrafts = [
+  {
+    id: "maint-contract",
+    type: "Contracts",
+    title: "HVAC maintenance agreement · Jamie Cole",
+    status: "Ready",
+    preview:
+      "Annual HVAC maintenance, two visits, filter replacements included, $289/year. E-sign ready.",
+    prompt: "Create a maintenance agreement for Jamie Cole.",
+  },
+  {
+    id: "water-quote",
+    type: "Quotes",
+    title: "Water heater replace · Jamie Cole",
+    status: "Signed",
+    preview: "Replace 50-gal unit, haul-away, same-day install option · $1,850.",
+    prompt: "Draft a water heater quote for Jamie.",
+  },
+  {
+    id: "invoice-elena",
+    type: "Invoices",
+    title: "Invoice · Elena Brooks drain clearing",
+    status: "Draft",
+    preview: "Service call + parts · $420 due on receipt.",
+    prompt: "Invoice Elena for today’s drain clearing.",
+  },
+  {
+    id: "apology-letter",
+    type: "Letters",
+    title: "Delay apology letter",
+    status: "Ready",
+    preview: "Owner-voice apology with morning make-good window + goodwill credit offer.",
+    prompt: "Write a delay apology letter for long waits.",
+  },
+  {
+    id: "weekly-report",
+    type: "Reports",
+    title: "Weekly ops report",
+    status: "Ready",
+    preview: "Revenue, on-time %, quality alerts, and compliance renewals due.",
+    prompt: "Build this week’s ops report.",
+  },
+  {
+    id: "refund-policy",
+    type: "Policies",
+    title: "Refund policy one-pager",
+    status: "Ready",
+    preview: "Under $500 / 14 days full refund; over $500 needs owner approval.",
+    prompt: "Update the refund policy handout.",
+  },
+  {
+    id: "intake-form",
+    type: "Forms",
+    title: "New customer intake form",
+    status: "Ready",
+    preview: "Access notes, pets, preferred channel, photo upload consent.",
+    prompt: "Create a new customer intake form.",
+  },
+  {
+    id: "second-location",
+    type: "Proposals",
+    title: "Second location proposal",
+    status: "Draft",
+    preview: "Cost estimate, permit timeline, equipment list, 6-week owner brief plan.",
+    prompt: "Draft a proposal to open a second location.",
+  },
+] as const;
+
+export function documentBuilderReply(prompt: string) {
+  const q = prompt.toLowerCase();
+  if (q.includes("maintenance") || (q.includes("jamie") && q.includes("agreement"))) {
+    return "Draft ready: annual HVAC maintenance, two visits, filter replacements included, $289/year. Want e-sign sent by text?";
+  }
+  if (q.includes("quote") || q.includes("estimate")) {
+    return "Quote draft ready with parts, labor, and optional haul-away. I can attach it to the CRM timeline.";
+  }
+  if (q.includes("invoice")) {
+    return "Invoice drafted from the completed job + parts used. Send now or schedule for tomorrow 8 AM?";
+  }
+  if (q.includes("policy")) {
+    return "Policy one-pager updated from Knowledge Base. Employees will see it in the Hub Documents tab.";
+  }
+  if (q.includes("proposal") || q.includes("second location")) {
+    return "Proposal outline ready: checklist, cost estimate, permits, equipment, weekly owner updates.";
+  }
+  return "I can draft contracts, quotes, invoices, letters, reports, policies, forms, or proposals from Atlas Brain. What should I create?";
+}
 
 export const visionExamples = [
-  { industry: "HVAC", result: "This capacitor looks damaged." },
-  { industry: "Restaurant", result: "Is this food safe? Hold time may be exceeded." },
-  { industry: "Retail", result: "Shelf count: 24 units · 3 facing gaps." },
-  { industry: "Construction", result: "Framing looks consistent with the uploaded plan." },
-];
+  {
+    id: "hvac",
+    industry: "HVAC",
+    title: "Outdoor unit photo",
+    uploadLabel: "Photo uploaded · outdoor unit",
+    result: "This capacitor looks damaged.",
+    detail:
+      "Matched to a 45/5 on Alex’s truck. Drafted customer explanation + parts line on the estimate.",
+  },
+  {
+    id: "restaurant",
+    industry: "Restaurant",
+    title: "Prep line photo",
+    uploadLabel: "Photo uploaded · prep line",
+    result: "Is this food safe?",
+    detail: "Hold time may be exceeded. Flagged for discard and logged a safety note.",
+  },
+  {
+    id: "retail",
+    industry: "Retail",
+    title: "Shelf photo",
+    uploadLabel: "Photo uploaded · aisle 4 shelf",
+    result: "Count the inventory on this shelf.",
+    detail: "Shelf count: 24 units · 3 facing gaps. Reorder suggestion created.",
+  },
+  {
+    id: "construction",
+    industry: "Construction",
+    title: "Framing photo",
+    uploadLabel: "Photo uploaded · framing bay",
+    result: "Is this framing consistent with the plan?",
+    detail: "Framing looks consistent with the uploaded plan. No variance flagged.",
+  },
+] as const;
 
 export const meetingNotes = {
+  id: "ops-standup",
   title: "Weekly ops standup",
-  notes: ["Covered route delays on Main St", "Approved spring promo budget", "Hiring one apprentice"],
-  decisions: ["Buy second recovery machine", "Move Tuesday marketing blast to Wednesday"],
+  recorded: "Today · 32 min",
+  summary:
+    "Covered route delays, approved spring promo budget, and agreed to hire one apprentice while ordering a second recovery machine.",
+  notes: [
+    "Covered route delays on Main St",
+    "Approved spring promo budget",
+    "Hiring one apprentice",
+  ],
+  decisions: [
+    "Buy second recovery machine",
+    "Move Tuesday marketing blast to Wednesday",
+  ],
   tasks: [
     { owner: "Sam", task: "Order recovery machine", due: "Fri" },
     { owner: "Emma", task: "Rewrite promo copy", due: "Wed" },
+    { owner: "Jeff", task: "Post apprentice job", due: "Mon" },
+  ],
+  deadlines: [
+    { label: "Promo launch", due: "Wed" },
+    { label: "Recovery machine delivery target", due: "Next Fri" },
   ],
 };
+
+export const meetingLibrary = [
+  meetingNotes,
+  {
+    id: "owner-brief",
+    title: "Owner Friday brief",
+    recorded: "Last Fri · 18 min",
+    summary: "Reviewed Intelligence Score, quality long-wait alert, and second-location permit risk.",
+    notes: ["Score up +3", "Long-wait plan in motion", "Permit delay risk on location #2"],
+    decisions: ["Keep Google Ads budget flat", "Escalate permit follow-up Monday"],
+    tasks: [
+      { owner: "Alex", task: "Tighten ETA texts", due: "Mon" },
+      { owner: "Jeff", task: "Call permit office", due: "Mon" },
+    ],
+    deadlines: [{ label: "Permit check-in", due: "Mon" }],
+  },
+] as const;
 
 export const projects = [
   {
