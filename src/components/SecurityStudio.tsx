@@ -100,7 +100,7 @@ export function SecurityStudio() {
             className={mode === item.id ? "training-tab active" : "training-tab"}
             onClick={() => {
               setMode(item.id);
-              if (item.id === "overview") setCategory("All");
+              if (item.id === "overview" || item.id === "queue") setCategory("All");
             }}
           >
             {item.label}
