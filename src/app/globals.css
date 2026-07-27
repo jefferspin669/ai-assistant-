@@ -877,6 +877,30 @@ button.linkish:hover {
   margin-top: 0.2rem;
 }
 
+.compliance-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 12px;
+  padding: 0.7rem 0.55rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+
+.compliance-row:last-child {
+  border-bottom: 0;
+}
+
+.compliance-row.active,
+.compliance-row:hover {
+  background: rgba(47, 143, 138, 0.08);
+  border-color: rgba(47, 143, 138, 0.25);
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;
