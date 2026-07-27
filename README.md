@@ -21,6 +21,10 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - **Autonomous Mode** (`/app/autonomous`) — continuous loops; owner gets confirmations
 - **Business Simulator** (`/app/simulator`) — what-if modeling for wages, costs, demand, cash
 - **AI Operating System** (`/app/os`) — one workspace for email, phone, CRM, money, marketing, and more
+- **Atlas Academy** (`/app/training`) — lessons, role-play, certifications, tests, voice practice
+- **Business Builder** (`/app/builder`) — help create a company from name to first customers
+- **Executive Memory** (`/app/ceo-memory`) — years of decisions with context and meeting notes
+- **AI Risk Center** (`/app/risk`) — warn before satisfaction, burnout, cash, and compliance problems get expensive
 
 ## Atlas Brain
 
@@ -42,6 +46,10 @@ npm run dev
 - Autonomous Mode: `/app/autonomous`
 - Business Simulator: `/app/simulator`
 - AI Operating System: `/app/os`
+- Atlas Academy: `/app/training`
+- Business Builder: `/app/builder`
+- Executive Memory: `/app/ceo-memory`
+- AI Risk Center: `/app/risk`
 - Marketplace / App Store / API: `/app/marketplace`, `/app/app-store`, `/app/developers`
 
 ## Runtime security

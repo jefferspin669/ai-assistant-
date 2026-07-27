@@ -11,9 +11,9 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#autonomous">Autonomous</a>
-          <a href="#simulator">Simulator</a>
-          <a href="#os">Operating System</a>
+          <a href="#academy">Academy</a>
+          <a href="#builder">Business Builder</a>
+          <a href="#risk">Risk Center</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
           </Link>
@@ -108,6 +108,78 @@ export default function HomePage() {
                   ))}
                 </ul>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="academy" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Atlas Academy</h2>
+              <p>
+                Teach employees with interactive lessons, role-playing, certifications, knowledge
+                tests, and voice practice — managers see progress.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/training">
+                Open Atlas Academy
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="builder" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Business Builder</h2>
+              <p>
+                Expand Atlas from running a business to helping create one — name, branding,
+                website, pricing, domains, contracts, workflows, marketing, first customers.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/builder">
+                Start building
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="memory-exec" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Executive Memory</h2>
+              <p>Ask why you increased prices in 2025 — Atlas answers with context, data, and meeting notes.</p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">Why did we increase prices in 2025?</div>
+              <div className="bubble bubble-ai">
+                On September 18, 2025 you approved a 6% increase after parts inflation hit 11%. Meeting
+                notes and Finance’s 4–8% model are attached.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/ceo-memory">
+                Open Executive Memory
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="risk" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Risk Center</h2>
+              <p>
+                Warns before problems become expensive — satisfaction, burnout, compliance,
+                equipment, cash flow, unusual activity.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/risk">
+                Open Risk Center
+              </Link>
             </div>
           </div>
         </section>

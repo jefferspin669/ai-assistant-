@@ -4,8 +4,8 @@ import { TrainingStudio } from "@/components/TrainingStudio";
 export default function TrainingPage() {
   return (
     <AppShell
-      title="AI Training"
-      subtitle="New employee? Atlas teaches them — interactive lessons, quizzes, voice practice, roleplay, and progress tracking."
+      title="Atlas Academy"
+      subtitle="Teach employees with interactive lessons, role-playing, certifications, knowledge tests, and voice practice — managers see progress."
       action={<button className="btn btn-dark">Assign curriculum</button>}
     >
       <TrainingStudio />

@@ -107,6 +107,46 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["academy", "train employees", "certification", "role-play", "roleplay"])) {
+    return {
+      agent: "hr",
+      agentLabel: "Atlas Academy",
+      needsConfirm: false,
+      reply:
+        "Atlas Academy is live for your team — interactive lessons, role-play, certifications, knowledge tests, and voice practice. Managers can see Alex at 81%, Sam at 94%, and Jordan at 36%.",
+    };
+  }
+
+  if (includesAny(q, ["start a company", "business builder", "choose a name", "register domain"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Business Builder",
+      needsConfirm: false,
+      reply:
+        "I can help create the company end-to-end: name, branding, website, pricing, domains, contracts, workflows, launch marketing, and first-customer outreach. Open Business Builder to continue.",
+    };
+  }
+
+  if (includesAny(q, ["increase prices in 2025", "why did we increase", "prices in 2025"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Executive Memory",
+      needsConfirm: false,
+      reply:
+        "On September 18, 2025 you approved a 6% service-rate increase after parts inflation hit 11% and overtime climbed. Supporting data and the Sep 16 leadership meeting notes are in Executive Memory.",
+    };
+  }
+
+  if (includesAny(q, ["risk center", "burnout", "cash-flow concern", "compliance deadline"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Risk Center",
+      needsConfirm: false,
+      reply:
+        "Risk Center is flagging declining CSAT (4.9→4.6), Alex burnout from overtime, a license renewal in 9 days, and a tight cash window before Friday payroll. Open Risk Center to act.",
+    };
+  }
+
   if (includesAny(q, ["autonomous", "work continuously", "without me", "on its own"])) {
     return {
       agent: "ceo",

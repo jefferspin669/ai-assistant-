@@ -51,9 +51,10 @@ export const navGroups: NavGroup[] = [
       { href: "/app/inventory", label: "AI Inventory" },
       { href: "/app/purchasing", label: "Purchasing AI" },
       { href: "/app/team", label: "Employee Hub" },
-      { href: "/app/training", label: "AI Training" },
+      { href: "/app/training", label: "Atlas Academy" },
       { href: "/app/quality", label: "Quality Control" },
       { href: "/app/compliance", label: "Compliance" },
+      { href: "/app/risk", label: "AI Risk Center" },
     ],
   },
   {
@@ -66,7 +67,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/board", label: "Board Advisor" },
       { href: "/app/decisions", label: "Decision Engine" },
       { href: "/app/executive-timeline", label: "Executive Timeline" },
-      { href: "/app/ceo-memory", label: "CEO Memory" },
+      { href: "/app/ceo-memory", label: "Executive Memory" },
       { href: "/app/digital-twin", label: "Digital Twin" },
       { href: "/app/simulator", label: "Business Simulator" },
       { href: "/app/security", label: "Security Center" },
@@ -76,6 +77,7 @@ export const navGroups: NavGroup[] = [
     label: "Create & automate",
     items: [
       { href: "/app/documents", label: "Document Builder" },
+      { href: "/app/builder", label: "Business Builder" },
       { href: "/app/vision", label: "Atlas Vision" },
       { href: "/app/meetings", label: "Meeting Assistant" },
       { href: "/app/projects", label: "Project Manager" },
@@ -324,10 +326,41 @@ export const trainingModules = [
 ] as const;
 
 export const trainingLearners = [
-  { name: "Alex Rivera", role: "New hire · Tech", overall: 81, modulesDone: 2, modulesTotal: 4 },
-  { name: "Sam Ortiz", role: "Tech", overall: 94, modulesDone: 4, modulesTotal: 4 },
-  { name: "Jordan Lee", role: "Apprentice", overall: 36, modulesDone: 1, modulesTotal: 4 },
+  { name: "Alex Rivera", role: "New hire · Tech", overall: 81, modulesDone: 2, modulesTotal: 4, certs: 1 },
+  { name: "Sam Ortiz", role: "Tech", overall: 94, modulesDone: 4, modulesTotal: 4, certs: 3 },
+  { name: "Jordan Lee", role: "Apprentice", overall: 36, modulesDone: 1, modulesTotal: 4, certs: 0 },
 ];
+
+export const academyCertifications = [
+  {
+    id: "safety",
+    title: "Field Safety Certified",
+    holder: "Sam Ortiz",
+    status: "Active",
+    expires: "Jan 2027",
+  },
+  {
+    id: "phone",
+    title: "Front Desk Voice Pro",
+    holder: "Alex Rivera",
+    status: "Active",
+    expires: "Aug 2026",
+  },
+  {
+    id: "hvac-cap",
+    title: "HVAC Capacitor Diagnosis",
+    holder: "Sam Ortiz",
+    status: "Active",
+    expires: "Mar 2027",
+  },
+  {
+    id: "refund",
+    title: "Customer Recovery Roleplay",
+    holder: "Jordan Lee",
+    status: "In progress",
+    expires: "—",
+  },
+] as const;
 
 export const trainingLesson = {
   id: "capacitor",
@@ -1963,6 +1996,24 @@ export const executiveTimeline = [
 
 export const ceoMemories = [
   {
+    id: "m-prices-2025",
+    date: "September 18, 2025",
+    question: "Why did we increase prices in 2025?",
+    decision: "Approved 6% service-rate increase effective Oct 1, 2025, with loyalty grandfathering through year-end.",
+    answer:
+      "On September 18, 2025, you increased prices after parts inflation hit 11%, overtime climbed, and competitor rates moved up. Meeting notes from the leadership sync (Sep 16) show Finance modeling a 4–8% band; you chose 6% with loyalty protection. Supporting data: contribution margin −3.4 pts YTD, same-day demand still strong, and Board Advisor flagged cash risk if you delayed.",
+    triggers: ["parts inflation +11%", "overtime climbing", "competitor rates up", "margin −3.4 pts YTD"],
+    alternativesReviewed: ["Hold prices through Q4", "+4% across the board", "+6% with loyalty grandfathering", "+8% emergency-only"],
+    approvedBy: "CEO",
+    linkedDecisionId: "price-increase-2025",
+    meetingNotes: [
+      "Sep 16 leadership sync — Finance presented wage + parts pressure",
+      "Marketing worried about review velocity if messaging felt greedy",
+      "Ops confirmed capacity could absorb a short demand dip",
+    ],
+    supportingData: ["Parts COGS +11% YoY", "OT hours +18% vs prior summer", "Close rate still 46%"],
+  },
+  {
     id: "m-supplier",
     date: "January 15, 2026",
     question: "Why did we switch suppliers?",
@@ -1973,6 +2024,8 @@ export const ceoMemories = [
     alternativesReviewed: ["Stay with Apex", "Full cutover to Meridian", "Dual-source 60 days then cutover"],
     approvedBy: "CEO",
     linkedDecisionId: "supplier-switch",
+    meetingNotes: ["Vendor scorecard reviewed with Ops + Purchasing"],
+    supportingData: ["On-time delivery 61%", "Defect rate 2.8%"],
   },
   {
     id: "m-van",
@@ -1985,6 +2038,8 @@ export const ceoMemories = [
     alternativesReviewed: ["Wait until Q4", "Rent peak weeks only", "Lease Transit now"],
     approvedBy: "CEO",
     linkedDecisionId: "second-van",
+    meetingNotes: ["Route board review with Scheduler AI"],
+    supportingData: ["North ZIP density up 22%", "Missed same-day window: 17 jobs"],
   },
   {
     id: "m-price",
@@ -1997,6 +2052,8 @@ export const ceoMemories = [
     alternativesReviewed: ["Flat raise for everyone", "Bundle into packages", "Phased + grandfather"],
     approvedBy: "CEO",
     linkedDecisionId: "price-increase",
+    meetingNotes: ["Sales + Finance pricing huddle"],
+    supportingData: ["Diagnostic margin −9%", "Competitor median fee +$20"],
   },
   {
     id: "m-location",
@@ -2009,34 +2066,44 @@ export const ceoMemories = [
     alternativesReviewed: ["Open immediately", "Sign LOI only", "Wait 90 days"],
     approvedBy: "CEO",
     linkedDecisionId: null,
+    meetingNotes: ["Board Advisor scenario pack reviewed"],
+    supportingData: ["Cash runway 11 weeks", "Lease ask +14%"],
   },
 ] as const;
 
 export function ceoMemoryForQuestion(question: string) {
   const q = question.toLowerCase();
-  if (q.includes("supplier") || q.includes("parts") || q.includes("apex") || q.includes("meridian")) {
+  if ((q.includes("price") || q.includes("prices") || q.includes("increase")) && q.includes("2025")) {
     return ceoMemories[0];
   }
-  if (q.includes("van") || q.includes("vehicle") || q.includes("fleet") || q.includes("transit")) {
+  if (q.includes("supplier") || q.includes("parts") || q.includes("apex") || q.includes("meridian")) {
     return ceoMemories[1];
   }
-  if (q.includes("fee") || q.includes("price") || q.includes("diagnostic") || q.includes("raise")) {
+  if (q.includes("van") || q.includes("vehicle") || q.includes("fleet") || q.includes("transit")) {
     return ceoMemories[2];
   }
-  if (q.includes("location") || q.includes("second") || q.includes("delay") || q.includes("wait")) {
+  if (q.includes("fee") || q.includes("diagnostic") || q.includes("raise")) {
     return ceoMemories[3];
+  }
+  if (q.includes("price") || q.includes("increase")) {
+    return ceoMemories[0];
+  }
+  if (q.includes("location") || q.includes("second") || q.includes("delay") || q.includes("wait")) {
+    return ceoMemories[4];
   }
   return {
     id: "m-custom",
     date: "Today",
     question,
-    decision: "No exact match — Atlas searched decision history.",
+    decision: "No exact match — Atlas searched executive decision history.",
     answer:
-      "I don’t have a single matching decision yet. Ask about suppliers, the second van, diagnostic fees, or the delayed second location — or open Decision Engine to log a new one.",
-    triggers: ["search across CEO Memory", "link to Decision Engine", "executive timeline context"],
+      "I don’t have a single matching decision yet. Ask about the 2025 price increase, suppliers, the second van, diagnostic fees, or the delayed second location — or open Decision Engine to log a new one.",
+    triggers: ["search across Executive Memory", "link to Decision Engine", "executive timeline context"],
     alternativesReviewed: [] as string[],
     approvedBy: "—",
     linkedDecisionId: null as string | null,
+    meetingNotes: [] as string[],
+    supportingData: [] as string[],
   };
 }
 
@@ -2343,4 +2410,67 @@ export const operatingSystemApps = [
   { name: "Documents", href: "/app/documents", detail: "Contracts, quotes, files" },
   { name: "Analytics", href: "/app/analytics", detail: "Revenue and performance" },
   { name: "Autonomous", href: "/app/autonomous", detail: "Continuous AI loops" },
+] as const;
+
+export const businessBuilderSteps = [
+  { id: "name", title: "Choose a name", detail: "Summit Air Care · available as domain + socials" },
+  { id: "brand", title: "Create branding", detail: "Logo mark, teal/brass palette, neighborly voice" },
+  { id: "website", title: "Build a website", detail: "Services, prices, FAQ, booking, chatbot" },
+  { id: "pricing", title: "Set pricing", detail: "Diagnostic $89 · maintenance plans · emergency rates" },
+  { id: "domain", title: "Register domains", detail: "summitaircare.com + .net redirect" },
+  { id: "contracts", title: "Generate contracts", detail: "Service agreement + maintenance plan PDF" },
+  { id: "workflows", title: "Set up workflows", detail: "Missed-call recovery · review asks · invoicing" },
+  { id: "marketing", title: "Launch marketing", detail: "Google Business · launch offer · first 3 posts" },
+  { id: "customers", title: "Acquire first customers", detail: "Neighborhood outreach list · referral script" },
+] as const;
+
+export const riskCenterAlerts = [
+  {
+    id: "csat",
+    category: "Customer satisfaction",
+    severity: "High",
+    title: "Declining customer satisfaction",
+    detail: "CSAT slipped from 4.9 → 4.6 over 21 days. Long-wait jobs are the top complaint theme.",
+    action: "Auto-send apology + morning make-good windows to affected customers.",
+  },
+  {
+    id: "burnout",
+    category: "Employee burnout",
+    severity: "Medium",
+    title: "Employee burnout risk",
+    detail: "Alex overtime 14 hrs/week; after-hours texts up 40%. Burnout score rising.",
+    action: "Cap overtime next week and shift two north jobs to Sam.",
+  },
+  {
+    id: "compliance",
+    category: "Compliance deadlines",
+    severity: "High",
+    title: "Compliance deadline in 9 days",
+    detail: "Contractor license renewal packet incomplete — insurance cert missing.",
+    action: "Draft renewal checklist and ping Compliance Officer.",
+  },
+  {
+    id: "equipment",
+    category: "Equipment failure risk",
+    severity: "Medium",
+    title: "Equipment failure risk",
+    detail: "Van #2 compressor clutch hours exceed predicted failure window.",
+    action: "Schedule preventive service before Saturday peak.",
+  },
+  {
+    id: "cash",
+    category: "Cash-flow concerns",
+    severity: "High",
+    title: "Cash-flow concern",
+    detail: "Overdue AR $2,310 + payroll Friday creates a 6-day tight window.",
+    action: "Chase top 3 invoices and delay noncritical PO.",
+  },
+  {
+    id: "account",
+    category: "Unusual account activity",
+    severity: "Medium",
+    title: "Unusual account activity",
+    detail: "Three refunds same day + export permission change requested.",
+    action: "Hold refunds over $200 for owner confirm; review role change.",
+  },
 ] as const;

@@ -4,8 +4,8 @@ import { CeoMemoryStudio } from "@/components/CeoMemoryStudio";
 export default function CeoMemoryPage() {
   return (
     <AppShell
-      title="CEO Memory"
-      subtitle="Atlas remembers every decision — ask why months later and get the date, triggers, and alternatives you reviewed."
+      title="Executive Memory"
+      subtitle="Atlas remembers years of decisions — ask why, and get context, supporting data, and meeting notes."
       action={<button className="btn btn-dark">Log decision</button>}
     >
       <CeoMemoryStudio />
