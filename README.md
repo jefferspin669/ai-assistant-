@@ -41,3 +41,9 @@ npm run build && npm run start
 ```
 
 Browser Basic Auth username defaults to `atlas` (override with `ATLAS_APP_USER`). Marketing routes stay public. Every response gets CSP, clickjacking, MIME sniffing, and related hardening headers.
+
+For a machine-local demo only, bind the host so the server is not reachable from other devices:
+
+```bash
+npm run start -- -H 127.0.0.1
+```
