@@ -816,6 +816,67 @@ button.linkish:hover {
   color: var(--ink);
 }
 
+.hub-tab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--sand);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.quality-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.quality-pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.quality-pattern-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 0.95rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.quality-pattern-card.active,
+.quality-pattern-card:hover {
+  border-color: var(--teal);
+  background: rgba(47, 143, 138, 0.08);
+}
+
+.quality-check-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.quality-check-row:last-child {
+  border-bottom: 0;
+}
+
+.quality-check-row input {
+  margin-top: 0.2rem;
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;
@@ -1576,7 +1637,8 @@ button.linkish:hover {
     grid-template-columns: 1fr;
   }
 
-  .hub-employee-row {
+  .hub-employee-row,
+  .quality-pattern-grid {
     grid-template-columns: 1fr;
   }
 

@@ -570,10 +570,112 @@ export function hubAssistantReply(employeeName: string, question: string) {
 }
 
 export const qualitySignals = [
-  { pattern: "Long wait", count: 5, severity: "High", ownerAlert: true },
-  { pattern: "Clear communication", count: 18, severity: "Positive", ownerAlert: false },
-  { pattern: "Mess left behind", count: 2, severity: "Medium", ownerAlert: true },
+  {
+    id: "long-wait",
+    pattern: "Long wait",
+    count: 5,
+    severity: "High",
+    ownerAlert: true,
+    trend: "+3 vs last week",
+    recommendation: "Tighten ETA texts and protect morning buffers.",
+  },
+  {
+    id: "clear-comms",
+    pattern: "Clear communication",
+    count: 18,
+    severity: "Positive",
+    ownerAlert: false,
+    trend: "Steady",
+    recommendation: "Keep confirmation + photo scripts as default.",
+  },
+  {
+    id: "mess",
+    pattern: "Mess left behind",
+    count: 2,
+    severity: "Medium",
+    ownerAlert: true,
+    trend: "New",
+    recommendation: "Add end-of-job cleanup checklist to Employee Hub.",
+  },
 ];
+
+export const qualityFeedback = [
+  {
+    id: "f1",
+    customer: "Elena Brooks",
+    channel: "Review",
+    when: "Today · 8:12 AM",
+    quote: "Tech was great, but the long wait before arrival was stressful.",
+    tags: ["Long wait"],
+  },
+  {
+    id: "f2",
+    customer: "Marcus Nguyen",
+    channel: "SMS",
+    when: "Yesterday · 6:40 PM",
+    quote: "Still waiting — any update on the long wait?",
+    tags: ["Long wait"],
+  },
+  {
+    id: "f3",
+    customer: "Jamie Cole",
+    channel: "Call summary",
+    when: "Yesterday · 2:15 PM",
+    quote: "Appreciate the clear communication on timing and price.",
+    tags: ["Clear communication"],
+  },
+  {
+    id: "f4",
+    customer: "Chris Park",
+    channel: "Review",
+    when: "Mon · 9:05 AM",
+    quote: "Long wait in the driveway past the window.",
+    tags: ["Long wait"],
+  },
+  {
+    id: "f5",
+    customer: "Nina Alvarez",
+    channel: "Email",
+    when: "Mon · 4:22 PM",
+    quote: "Left a bit of a mess behind near the water heater closet.",
+    tags: ["Mess left behind"],
+  },
+  {
+    id: "f6",
+    customer: "Tom Rivera",
+    channel: "Review",
+    when: "Sun · 7:50 PM",
+    quote: "Another long wait after the confirmation text.",
+    tags: ["Long wait"],
+  },
+  {
+    id: "f7",
+    customer: "Priya Shah",
+    channel: "SMS",
+    when: "Sat · 11:18 AM",
+    quote: "Thanks for explaining every step — clear communication.",
+    tags: ["Clear communication"],
+  },
+  {
+    id: "f8",
+    customer: "Jordan Miles",
+    channel: "Review",
+    when: "Fri · 5:30 PM",
+    quote: "Long wait again even though the tech was excellent.",
+    tags: ["Long wait"],
+  },
+];
+
+export const qualityAlertCopy = {
+  title: "Owner alert · Long wait",
+  body: "Five customers mentioned “Long wait.” I opened a Quality alert and drafted a response plan: tighten ETA texts and protect morning buffers.",
+  actions: [
+    "Send ETA update texts 20 minutes before arrival",
+    "Protect 15-minute morning buffers on Smart Calendar",
+    "Coach late-arrival empathy in AI Training",
+    "Notify affected customers with a goodwill credit offer",
+  ],
+};
 
 export const complianceItems = [
   { item: "Business license", due: "Nov 12", status: "OK" },
