@@ -25,6 +25,9 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - **Business Builder** (`/app/builder`) — help create a company from name to first customers
 - **Executive Memory** (`/app/ceo-memory`) — years of decisions with context and meeting notes
 - **AI Risk Center** (`/app/risk`) — warn before satisfaction, burnout, cash, and compliance problems get expensive
+- **AI Marketplace** (`/app/marketplace`) — developers publish agents, dashboards, automations, reports, integrations, templates; businesses install
+- **Global Business Memory** (`/app/global-memory`) — languages, time zones, tax, hours, holidays, currency, local regulations
+- **Explainable AI** (`/app/explainable`) — recommendations with why, data, risks, outcomes, confidence, and alternatives
 
 ## Atlas Brain
 
@@ -50,7 +53,10 @@ npm run dev
 - Business Builder: `/app/builder`
 - Executive Memory: `/app/ceo-memory`
 - AI Risk Center: `/app/risk`
-- Marketplace / App Store / API: `/app/marketplace`, `/app/app-store`, `/app/developers`
+- AI Marketplace: `/app/marketplace`
+- Global Business Memory: `/app/global-memory`
+- Explainable AI: `/app/explainable`
+- App Store / API: `/app/app-store`, `/app/developers`
 
 ## Runtime security
 

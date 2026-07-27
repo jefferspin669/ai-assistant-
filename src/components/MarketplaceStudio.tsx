@@ -1,25 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { marketplaceAssistants } from "@/lib/data";
 import { marketplaceShareTypes, marketplaceShares } from "@/lib/atlas-platform";
 
-type Mode = "shares" | "assistants" | "sell";
+type Mode = "browse" | "installed" | "publish";
 
 const modes: { id: Mode; label: string }[] = [
-  { id: "shares", label: "Sell & share" },
-  { id: "assistants", label: "Assistants" },
-  { id: "sell", label: "Publish yours" },
+  { id: "browse", label: "Browse & install" },
+  { id: "installed", label: "Your library" },
+  { id: "publish", label: "Publish as developer" },
 ];
 
 export function MarketplaceStudio() {
-  const [mode, setMode] = useState<Mode>("shares");
+  const [mode, setMode] = useState<Mode>("browse");
   const [typeFilter, setTypeFilter] = useState<(typeof marketplaceShareTypes)[number]>("All");
   const [selectedId, setSelectedId] = useState<string>(marketplaceShares[0].id);
-  const [owned, setOwned] = useState<Record<string, boolean>>({ "missed-call": true });
+  const [owned, setOwned] = useState<Record<string, boolean>>({ "missed-call": true, "hvac-agent": true });
   const [note, setNote] = useState<string | null>(null);
   const [publishName, setPublishName] = useState("");
-  const [publishType, setPublishType] = useState("Workflows");
+  const [publishType, setPublishType] = useState("Industry agents");
 
   const filtered = useMemo(
     () =>
@@ -30,11 +29,12 @@ export function MarketplaceStudio() {
   );
 
   const selected = marketplaceShares.find((item) => item.id === selectedId) ?? marketplaceShares[0];
+  const installedItems = marketplaceShares.filter((item) => owned[item.id]);
 
   function toggleOwn(id: string, name: string) {
     setOwned((prev) => {
       const next = !prev[id];
-      setNote(next ? `Added “${name}” to your business.` : `Removed “${name}”.`);
+      setNote(next ? `Installed “${name}” on this business.` : `Removed “${name}”.`);
       return { ...prev, [id]: next };
     });
   }
@@ -43,24 +43,24 @@ export function MarketplaceStudio() {
     <div className="training-studio">
       <div className="stat-grid metrics-dense">
         <div className="stat">
-          <span>Shared packs</span>
+          <span>Listings</span>
           <strong>{marketplaceShares.length}</strong>
-          <small>Workflows to courses</small>
+          <small>From developers</small>
         </div>
         <div className="stat">
-          <span>Assistants</span>
-          <strong>{marketplaceAssistants.length}</strong>
-          <small>Installable AI roles</small>
+          <span>Categories</span>
+          <strong>{marketplaceShareTypes.length - 1}</strong>
+          <small>Agents to templates</small>
         </div>
         <div className="stat">
-          <span>In your library</span>
+          <span>Installed</span>
           <strong>{Object.values(owned).filter(Boolean).length}</strong>
-          <small>Installed / purchased</small>
+          <small>On this business</small>
         </div>
         <div className="stat">
           <span>Model</span>
-          <strong>Sell & share</strong>
-          <small>Business to business</small>
+          <strong>Create · install</strong>
+          <small>Only what you need</small>
         </div>
       </div>
 
@@ -79,7 +79,7 @@ export function MarketplaceStudio() {
         ))}
       </div>
 
-      {mode === "shares" ? (
+      {mode === "browse" ? (
         <>
           <div className="quality-filter-row">
             {marketplaceShareTypes.map((type) => (
@@ -95,10 +95,10 @@ export function MarketplaceStudio() {
           </div>
           <div className="split">
             <section className="panel">
-              <h2>Marketplace packs</h2>
+              <h2>AI Marketplace</h2>
               <p className="panel-lead">
-                Sell and share workflows, AI prompts, dashboards, industry templates, automation
-                packs, reports, and training courses.
+                Developers publish industry agents, dashboards, automations, reports, integrations,
+                and templates. Businesses install what they need.
               </p>
               <div className="list">
                 {filtered.map((item) => (
@@ -109,7 +109,7 @@ export function MarketplaceStudio() {
                     onClick={() => setSelectedId(item.id)}
                   >
                     <span className={`badge${owned[item.id] ? " ok" : ""}`}>
-                      {owned[item.id] ? "Owned" : item.price}
+                      {owned[item.id] ? "Installed" : item.price}
                     </span>
                     <div>
                       <p>
@@ -133,7 +133,7 @@ export function MarketplaceStudio() {
                 <div className="list-row">
                   <span className="badge ok">★ {selected.rating}</span>
                   <p>
-                    {selected.price} · by {selected.seller}
+                    {selected.price} · by {selected.seller} ({selected.developer})
                   </p>
                 </div>
               </div>
@@ -143,45 +143,66 @@ export function MarketplaceStudio() {
                   type="button"
                   onClick={() => toggleOwn(selected.id, selected.name)}
                 >
-                  {owned[selected.id] ? "Remove" : selected.price === "Free" ? "Install" : "Buy & install"}
+                  {owned[selected.id]
+                    ? "Uninstall"
+                    : selected.price === "Free"
+                      ? "Install"
+                      : "Buy & install"}
                 </button>
               </div>
-              {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
+              {note ? (
+                <p className="muted-line" style={{ marginTop: "0.85rem" }}>
+                  {note}
+                </p>
+              ) : null}
             </section>
           </div>
         </>
       ) : null}
 
-      {mode === "assistants" ? (
+      {mode === "installed" ? (
         <section className="panel">
-          <h2>Installable assistants</h2>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Assistant</th>
-                <th>Category</th>
-                <th>Installs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {marketplaceAssistants.map((item) => (
-                <tr key={item.name}>
-                  <td>
-                    <strong>{item.name}</strong>
-                  </td>
-                  <td>{item.category}</td>
-                  <td>{item.installs}</td>
-                </tr>
+          <h2>Installed on this business</h2>
+          <p className="panel-lead">Only the pieces you chose — agents, dashboards, automations, and more.</p>
+          {installedItems.length === 0 ? (
+            <p className="muted-line">Nothing installed yet. Browse the marketplace to add packs.</p>
+          ) : (
+            <div className="list" style={{ marginTop: "0.85rem" }}>
+              {installedItems.map((item) => (
+                <div className="list-row" key={item.id}>
+                  <span className="badge ok">{item.type}</span>
+                  <div>
+                    <p>
+                      <strong>{item.name}</strong>
+                    </p>
+                    <small className="muted-line">{item.blurb}</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => toggleOwn(item.id, item.name)}
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
+          {note ? (
+            <p className="muted-line" style={{ marginTop: "0.85rem" }}>
+              {note}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
-      {mode === "sell" ? (
+      {mode === "publish" ? (
         <section className="panel">
-          <h2>Publish to the marketplace</h2>
-          <p className="panel-lead">Share what works for your business — workflows, prompts, packs, and courses.</p>
+          <h2>Publish as a developer</h2>
+          <p className="panel-lead">
+            Ship industry agents, dashboards, automations, reports, integrations, or templates for
+            businesses to install.
+          </p>
           <form
             className="hub-pto-form"
             onSubmit={(e) => {
@@ -192,27 +213,33 @@ export function MarketplaceStudio() {
             }}
           >
             <label>
-              Name
+              Listing name
               <input
                 value={publishName}
                 onChange={(e) => setPublishName(e.target.value)}
-                placeholder="My missed-call workflow"
+                placeholder="HVAC overnight receptionist"
                 required
               />
             </label>
             <label>
               Type
               <select value={publishType} onChange={(e) => setPublishType(e.target.value)}>
-                {marketplaceShareTypes.filter((type) => type !== "All").map((type) => (
-                  <option key={type}>{type}</option>
-                ))}
+                {marketplaceShareTypes
+                  .filter((type) => type !== "All")
+                  .map((type) => (
+                    <option key={type}>{type}</option>
+                  ))}
               </select>
             </label>
             <button className="btn btn-dark" type="submit">
               Submit for review
             </button>
           </form>
-          {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
+          {note ? (
+            <p className="muted-line" style={{ marginTop: "0.85rem" }}>
+              {note}
+            </p>
+          ) : null}
         </section>
       ) : null}
     </div>
