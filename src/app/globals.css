@@ -1531,11 +1531,13 @@ img {
 
   .cal-slot,
   .bar-row,
-  .command-form {
+  .command-form,
+  .train-form {
     grid-template-columns: 1fr;
   }
 
-  .command-form {
+  .command-form,
+  .train-form {
     flex-direction: column;
   }
 }
