@@ -6,6 +6,7 @@ export const navGroups: NavGroup[] = [
     label: "Command",
     items: [
       { href: "/app", label: "Atlas", exact: true },
+      { href: "/app/mission-control", label: "Mission Control" },
       { href: "/app/brain", label: "Atlas Brain" },
       { href: "/app/memory", label: "AI Memory" },
       { href: "/app/knowledge", label: "Knowledge Base" },
@@ -2032,3 +2033,144 @@ export function ceoMemoryForQuestion(question: string) {
     linkedDecisionId: null as string | null,
   };
 }
+
+export const missionControl = {
+  callsign: "Summit Home Services",
+  ceo: "Jeff",
+  status: "All systems online",
+  intelligenceScore: 86,
+  partnerLine:
+    "I’m not waiting for instructions. Overnight is closed, live ops are green, and three decisions need you before noon.",
+  lanes: [
+    {
+      id: "overnight",
+      label: "Overnight",
+      headline: "What happened while you slept",
+      summary: "94 tasks handled · $4,280 booked · 0 lost calls",
+      items: [
+        { time: "2:14 AM", text: "Receptionist booked new plumbing customer — estimate created, tech scheduled." },
+        { time: "4:02 AM", text: "Payment reminders sent on 3 overdue invoices; one paid overnight." },
+        { time: "5:41 AM", text: "Route optimizer reshuffled Tuesday north corridor after a late cancel." },
+        { time: "6:18 AM", text: "Review request sent to Harbor Property Group after completed tune-ups." },
+      ],
+    },
+    {
+      id: "now",
+      label: "Live now",
+      headline: "What’s happening right now",
+      summary: "12 jobs in motion · 2 techs delayed · phones covered",
+      items: [
+        { time: "Now", text: "John is 15 minutes late to the Elm Street AC call — customer already texted." },
+        { time: "Now", text: "Sarah (AI) is on a live quote call for a water heater replacement." },
+        { time: "Now", text: "Inventory alert: R-410A cylinders at 2 days of stock at current burn." },
+        { time: "Now", text: "Front desk queue: 1 hold, average answer 41 seconds." },
+      ],
+    },
+    {
+      id: "next",
+      label: "Likely next",
+      headline: "What is likely to happen next",
+      summary: "Tuesday fill risk · weather delay · membership surge",
+      items: [
+        { time: "Today PM", text: "Model: 68% chance Tuesday afternoon opens drop below target without a promo push." },
+        { time: "Tomorrow", text: "Storm window may slip 3 outdoor units — Atlas drafted reschedule texts." },
+        { time: "This week", text: "Membership attach rate trending to +12% if diagnostic fee messaging stays consistent." },
+        { time: "30 days", text: "Cash buffer supports second van lease; Board Advisor still cautions second location." },
+      ],
+    },
+    {
+      id: "decisions",
+      label: "Decisions",
+      headline: "Which decisions need attention",
+      summary: "3 awaiting CEO · highest impact first",
+      items: [
+        {
+          time: "Urgent",
+          text: "Approve Johnson Construction estimate — $18,400. Decision Engine confidence 81.",
+        },
+        {
+          time: "Today",
+          text: "Supplier dual-source cutoff in 9 days — confirm Meridian quality gate or extend Apex.",
+        },
+        {
+          time: "This week",
+          text: "Phased diagnostic fee raise: grandfather window ends Friday for early adopters.",
+        },
+        {
+          time: "Watch",
+          text: "Ridgeline Plumbing LOI — keep exploratory; cash/culture risk still amber.",
+        },
+      ],
+    },
+    {
+      id: "automate",
+      label: "Automate",
+      headline: "Actions Atlas can safely run",
+      summary: "6 ready · within your standing rules",
+      items: [
+        { time: "Safe", text: "Send morning confirmation texts for today’s 9 appointments." },
+        { time: "Safe", text: "Rebook the two soft cancels into Wednesday morning gaps." },
+        { time: "Safe", text: "Publish the already-approved HVAC tip post to Google Business." },
+        { time: "Safe", text: "Reorder R-410A to par level from Meridian under the dual-source rule." },
+      ],
+    },
+    {
+      id: "opportunities",
+      label: "Opportunities",
+      headline: "What opportunities are available",
+      summary: "2 revenue · 1 capacity · 1 reputation",
+      items: [
+        {
+          time: "Revenue",
+          text: "Harbor Property asked about expanding to 4 more buildings — draft retainer ready.",
+        },
+        {
+          time: "Capacity",
+          text: "North corridor same-day slots open after van #2 — market a 4-hour window promo.",
+        },
+        {
+          time: "Reputation",
+          text: "11 five-star customers haven’t been asked for a Google review this month.",
+        },
+        {
+          time: "Growth",
+          text: "Membership plan conversion is highest after tune-up completions — push attach script.",
+        },
+      ],
+    },
+  ],
+  priorities: [
+    {
+      id: "p1",
+      rank: 1,
+      title: "Approve Johnson estimate",
+      impact: "$18,400",
+      why: "Highest cash impact before noon; customer waiting on signature.",
+      href: "/app/decisions",
+    },
+    {
+      id: "p2",
+      rank: 2,
+      title: "Cover John’s delay",
+      impact: "CX protect",
+      why: "Customer already pinged — Atlas can send ETA + $25 courtesy credit if you approve.",
+      href: "/app/quality",
+    },
+    {
+      id: "p3",
+      rank: 3,
+      title: "Run safe automations",
+      impact: "6 actions",
+      why: "Confirmations, rebooks, post, and refrigerant reorder are inside standing authority.",
+      href: "/app/workflows",
+    },
+  ],
+  automations: [
+    { id: "a1", label: "Send today’s appointment confirmations", status: "ready" as const },
+    { id: "a2", label: "Rebook soft cancels into Wednesday gaps", status: "ready" as const },
+    { id: "a3", label: "Publish approved HVAC tip post", status: "ready" as const },
+    { id: "a4", label: "Reorder R-410A to par from Meridian", status: "ready" as const },
+    { id: "a5", label: "Request Google reviews from 11 five-star jobs", status: "ready" as const },
+    { id: "a6", label: "Draft Harbor retainer expansion proposal", status: "needs-confirm" as const },
+  ],
+};

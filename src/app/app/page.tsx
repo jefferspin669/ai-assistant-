@@ -44,6 +44,7 @@ export default function DashboardPage() {
           <h2>Atlas platform</h2>
           <div className="list">
             {[
+              { href: "/app/mission-control", label: "Mission Control", text: "CEO command bridge — already briefed" },
               { href: "/app/brain", label: "Atlas Brain", text: "The memory of the whole business" },
               { href: "/app/decisions", label: "Decision Engine", text: "Eight lenses before every major call" },
               { href: "/app/executive-timeline", label: "Executive Timeline", text: "Everything important on one spine" },

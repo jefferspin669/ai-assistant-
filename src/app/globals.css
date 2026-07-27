@@ -1047,6 +1047,128 @@ button.linkish:hover {
   letter-spacing: -0.01em;
 }
 
+.bridge-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(15, 42, 50, 0.06), rgba(47, 143, 138, 0.1) 45%, rgba(240, 212, 138, 0.12)),
+    var(--paper);
+}
+
+.bridge-banner-copy h2 {
+  margin: 0.25rem 0 0.45rem;
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.bridge-status {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  min-width: 12rem;
+}
+
+.bridge-status > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.bridge-orb {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #f0d48a, transparent 42%),
+    radial-gradient(circle at 70% 70%, #2f8f8a, #0f2a32 72%);
+  box-shadow: 0 0 0 8px rgba(47, 143, 138, 0.1);
+  animation: glow-drift 5s ease-in-out infinite alternate;
+}
+
+.bridge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.bridge-lane {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 1rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.35rem;
+  animation: mission-lane-in 420ms ease both;
+  font: inherit;
+  color: inherit;
+}
+
+.bridge-lane:hover,
+.bridge-lane:focus-visible {
+  border-color: var(--teal);
+  background: rgba(47, 143, 138, 0.07);
+}
+
+.bridge-lane-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bridge-lane p {
+  margin: 0;
+  font-weight: 650;
+}
+
+.bridge-lane-loading {
+  cursor: default;
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.bridge-lane-loading:hover {
+  border-color: var(--line);
+  background: var(--paper);
+}
+
+.mission-note {
+  margin: 0;
+  padding: 0.7rem 0.95rem;
+  border-radius: 12px;
+  background: rgba(47, 143, 138, 0.1);
+  border: 1px solid rgba(47, 143, 138, 0.22);
+}
+
+.mission-priority {
+  align-items: center;
+}
+
+@keyframes mission-lane-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .bridge-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bridge-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;
