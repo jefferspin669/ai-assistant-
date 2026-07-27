@@ -1,46 +1,48 @@
-import { AppShell } from "@/components/AppShell";
-import { teamAi } from "@/lib/data";
+import { FeatureView } from "@/components/FeatureView";
+import { aiEmployees, teamAi } from "@/lib/data";
+import { agentGoals } from "@/lib/atlas-platform";
 
 export default function EmployeesPage() {
   return (
-    <AppShell
-      title="Team AI"
-      subtitle="Businesses create multiple AI employees. You talk to Atlas — Atlas delegates."
-    >
-      <section className="panel employee-hero-card">
-        <div>
-          <p className="briefing-kicker">Example · Jeff’s Plumbing</p>
-          <h2>One owner. A full AI staff.</h2>
-          <p style={{ color: "rgba(244,248,247,0.8)" }}>
-            Sarah handles reception. Mike schedules. Emma sells. David markets. Alex runs finance.
-            Atlas routes every request to the right specialist.
-          </p>
-        </div>
-        <ul className="plain-list">
-          <li>Owner talks naturally to Atlas</li>
-          <li>Atlas delegates to the right AI employee</li>
-          <li>Each role has auto actions + confirmation rules</li>
-        </ul>
-      </section>
-
-      <div className="employee-grid">
-        {teamAi.map((member) => (
-          <article className="panel employee-card" key={member.name}>
-            <div className="employee-card-top">
-              <span className="employee-emoji" aria-hidden="true">
-                👤
-              </span>
-              <div>
-                <h2>{member.name}</h2>
-                <p>
-                  {member.role} · <span className="badge ok">Online</span>
-                </p>
-              </div>
+    <FeatureView
+      title="AI Agents"
+      subtitle="Instead of only answering questions — Atlas agents complete goals across the business."
+      sections={[
+        {
+          type: "panel",
+          title: "Goal completion",
+          list: agentGoals.map((goal) => ({
+            badge: "Agent",
+            badgeTone: "ok" as const,
+            text: goal.goal,
+            sub: goal.atlas,
+          })),
+        },
+        {
+          type: "custom",
+          node: (
+            <div className="employee-grid">
+              {teamAi.map((agent) => (
+                <section className="panel" key={agent.name}>
+                  <h2>{agent.name}</h2>
+                  <p className="panel-lead">{agent.role}</p>
+                  <p>{agent.focus}</p>
+                </section>
+              ))}
             </div>
-            <p style={{ color: "var(--ink-soft)", marginTop: "0.7rem" }}>{member.focus}</p>
-          </article>
-        ))}
-      </div>
-    </AppShell>
+          ),
+        },
+        {
+          type: "panel",
+          title: "Full agent roster",
+          list: aiEmployees.map((agent) => ({
+            badge: agent.status,
+            badgeTone: "ok" as const,
+            text: agent.name,
+            sub: `${agent.role} · ${agent.duties.join(" · ")}`,
+          })),
+        },
+      ]}
+    />
   );
 }

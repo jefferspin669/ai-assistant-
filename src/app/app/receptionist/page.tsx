@@ -1,49 +1,50 @@
-import { AppShell } from "@/components/AppShell";
+import { FeatureView } from "@/components/FeatureView";
 
 export default function ReceptionistPage() {
   return (
-    <AppShell
-      title="Receptionist"
-      subtitle="Not voicemail — real conversations that book jobs overnight."
-    >
-      <div className="split">
-        <section className="panel">
-          <h2>Live call</h2>
-          <div className="chat-mock">
-            <div className="bubble bubble-user">My AC stopped working.</div>
-            <div className="bubble bubble-ai">
-              I’m sorry to hear that. Is the unit completely off, or is it blowing warm air?
-            </div>
-            <div className="bubble bubble-user">It’s blowing warm.</div>
-            <div className="bubble bubble-ai">
-              I can have someone there tomorrow between 10 and 12. Would that work?
-            </div>
-            <div className="bubble bubble-ai">
-              Booked. Photos collected, address saved, customer profile created, estimate drafted,
-              technician scheduled, confirmation sent.
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <h2>Overnight outcomes</h2>
-          <div className="list">
-            {[
-              "Answer questions",
-              "Book appointments",
-              "Transfer emergencies",
-              "Collect customer information",
-              "Collect photos + address",
-              "Create estimate + schedule tech",
-            ].map((item) => (
-              <div className="list-row" key={item}>
-                <span className="badge ok">On</span>
-                <p>{item}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </AppShell>
+    <FeatureView
+      title="Voice Receptionist"
+      subtitle="Instead of “Press 1…” — customers simply talk."
+      sections={[
+        {
+          type: "chat",
+          title: "Live call",
+          bubbles: [
+            { role: "user", text: "My AC quit working." },
+            {
+              role: "ai",
+              text: "I’m sorry to hear that. Would you like the earliest technician available?",
+            },
+            { role: "user", text: "Yes, mornings if you can." },
+            {
+              role: "ai",
+              text: "I can do tomorrow 10–12 with John. I’ll text the confirmation and a photo upload link now.",
+            },
+          ],
+        },
+        {
+          type: "split",
+          left: {
+            title: "Overnight outcomes",
+            list: [
+              { badge: "Done", badgeTone: "ok", text: "Booked appointment" },
+              { badge: "Done", badgeTone: "ok", text: "Collected photos" },
+              { badge: "Done", badgeTone: "ok", text: "Drafted estimate" },
+              { badge: "Done", badgeTone: "ok", text: "Scheduled technician" },
+              { badge: "Done", badgeTone: "ok", text: "Sent confirmation" },
+            ],
+          },
+          right: {
+            title: "Why voice wins",
+            list: [
+              { badge: "Natural", text: "No phone trees" },
+              { badge: "Fast", text: "Books while empathy is happening" },
+              { badge: "Memory", text: "Recognizes repeat callers" },
+              { badge: "Safe", text: "Emergencies escalate live" },
+            ],
+          },
+        },
+      ]}
+    />
   );
 }

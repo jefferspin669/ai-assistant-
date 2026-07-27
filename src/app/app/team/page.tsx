@@ -1,63 +1,48 @@
-import { AppShell } from "@/components/AppShell";
+import { FeatureView } from "@/components/FeatureView";
 import { team } from "@/lib/data";
+import { trainingModules } from "@/lib/atlas-platform";
 
 export default function TeamPage() {
   return (
-    <AppShell
-      title="Team Management"
-      subtitle="Add employees, set permissions, assign jobs, and track performance."
-      action={<button className="btn btn-dark">Add employee</button>}
-    >
-      <section className="panel">
-        <h2>Roster</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Jobs</th>
-              <th>Rating</th>
-              <th>Permissions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {team.map((member) => (
-              <tr key={member.name}>
-                <td>
-                  <strong>{member.name}</strong>
-                </td>
-                <td>{member.role}</td>
-                <td>{member.jobs}</td>
-                <td>{member.rating}</td>
-                <td>{member.perms}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <div className="split">
-        <section className="panel">
-          <h2>Internal chat</h2>
-          <div className="chat-mock">
-            <div className="bubble bubble-ai">Alex: Running 10 minutes behind on Oak Ave.</div>
-            <div className="bubble bubble-user">Owner: All good — Sarah already texted the next customer.</div>
-          </div>
-        </section>
-        <section className="panel">
-          <h2>Job assignment</h2>
-          <div className="list">
-            <div className="list-row">
-              <span className="badge">Assign</span>
-              <p>Water heater install · Jamie Cole → Sam</p>
-            </div>
-            <div className="list-row">
-              <span className="badge">Assign</span>
-              <p>Leak inspection · Marcus Nguyen → Alex</p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </AppShell>
+    <FeatureView
+      title="Employee Hub"
+      subtitle="Each employee gets schedule, training, messages, documents, an AI assistant, performance, PTO, and balances."
+      sections={[
+        {
+          type: "table",
+          title: "Team",
+          headers: ["Name", "Role", "Jobs", "Rating", "Access"],
+          rows: team.map((person) => [
+            person.name,
+            person.role,
+            String(person.jobs),
+            person.rating,
+            person.perms,
+          ]),
+        },
+        {
+          type: "split",
+          left: {
+            title: "Hub modules",
+            list: [
+              { badge: "Hub", text: "Schedule and job board" },
+              { badge: "Hub", text: "Training + quizzes" },
+              { badge: "Hub", text: "Messages and documents" },
+              { badge: "Hub", text: "Personal AI assistant" },
+              { badge: "Hub", text: "Performance dashboard" },
+              { badge: "Hub", text: "PTO requests and balances" },
+            ],
+          },
+          right: {
+            title: "Alex’s training",
+            list: trainingModules.map((mod) => ({
+              badge: mod.progress,
+              text: mod.title,
+              sub: mod.type,
+            })),
+          },
+        },
+      ]}
+    />
   );
 }

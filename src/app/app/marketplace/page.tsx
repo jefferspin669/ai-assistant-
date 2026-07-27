@@ -1,59 +1,26 @@
-import { AppShell } from "@/components/AppShell";
+import { FeatureView } from "@/components/FeatureView";
 import { marketplaceAssistants } from "@/lib/data";
+import { marketplaceShares } from "@/lib/atlas-platform";
 
 export default function MarketplacePage() {
   return (
-    <AppShell
-      title="AI Marketplace"
-      subtitle="Developers create assistants. Customers install the ones they need."
-    >
-      <div className="stat-grid">
-        <div className="stat">
-          <span>Assistants</span>
-          <strong>{marketplaceAssistants.length}+</strong>
-          <small>Seed catalog</small>
-        </div>
-        <div className="stat">
-          <span>Categories</span>
-          <strong>6</strong>
-          <small>Personal → Professional</small>
-        </div>
-        <div className="stat">
-          <span>Custom skills</span>
-          <strong>Open</strong>
-          <small>Developer platform</small>
-        </div>
-      </div>
-
-      <section className="panel">
-        <h2>Install an assistant</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Assistant</th>
-              <th>Category</th>
-              <th>Installs</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {marketplaceAssistants.map((item) => (
-              <tr key={item.name}>
-                <td>
-                  <strong>{item.name}</strong>
-                </td>
-                <td>{item.category}</td>
-                <td>{item.installs}</td>
-                <td>
-                  <button className="btn btn-outline" type="button">
-                    Install
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-    </AppShell>
+    <FeatureView
+      title="Atlas Marketplace"
+      subtitle="Sell and share workflows, prompts, dashboards, industry templates, automation packs, reports, and training courses."
+      sections={[
+        {
+          type: "table",
+          title: "Installable assistants",
+          headers: ["Assistant", "Category", "Installs"],
+          rows: marketplaceAssistants.map((item) => [item.name, item.category, item.installs]),
+        },
+        {
+          type: "table",
+          title: "Shared packs",
+          headers: ["Name", "Type", "Rating"],
+          rows: marketplaceShares.map((item) => [item.name, item.type, item.rating]),
+        },
+      ]}
+    />
   );
 }
