@@ -1023,6 +1023,18 @@ button.linkish:hover {
   border-color: rgba(47, 143, 138, 0.25);
 }
 
+.board-voice {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.board-voice-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;

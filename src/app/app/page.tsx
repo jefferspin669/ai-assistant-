@@ -45,8 +45,8 @@ export default function DashboardPage() {
           <div className="list">
             {[
               { href: "/app/brain", label: "Atlas Brain", text: "The memory of the whole business" },
+              { href: "/app/board", label: "Board Advisor", text: "Balanced AI expert debate on decisions" },
               { href: "/app/phone", label: "Phone System", text: "Answers, routes, books, pays" },
-              { href: "/app/workflows", label: "Workflows", text: "Automate without code" },
               { href: "/app/score", label: "Intelligence Score", text: "Health from 0–100 with next actions" },
             ].map((item) => (
               <div className="list-row" key={item.href}>

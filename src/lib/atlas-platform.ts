@@ -59,6 +59,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/analytics", label: "AI Dashboard" },
       { href: "/app/insights", label: "Predictive Analytics" },
       { href: "/app/score", label: "Intelligence Score" },
+      { href: "/app/board", label: "Board Advisor" },
       { href: "/app/digital-twin", label: "Digital Twin" },
       { href: "/app/security", label: "Security Center" },
     ],
@@ -1576,3 +1577,135 @@ export const smartCalendarSignals = [
   "Weather delays",
   "Historical job length by service type",
 ];
+
+export const boardAdvisors = [
+  { id: "ops", name: "Operations AI", focus: "Staffing · capacity · delivery" },
+  { id: "finance", name: "Finance AI", focus: "Cash · margin · reserves" },
+  { id: "marketing", name: "Marketing AI", focus: "Demand · brand · channels" },
+  { id: "risk", name: "Risk AI", focus: "Lease · legal · downside" },
+  { id: "ceo", name: "CEO AI", focus: "Balanced recommendation" },
+] as const;
+
+export const boardTopics = [
+  {
+    id: "second-location",
+    question: "Should we open another location?",
+    summary: "Balanced viewpoints rather than a single answer — wait three months while building cash.",
+    voices: [
+      {
+        advisor: "Operations AI",
+        stance: "Supportive",
+        say: "We have enough staff.",
+      },
+      {
+        advisor: "Finance AI",
+        stance: "Caution",
+        say: "It will reduce cash reserves by 22%.",
+      },
+      {
+        advisor: "Marketing AI",
+        stance: "Supportive",
+        say: "Demand is strong in that market.",
+      },
+      {
+        advisor: "Risk AI",
+        stance: "Caution",
+        say: "Lease costs are increasing.",
+      },
+      {
+        advisor: "CEO AI",
+        stance: "Recommend",
+        say: "My recommendation is to wait three months while building a stronger cash buffer.",
+      },
+    ],
+  },
+  {
+    id: "ads-budget",
+    question: "Should we increase Google Ads spend 30%?",
+    summary: "Grow carefully — raise spend 10% first and protect Tuesday fill rate.",
+    voices: [
+      {
+        advisor: "Marketing AI",
+        stance: "Supportive",
+        say: "Conversion is up and the funnel can absorb more spend.",
+      },
+      {
+        advisor: "Finance AI",
+        stance: "Caution",
+        say: "A 30% jump compresses contribution margin this month.",
+      },
+      {
+        advisor: "Operations AI",
+        stance: "Caution",
+        say: "Tuesday capacity is already thin — more leads may increase wait times.",
+      },
+      {
+        advisor: "Risk AI",
+        stance: "Neutral",
+        say: "Platform dependency rises if one channel dominates acquisition.",
+      },
+      {
+        advisor: "CEO AI",
+        stance: "Recommend",
+        say: "Increase 10% now, fill Tuesday gaps, then revisit the full 30% in 30 days.",
+      },
+    ],
+  },
+  {
+    id: "hire-apprentice",
+    question: "Should we hire another apprentice this quarter?",
+    summary: "Yes — hire one apprentice and pair with John for 60 days.",
+    voices: [
+      {
+        advisor: "Operations AI",
+        stance: "Supportive",
+        say: "Route load justifies another trainee before summer peak.",
+      },
+      {
+        advisor: "Finance AI",
+        stance: "Neutral",
+        say: "Payroll impact is manageable if overtime drops 8%.",
+      },
+      {
+        advisor: "Marketing AI",
+        stance: "Supportive",
+        say: "Faster response supports review velocity and referrals.",
+      },
+      {
+        advisor: "Risk AI",
+        stance: "Caution",
+        say: "Training quality must stay high — pair with a lead tech.",
+      },
+      {
+        advisor: "CEO AI",
+        stance: "Recommend",
+        say: "Hire one apprentice, assign John as mentor, and review productivity at day 60.",
+      },
+    ],
+  },
+] as const;
+
+export function boardReplyForQuestion(question: string) {
+  const q = question.toLowerCase();
+  if (q.includes("location") || q.includes("another") || q.includes("second")) {
+    return boardTopics[0];
+  }
+  if (q.includes("ads") || q.includes("google") || q.includes("spend")) {
+    return boardTopics[1];
+  }
+  if (q.includes("hire") || q.includes("apprentice") || q.includes("staff")) {
+    return boardTopics[2];
+  }
+  return {
+    id: "custom",
+    question,
+    summary: "The board weighed operations, finance, marketing, and risk — proceed only with a clear cash and capacity buffer.",
+    voices: [
+      { advisor: "Operations AI", stance: "Neutral", say: "Capacity can support it if we protect morning buffers." },
+      { advisor: "Finance AI", stance: "Caution", say: "Model the cash impact for 90 days before committing." },
+      { advisor: "Marketing AI", stance: "Supportive", say: "Customer demand signals are constructive." },
+      { advisor: "Risk AI", stance: "Caution", say: "Watch concentration risk and contract terms." },
+      { advisor: "CEO AI", stance: "Recommend", say: "Pilot small, measure for 30 days, then decide with a fuller cash buffer." },
+    ],
+  };
+}
