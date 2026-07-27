@@ -416,6 +416,159 @@ export const trainingRoleplay = {
     "Got it — I’m capturing that. Want me to review the warranty language from the knowledge base while we talk?",
 };
 
+export const hubEmployees = [
+  {
+    id: "alex",
+    name: "Alex Rivera",
+    role: "Lead tech",
+    status: "On route",
+    rating: "4.9",
+    jobsThisWeek: 12,
+  },
+  {
+    id: "sam",
+    name: "Sam Ortiz",
+    role: "Tech",
+    status: "Available",
+    rating: "4.8",
+    jobsThisWeek: 9,
+  },
+  {
+    id: "john",
+    name: "John Hale",
+    role: "Tech",
+    status: "On job",
+    rating: "5.0",
+    jobsThisWeek: 11,
+  },
+] as const;
+
+export const hubSchedules: Record<string, { time: string; job: string; place: string; status: string }[]> = {
+  alex: [
+    { time: "9:00 AM", job: "Elena Brooks · Drain clearing", place: "418 Oak Ave", status: "Confirmed" },
+    { time: "11:10 AM", job: "Chris Park · Estimate", place: "90 Cedar Ct", status: "En route buffer" },
+    { time: "1:40 PM", job: "Nina Alvarez · Faucet", place: "12 Willow St", status: "Confirmed" },
+    { time: "3:20 PM", job: "Parts drop · Supply House", place: "Depot", status: "Optional" },
+  ],
+  sam: [
+    { time: "10:30 AM", job: "Jamie Cole · Water heater", place: "77 Pine Rd", status: "Confirmed" },
+    { time: "2:00 PM", job: "Maintenance · Filter swap", place: "220 Market", status: "Flexible" },
+  ],
+  john: [
+    { time: "8:30 AM", job: "AC recovery · Marcus", place: "91 Birch Ln", status: "In progress" },
+    { time: "12:30 PM", job: "Capacitor follow-up", place: "14 Lakeview", status: "Parts on truck" },
+  ],
+};
+
+export const hubMessages: Record<string, { from: string; when: string; text: string; unread?: boolean }[]> = {
+  alex: [
+    { from: "Atlas", when: "7:05 AM", text: "Traffic on Main St — I padded 12 minutes before Chris Park.", unread: true },
+    { from: "Jeff", when: "Yesterday", text: "Great review from Elena. Keep the morning buffers." },
+    { from: "Sam", when: "Yesterday", text: "Can you cover the 3 PM faucet if I run late?" },
+  ],
+  sam: [
+    { from: "Atlas", when: "6:50 AM", text: "Jamie prefers text updates — confirmation already sent.", unread: true },
+    { from: "Alex", when: "Yesterday", text: "Extra 45/5 capacitors are on my truck if you need one." },
+  ],
+  john: [
+    { from: "Atlas", when: "8:10 AM", text: "Customer asked for you by name. Photos are in the job timeline.", unread: true },
+    { from: "Office", when: "Mon", text: "EPA card scanned — compliance OK." },
+  ],
+};
+
+export const hubDocuments: Record<string, { name: string; type: string; updated: string }[]> = {
+  alex: [
+    { name: "Lead tech checklist.pdf", type: "SOP", updated: "Today" },
+    { name: "Truck loadout floor plan.png", type: "Floor plan", updated: "Apr 2" },
+    { name: "Safety handbook.pdf", type: "Policy", updated: "Mar 12" },
+  ],
+  sam: [
+    { name: "Water heater install guide.pdf", type: "Manual", updated: "Feb 18" },
+    { name: "Customer photo script.docx", type: "Script", updated: "Jan 9" },
+  ],
+  john: [
+    { name: "Capacitor diagnosis lesson", type: "Training", updated: "Today" },
+    { name: "EPA 608 certificate.pdf", type: "Cert", updated: "2024" },
+  ],
+};
+
+export const hubPerformance: Record<
+  string,
+  { label: string; value: string; detail: string }[]
+> = {
+  alex: [
+    { label: "On-time arrivals", value: "96%", detail: "+3 pts this month" },
+    { label: "Jobs completed", value: "12", detail: "This week" },
+    { label: "CSAT", value: "4.9", detail: "Last 30 days" },
+    { label: "First-time fix", value: "91%", detail: "Parts readiness high" },
+  ],
+  sam: [
+    { label: "On-time arrivals", value: "93%", detail: "Steady" },
+    { label: "Jobs completed", value: "9", detail: "This week" },
+    { label: "CSAT", value: "4.8", detail: "Last 30 days" },
+    { label: "Upsell attach", value: "22%", detail: "Filters + maintenance" },
+  ],
+  john: [
+    { label: "On-time arrivals", value: "98%", detail: "Best on team" },
+    { label: "Jobs completed", value: "11", detail: "This week" },
+    { label: "CSAT", value: "5.0", detail: "Requested by name" },
+    { label: "Callback rate", value: "2%", detail: "Below target" },
+  ],
+};
+
+export const hubPto: Record<
+  string,
+  {
+    balances: { label: string; days: number }[];
+    requests: { dates: string; type: string; status: string }[];
+  }
+> = {
+  alex: {
+    balances: [
+      { label: "Vacation", days: 8 },
+      { label: "Sick", days: 4 },
+      { label: "Personal", days: 2 },
+    ],
+    requests: [
+      { dates: "Aug 14–15", type: "Vacation", status: "Pending" },
+      { dates: "Jun 3", type: "Personal", status: "Approved" },
+    ],
+  },
+  sam: {
+    balances: [
+      { label: "Vacation", days: 5 },
+      { label: "Sick", days: 3 },
+      { label: "Personal", days: 1 },
+    ],
+    requests: [{ dates: "Sep 2–5", type: "Vacation", status: "Draft" }],
+  },
+  john: {
+    balances: [
+      { label: "Vacation", days: 11 },
+      { label: "Sick", days: 5 },
+      { label: "Personal", days: 3 },
+    ],
+    requests: [{ dates: "Jul 4", type: "Holiday", status: "Approved" }],
+  },
+};
+
+export function hubAssistantReply(employeeName: string, question: string) {
+  const q = question.toLowerCase();
+  if (q.includes("schedule") || q.includes("today") || q.includes("next")) {
+    return `${employeeName}, your next confirmed stop is on today’s board. Want me to text the customer your ETA?`;
+  }
+  if (q.includes("pto") || q.includes("time off") || q.includes("vacation")) {
+    return `You have vacation balance remaining. I can draft a PTO request and check coverage against the calendar.`;
+  }
+  if (q.includes("reset") || q.includes("machine") || q.includes("manual")) {
+    return `From the knowledge base: power off 60 seconds, hold reset 5 seconds, verify green LED. I pinned the manual in your Documents.`;
+  }
+  if (q.includes("refund")) {
+    return `For jobs under $500 within 14 days, issue from Payments. Over $500 needs owner approval — I can draft it.`;
+  }
+  return `I’m your hub assistant. Ask about schedule, training, documents, PTO, or job help — I’ll pull from Atlas Brain.`;
+}
+
 export const qualitySignals = [
   { pattern: "Long wait", count: 5, severity: "High", ownerAlert: true },
   { pattern: "Clear communication", count: 18, severity: "Positive", ownerAlert: false },

@@ -748,6 +748,74 @@ img {
   background: rgba(47, 143, 138, 0.08);
 }
 
+.hub-employee-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+.hub-employee {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--foam);
+  border-radius: 14px;
+  padding: 0.85rem 0.95rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.hub-employee strong {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.hub-employee span {
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+
+.hub-employee.active,
+.hub-employee:hover {
+  border-color: var(--teal);
+  background: rgba(47, 143, 138, 0.08);
+}
+
+button.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+button.linkish:hover {
+  color: var(--teal-deep);
+}
+
+.hub-pto-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hub-pto-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.hub-pto-form input,
+.hub-pto-form select {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  background: var(--foam);
+  color: var(--ink);
+}
+
 .sidebar-foot {
   margin-top: auto;
   display: grid;
@@ -1505,6 +1573,10 @@ img {
   }
 
   .domain-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hub-employee-row {
     grid-template-columns: 1fr;
   }
 
