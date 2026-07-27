@@ -28,10 +28,10 @@ export default function OnboardingPage() {
           <Link href="/" className="logo" style={{ color: "var(--ink)" }}>
             Atlas <span>AI</span>
           </Link>
-          <h1>Everyone deserves an AI employee.</h1>
+          <h1>Every business deserves an intelligent workforce, regardless of its size.</h1>
           <p style={{ color: "var(--ink-soft)" }}>
-            Choose who Atlas helps first. We recommend starting with small service businesses — then
-            expand on the same platform.
+            Don’t just buy software — join a mission. Choose who Atlas helps first. We recommend
+            starting with small service businesses, then expanding on the same platform.
           </p>
         </div>
 

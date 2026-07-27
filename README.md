@@ -1,17 +1,12 @@
-# Atlas AI — Your AI Workforce
+# Atlas AI — Intelligent Workforce for Every Business
 
-> Everyone deserves an AI employee.
+> **Every business deserves an intelligent workforce, regardless of its size.**
 
-Atlas is an ecosystem of AI helpers for:
-
-- Individuals & families
-- Event organizers
-- Small businesses *(launch beachhead)*
-- Nonprofits & schools
+Don’t just sell software. Build around a mission. Atlas exists so companies of any size — not only enterprises with huge budgets — can run with digital employees, shared memory, and judgment.
 
 ## Beachhead
 
-Start with small service businesses that need an AI receptionist and scheduling. Expand into personal assistants and celebration/event planning on the same platform.
+Start with small service businesses that need an AI receptionist and scheduling. Expand into personal assistants and celebration/event planning on the same platform. The beachhead proves the mission where the gap hurts most.
 
 ## Platform pillars
 
@@ -31,6 +26,7 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - **Business Command Language** (`/app/command-language`) — plain English → automations
 - **AI Trust & Governance** (`/app/governance`) — approvals, audit logs, RBAC, retention, compliance reports
 - **Customer Digital Twin** (`/app/customer-twin`) — living customer profiles for personalized interactions
+- **Atlas Mission** (`/app/mission`) — every business deserves an intelligent workforce, regardless of size
 
 ## Atlas Brain
 
@@ -62,6 +58,7 @@ npm run dev
 - Business Command Language: `/app/command-language`
 - AI Trust & Governance: `/app/governance`
 - Customer Digital Twin: `/app/customer-twin`
+- Atlas Mission: `/app/mission`
 - App Store / API: `/app/app-store`, `/app/developers`
 
 ## Runtime security
