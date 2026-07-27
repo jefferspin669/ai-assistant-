@@ -1128,38 +1128,163 @@ export const meetingLibrary = [
 
 export const projects = [
   {
+    id: "second-location",
     name: "Open second location",
-    progress: "38%",
+    progress: 38,
     budget: "$120k est.",
+    spent: "$46k",
+    deadline: "Nov 15",
+    team: ["Jeff", "Alex", "Emma"],
     risk: "Permit delay",
+    dependencies: ["City permit", "Equipment PO", "Hiring apprentice"],
     next: "Coordinate inspection · order equipment · update owner Friday",
+    updates: [
+      "Atlas notified the team: permit office follow-up moved to Monday.",
+      "Budget still on track at 38% spend vs 38% progress.",
+    ],
   },
   {
+    id: "spring-campaign",
     name: "Spring maintenance campaign",
-    progress: "72%",
+    progress: 72,
     budget: "$4.2k",
+    spent: "$3.1k",
+    deadline: "Wed",
+    team: ["Emma", "David", "Jeff"],
     risk: "Low",
+    dependencies: ["Promo copy", "SMS list clean", "Facebook creative"],
     next: "Publish Facebook + SMS sequence",
+    updates: [
+      "Creative approved. Atlas scheduled Wednesday blast.",
+      "Waitlist segment attached automatically.",
+    ],
   },
-];
+  {
+    id: "quality-fix",
+    name: "Long-wait quality fix",
+    progress: 55,
+    budget: "$800",
+    spent: "$120",
+    deadline: "Fri",
+    team: ["Alex", "Sam", "Jeff"],
+    risk: "Customer churn",
+    dependencies: ["ETA text template", "Calendar buffers", "Training coach"],
+    next: "Roll ETA texts to all techs today",
+    updates: [
+      "Quality alert acknowledged. Response plan 2/4 actions complete.",
+    ],
+  },
+] as const;
 
-export const workflowSteps = [
+export const workflowPalette = [
   { kind: "Trigger", label: "Missed call" },
+  { kind: "Trigger", label: "Payment received" },
+  { kind: "Trigger", label: "New review" },
   { kind: "Action", label: "Send text" },
   { kind: "Action", label: "Create customer" },
   { kind: "Action", label: "Schedule callback" },
   { kind: "Action", label: "Notify owner" },
-];
+  { kind: "Action", label: "Request review" },
+] as const;
+
+export const workflowSteps = [
+  { id: "t1", kind: "Trigger", label: "Missed call" },
+  { id: "a1", kind: "Action", label: "Send text" },
+  { id: "a2", kind: "Action", label: "Create customer" },
+  { id: "a3", kind: "Action", label: "Schedule callback" },
+  { id: "a4", kind: "Action", label: "Notify owner" },
+] as const;
+
+export const workflowTemplates = [
+  {
+    id: "missed-call",
+    name: "Missed-call recovery",
+    steps: workflowSteps,
+    blurb: "Text the caller, create the customer, book a callback, notify Jeff.",
+  },
+  {
+    id: "review-ask",
+    name: "Review request after payment",
+    steps: [
+      { id: "t2", kind: "Trigger", label: "Payment received" },
+      { id: "a5", kind: "Action", label: "Request review" },
+      { id: "a6", kind: "Action", label: "Notify owner" },
+    ],
+    blurb: "Ask for a Google review once the invoice is paid.",
+  },
+  {
+    id: "lead-ping",
+    name: "New lead → CRM → owner ping",
+    steps: [
+      { id: "t3", kind: "Trigger", label: "Missed call" },
+      { id: "a7", kind: "Action", label: "Create customer" },
+      { id: "a8", kind: "Action", label: "Notify owner" },
+    ],
+    blurb: "Capture the lead instantly and alert the owner.",
+  },
+] as const;
 
 export const appStoreModules = [
-  { name: "HVAC tools", installs: "8.2k", blurb: "Model lookups, refrigerant charts, capacitor math." },
-  { name: "Legal intake", installs: "3.1k", blurb: "Conflict checks and matter opening scripts." },
-  { name: "Dental scheduling", installs: "5.4k", blurb: "Chair-time aware booking." },
-  { name: "Real estate CRM", installs: "9.8k", blurb: "Showings, offers, and document packs." },
-  { name: "Restaurant ordering", installs: "12.0k", blurb: "Voice takeout + allergy notes." },
-  { name: "Fleet management", installs: "4.6k", blurb: "Vehicles, fuel, maintenance." },
-  { name: "Fitness coaching", installs: "18.6k", blurb: "Programs, check-ins, form tips." },
-];
+  {
+    id: "hvac",
+    name: "HVAC tools",
+    category: "Trades",
+    installs: "8.2k",
+    blurb: "Model lookups, refrigerant charts, capacitor math.",
+  },
+  {
+    id: "legal",
+    name: "Legal intake",
+    category: "Professional",
+    installs: "3.1k",
+    blurb: "Conflict checks and matter opening scripts.",
+  },
+  {
+    id: "dental",
+    name: "Dental scheduling",
+    category: "Healthcare",
+    installs: "5.4k",
+    blurb: "Chair-time aware booking.",
+  },
+  {
+    id: "realestate",
+    name: "Real estate CRM",
+    category: "Professional",
+    installs: "9.8k",
+    blurb: "Showings, offers, and document packs.",
+  },
+  {
+    id: "restaurant",
+    name: "Restaurant ordering",
+    category: "Hospitality",
+    installs: "12.0k",
+    blurb: "Voice takeout + allergy notes.",
+  },
+  {
+    id: "fleet",
+    name: "Fleet management",
+    category: "Ops",
+    installs: "4.6k",
+    blurb: "Vehicles, fuel, maintenance.",
+  },
+  {
+    id: "fitness",
+    name: "Fitness coaching",
+    category: "Personal",
+    installs: "18.6k",
+    blurb: "Programs, check-ins, form tips.",
+  },
+] as const;
+
+export const appStoreCategories = [
+  "All",
+  "Trades",
+  "Professional",
+  "Healthcare",
+  "Hospitality",
+  "Ops",
+  "Personal",
+] as const;
 
 export const apiConnectors = [
   { name: "Accounting", examples: "QuickBooks · Xero" },
