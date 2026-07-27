@@ -107,6 +107,36 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["autonomous", "work continuously", "without me", "on its own"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Autonomous Mode",
+      needsConfirm: false,
+      reply:
+        "Autonomous Mode is on. Overnight I recovered a missed call, booked the job, updated CRM, alerted Sam, queued reminders, and staged a review request. You only need to confirm Sam’s auto-assignment.",
+    };
+  }
+
+  if (includesAny(q, ["minimum wage", "what happens if", "simulate", "simulator"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Business Simulator",
+      needsConfirm: false,
+      reply:
+        "If minimum wage rises: payroll +$6,400/mo, recommend +4% rates, profit -1.2 pts, defer one hire, demand -2% short-term, cash -$11k in Q1. Open Simulator for the full model.",
+    };
+  }
+
+  if (includesAny(q, ["operating system", "one workspace", "one login"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "AI Operating System",
+      needsConfirm: false,
+      reply:
+        "Everything is already in one Atlas workspace — email, phone, calendar, CRM, inventory, invoices, payroll, marketing, projects, documents, and analytics — one login, one memory, one AI.",
+    };
+  }
+
   if (includesAny(q, ["network", "industry trend", "trends for my industry", "benchmark"])) {
     return {
       agent: "ceo",

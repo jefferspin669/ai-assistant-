@@ -16,8 +16,11 @@ Start with small service businesses that need an AI receptionist and scheduling.
 ## Platform pillars
 
 - **Intelligence Network** (`/app/network`) — anonymized industry trends across thousands of businesses
-- **AI Digital Employees** (`/app/digital-employees`) — CEO, CFO, Marketing, Sales, Support, Ops, HR, IT, Compliance, Supply Chain
+- **AI Digital Employees** (`/app/digital-employees`) — CEO through Supply Chain specialists
 - **Business DNA** (`/app/dna`) — company voice, discounts, escalation rules, pricing philosophy
+- **Autonomous Mode** (`/app/autonomous`) — continuous loops; owner gets confirmations
+- **Business Simulator** (`/app/simulator`) — what-if modeling for wages, costs, demand, cash
+- **AI Operating System** (`/app/os`) — one workspace for email, phone, CRM, money, marketing, and more
 
 ## Atlas Brain
 
@@ -36,6 +39,9 @@ npm run dev
 - Intelligence Network: `/app/network`
 - Business DNA: `/app/dna`
 - Digital Employees: `/app/digital-employees`
+- Autonomous Mode: `/app/autonomous`
+- Business Simulator: `/app/simulator`
+- AI Operating System: `/app/os`
 - Marketplace / App Store / API: `/app/marketplace`, `/app/app-store`, `/app/developers`
 
 ## Runtime security

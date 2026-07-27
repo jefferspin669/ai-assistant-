@@ -7,6 +7,8 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/app", label: "Atlas", exact: true },
       { href: "/app/mission-control", label: "Mission Control" },
+      { href: "/app/autonomous", label: "Autonomous Mode" },
+      { href: "/app/os", label: "AI Operating System" },
       { href: "/app/brain", label: "Atlas Brain" },
       { href: "/app/memory", label: "AI Memory" },
       { href: "/app/knowledge", label: "Knowledge Base" },
@@ -66,6 +68,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/executive-timeline", label: "Executive Timeline" },
       { href: "/app/ceo-memory", label: "CEO Memory" },
       { href: "/app/digital-twin", label: "Digital Twin" },
+      { href: "/app/simulator", label: "Business Simulator" },
       { href: "/app/security", label: "Security Center" },
     ],
   },
@@ -2235,4 +2238,109 @@ export const businessDnaSamples = [
     generic: "Sorry for the inconvenience. We’ll be there soon.",
     dna: "You’re right to expect better. Alex is 15 minutes out — I’ve already texted an updated ETA and a $25 courtesy credit for the wait.",
   },
+] as const;
+
+export const autonomousLoops = [
+  {
+    id: "missed-call",
+    title: "Missed-call recovery",
+    trigger: "Missed call detected · 2:14 AM",
+    steps: [
+      "Detected missed call from Marcus Nguyen",
+      "Sent recovery text with booking link",
+      "Booked Thursday 10:00 AM appointment",
+      "Updated CRM profile + photos",
+      "Alerted technician Sam on route board",
+      "Queued day-before reminder",
+      "Scheduled review request after job",
+    ],
+    ownerSees: "New overnight customer booked — confirm if you want Sam auto-assigned.",
+    needsConfirm: true,
+  },
+  {
+    id: "invoice-chase",
+    title: "Overdue invoice chase",
+    trigger: "Invoice #1840 past due · 7:05 AM",
+    steps: [
+      "Detected overdue balance $890",
+      "Sent polite payment reminder (Business DNA tone)",
+      "Logged CRM note",
+      "Flagged Finance digital employee",
+    ],
+    ownerSees: "Reminder sent to Nina Alvarez. No further action needed unless she disputes.",
+    needsConfirm: false,
+  },
+  {
+    id: "review-ask",
+    title: "Post-job review loop",
+    trigger: "Job #1842 marked complete · 4:40 PM",
+    steps: [
+      "Confirmed job completion",
+      "Sent thank-you + review request",
+      "Tracked open rate",
+      "Posted owner alert when 5-star review landed",
+    ],
+    ownerSees: "Sarah left a 5-star review. Atlas already replied in your voice.",
+    needsConfirm: false,
+  },
+] as const;
+
+export const simulatorScenarios = [
+  {
+    id: "min-wage",
+    prompt: "What happens if minimum wage increases?",
+    summary:
+      "Payroll rises first. With a 4% service-rate adjustment and slightly slower hiring, profit holds within 1.2 points while cash dips for one quarter.",
+    impacts: [
+      { label: "Payroll impact", value: "+$6,400/mo", tone: "warn" as const },
+      { label: "Pricing adjustments", value: "+4% rates", tone: "ok" as const },
+      { label: "Profit changes", value: "-1.2 pts", tone: "warn" as const },
+      { label: "Hiring impact", value: "Defer 1 role", tone: "warn" as const },
+      { label: "Customer demand", value: "-2% short-term", tone: "warn" as const },
+      { label: "Cash flow", value: "-$11k Q1", tone: "warn" as const },
+    ],
+  },
+  {
+    id: "fuel",
+    prompt: "What if fuel costs rise 20%?",
+    summary:
+      "Route density becomes the lever. Consolidating afternoon stops and a $9 trip fee protect margin without cutting volume.",
+    impacts: [
+      { label: "Payroll impact", value: "Flat", tone: "ok" as const },
+      { label: "Pricing adjustments", value: "+$9 trip fee", tone: "ok" as const },
+      { label: "Profit changes", value: "-0.4 pts", tone: "warn" as const },
+      { label: "Hiring impact", value: "None", tone: "ok" as const },
+      { label: "Customer demand", value: "Stable", tone: "ok" as const },
+      { label: "Cash flow", value: "-$2.1k/mo", tone: "warn" as const },
+    ],
+  },
+  {
+    id: "ads",
+    prompt: "What if we raise Google Ads 15%?",
+    summary:
+      "Leads climb if response stays under five minutes. Without Receptionist coverage, CAC rises and close rate slips.",
+    impacts: [
+      { label: "Payroll impact", value: "+overtime risk", tone: "warn" as const },
+      { label: "Pricing adjustments", value: "None", tone: "ok" as const },
+      { label: "Profit changes", value: "+2.4 pts", tone: "ok" as const },
+      { label: "Hiring impact", value: "Need capacity", tone: "warn" as const },
+      { label: "Customer demand", value: "+11% leads", tone: "ok" as const },
+      { label: "Cash flow", value: "+$4.8k/mo", tone: "ok" as const },
+    ],
+  },
+] as const;
+
+export const operatingSystemApps = [
+  { name: "Email", href: "/app/documents", detail: "Inbox drafts + follow-ups" },
+  { name: "Phone", href: "/app/phone", detail: "Live lines + missed-call recovery" },
+  { name: "Calendar", href: "/app/scheduling", detail: "Jobs, routes, availability" },
+  { name: "CRM", href: "/app/customers", detail: "Profiles, timelines, notes" },
+  { name: "Inventory", href: "/app/inventory", detail: "Parts, reorder, equipment" },
+  { name: "Invoices", href: "/app/payments", detail: "Billing, deposits, reminders" },
+  { name: "Payroll", href: "/app/accountant", detail: "Integrations + cost signals" },
+  { name: "Marketing", href: "/app/marketing", detail: "Campaigns, posts, promos" },
+  { name: "Projects", href: "/app/projects", detail: "Jobs and milestones" },
+  { name: "Documents", href: "/app/documents", detail: "Contracts, quotes, files" },
+  { name: "Analytics", href: "/app/analytics", detail: "Revenue and performance" },
+  { name: "Autonomous", href: "/app/autonomous", detail: "Continuous AI loops" },
 ] as const;

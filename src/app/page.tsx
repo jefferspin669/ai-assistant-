@@ -11,9 +11,9 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#network">Network</a>
-          <a href="#dna">Business DNA</a>
-          <a href="#beachhead">Beachhead</a>
+          <a href="#autonomous">Autonomous</a>
+          <a href="#simulator">Simulator</a>
+          <a href="#os">Operating System</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
           </Link>
@@ -108,6 +108,65 @@ export default function HomePage() {
                   ))}
                 </ul>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="autonomous" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Autonomous Mode</h2>
+              <p>
+                Instead of waiting for commands, Atlas works continuously — then confirms with the
+                owner when it matters.
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-ai">
+                Missed call → text sent → appointment booked → CRM updated → technician alerted →
+                reminder queued → review requested.
+              </div>
+              <div className="bubble bubble-user">Owner only receives confirmation.</div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/autonomous">
+                Open Autonomous Mode
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="simulator" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Business Simulator</h2>
+              <p>Like SimCity — but for a real company. Ask what happens before you decide.</p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">What happens if minimum wage increases?</div>
+              <div className="bubble bubble-ai">
+                Payroll +$6,400/mo. Recommend +4% rates. Profit -1.2 pts. Defer one hire. Demand -2%
+                short-term. Cash -$11k in Q1.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/simulator">
+                Run a simulation
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="os" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Operating System</h2>
+              <p>Email, phone, calendar, CRM, inventory, invoices, payroll, marketing, projects, documents, analytics — one login, one memory, one AI.</p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/os">
+                Enter the workspace
+              </Link>
             </div>
           </div>
         </section>
