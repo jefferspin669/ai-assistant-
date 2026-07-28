@@ -217,13 +217,38 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
-  if (includesAny(q, ["tax center", "tax prep", "needs review", "receipt", "deduction", "1099", "w-2"])) {
+  if (includesAny(q, ["chicago", "business mileage", "mark yesterday"])) {
+    return {
+      agent: "finance",
+      agentLabel: "Mileage Tracker",
+      needsConfirm: false,
+      reply:
+        "Marked yesterday’s trip to Chicago as business mileage (412.0 mi). It’s on your exportable mileage report and included in estimated deductions. Open Tax Center → Mileage to review.",
+    };
+  }
+
+  if (
+    includesAny(q, [
+      "tax center",
+      "tax prep",
+      "needs review",
+      "receipt",
+      "deduction",
+      "1099",
+      "w-2",
+      "quarterly",
+      "estimated tax",
+      "mileage",
+      "tax-time",
+      "tax time",
+    ])
+  ) {
     return {
       agent: "finance",
       agentLabel: "Tax Center",
       needsConfirm: false,
       reply:
-        "Tax Center is syncing income from banks, payroll, Stripe, Square, Venmo, Cash App, QuickBooks, and Atlas invoices. Three expenses are in Needs Review — Atlas won’t claim uncertain deductions until you approve. Open Tax Center to review.",
+        "Tax Center estimate: $8,450 owed, $6,200 saved, $2,250 more recommended. Q1 may need a top-up from $1,800 to $2,250. Mileage and Tax-Time checklist are ready — open Tax Center.",
     };
   }
 

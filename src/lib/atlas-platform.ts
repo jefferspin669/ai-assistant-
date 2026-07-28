@@ -574,8 +574,220 @@ export const taxExpenses = [
 
 export type TaxExpenseStatus = (typeof taxExpenses)[number]["status"] | "Approved" | "Rejected";
 
+export const taxEstimate = {
+  totalIncome: "$186,400",
+  businessExpenses: "$42,180",
+  taxableProfit: "$144,220",
+  federalTax: "$5,120",
+  stateTax: "$1,840",
+  selfEmploymentTax: "$2,040",
+  taxCredits: "$550",
+  taxesPaid: "$6,200",
+  estimatedOwed: "$8,450",
+  alreadySaved: "$6,200",
+  remainingBalance: "$2,250",
+  recommendedSave: "$2,250",
+  autosavePercent: 25,
+  taxSavingsAccount: "Ally Tax Savings · ••4821",
+  lastRecalc: "Today · after Harbor Dental invoice",
+} as const;
+
+export const taxQuarterlyPayments = [
+  {
+    id: "q1",
+    quarter: "Q1 2026",
+    due: "Apr 15, 2026",
+    originalEstimate: "$1,800",
+    revisedEstimate: "$2,250",
+    paid: "$1,800",
+    status: "Needs top-up" as const,
+    confirmation: "IRS-Q1-88421",
+    receipt: "Saved · Mar 12",
+    alert:
+      "Your income increased this quarter. Your estimated payment may need to increase from $1,800 to $2,250.",
+    instructions: "Pay $450 remaining via IRS Direct Pay → Estimated Tax → 1040-ES → Q1.",
+  },
+  {
+    id: "q2",
+    quarter: "Q2 2026",
+    due: "Jun 15, 2026",
+    originalEstimate: "$2,100",
+    revisedEstimate: "$2,100",
+    paid: "$0",
+    status: "Upcoming" as const,
+    confirmation: "—",
+    receipt: "—",
+    alert: "Deadline in 48 days. Atlas will nudge 14 days and 3 days before.",
+    instructions: "Schedule $2,100 from Ally Tax Savings on Jun 12 via IRS Direct Pay.",
+  },
+  {
+    id: "q3",
+    quarter: "Q3 2026",
+    due: "Sep 15, 2026",
+    originalEstimate: "$2,100",
+    revisedEstimate: "$2,100",
+    paid: "$0",
+    status: "Planned" as const,
+    confirmation: "—",
+    receipt: "—",
+    alert: "Estimate locked until mid-quarter income review.",
+    instructions: "Hold in tax savings; Atlas recalculates if revenue shifts >10%.",
+  },
+  {
+    id: "q4",
+    quarter: "Q4 2026",
+    due: "Jan 15, 2027",
+    originalEstimate: "$2,100",
+    revisedEstimate: "$2,100",
+    paid: "$0",
+    status: "Planned" as const,
+    confirmation: "—",
+    receipt: "—",
+    alert: "Final estimated payment before filing season.",
+    instructions: "Pay from tax savings; apply overpayment to next year if any.",
+  },
+] as const;
+
+export const taxMileageTrips = [
+  {
+    id: "trip-1",
+    date: "Mar 18",
+    from: "Shop · Phoenix",
+    to: "Harbor Dental · Scottsdale",
+    purpose: "RTU repair job",
+    miles: 28.4,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$19.88",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-2",
+    date: "Mar 17",
+    from: "Home · Tempe",
+    to: "Chicago · O’Hare area",
+    purpose: "Industry conference — unconfirmed",
+    miles: 412.0,
+    classification: "Needs Review" as const,
+    vehicle: "Personal · Camry",
+    expense: "$288.40",
+    detection: "Auto-detected · yesterday",
+  },
+  {
+    id: "trip-3",
+    date: "Mar 16",
+    from: "Shop · Phoenix",
+    to: "Rivera Properties",
+    purpose: "Duct clean contract",
+    miles: 16.2,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$11.34",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-4",
+    date: "Mar 15",
+    from: "Home · Tempe",
+    to: "Grocery · Whole Foods",
+    purpose: "Personal errand",
+    miles: 4.1,
+    classification: "Personal" as const,
+    vehicle: "Personal · Camry",
+    expense: "$0.00",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-5",
+    date: "Mar 14",
+    from: "Shop · Phoenix",
+    to: "Supply House West",
+    purpose: "Parts run",
+    miles: 11.8,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$8.26",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-6",
+    date: "Mar 12",
+    from: "Shop · Phoenix",
+    to: "Elena Martinez · Mesa",
+    purpose: "Filter drop-off",
+    miles: 22.0,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$15.40",
+    detection: "Manual log",
+  },
+] as const;
+
+export const taxFilingChecklist = [
+  {
+    id: "file-1",
+    task: "Review Needs Review expenses",
+    detail: "Approve, split, or reject uncertain deductions before export",
+    status: "In progress" as const,
+  },
+  {
+    id: "file-2",
+    task: "Confirm income by source",
+    detail: "Banks, processors, 1099s, W-2, and Atlas invoices reconciled",
+    status: "Done" as const,
+  },
+  {
+    id: "file-3",
+    task: "Export mileage report",
+    detail: "Business miles YTD with start/end, purpose, and vehicle",
+    status: "Not started" as const,
+  },
+  {
+    id: "file-4",
+    task: "Attach quarterly payment receipts",
+    detail: "Confirmation numbers and IRS Direct Pay proofs",
+    status: "In progress" as const,
+  },
+  {
+    id: "file-5",
+    task: "Home-office worksheet",
+    detail: "Square footage and exclusive-use confirmation",
+    status: "Not started" as const,
+  },
+  {
+    id: "file-6",
+    task: "Generate CPA / tax-software package",
+    detail: "Schedule C summary, deductions, mileage, and estimated payments",
+    status: "Not started" as const,
+  },
+  {
+    id: "file-7",
+    task: "File or hand off to accountant",
+    detail: "Atlas stages e-file packet; human signs and submits",
+    status: "Not started" as const,
+  },
+] as const;
+
 export function taxCenterReply(prompt: string): string {
   const q = prompt.toLowerCase();
+  if (
+    (q.includes("chicago") || q.includes("trip")) &&
+    (q.includes("business") || q.includes("mileage") || q.includes("mark"))
+  ) {
+    return "Marked yesterday’s trip to Chicago as business mileage (412.0 mi · Personal Camry). Added to your mileage report and estimated deduction at the current IRS rate.";
+  }
+  if (q.includes("quarterly") || q.includes("estimated payment") || q.includes("1040-es")) {
+    return "Q1 may need a top-up: income rose, so the estimate moved from $1,800 to $2,250 ($450 remaining). Q2 is due Jun 15 — Atlas will warn before the deadline.";
+  }
+  if (q.includes("estimate") || q.includes("owed") || q.includes("save for tax") || q.includes("remaining")) {
+    return "Estimated taxes owed: $8,450. Already saved: $6,200. Additional amount recommended: $2,250. Atlas can auto-move 25% of each payment into Ally Tax Savings.";
+  }
+  if (q.includes("filing") || q.includes("tax-time") || q.includes("tax time") || q.includes("checklist")) {
+    return "Tax-Time Mode is on a structured checklist — income confirmed, Needs Review still open, mileage export and CPA package not started yet. Open Filing to work the list.";
+  }
+  if (q.includes("mileage") || q.includes("miles") || q.includes("trip")) {
+    return "Mileage Tracker auto-detects trips, classifies business vs personal, and logs start/end, purpose, miles, and vehicle expense. Say “mark yesterday’s trip to Chicago as business mileage” anytime.";
+  }
   if (q.includes("review") || q.includes("uncertain")) {
     return "Three expenses are marked Needs Review — Verizon (personal vs business split), Target, and Amazon. Atlas will not claim them until you approve.";
   }
@@ -585,10 +797,10 @@ export function taxCenterReply(prompt: string): string {
   if (q.includes("receipt") || q.includes("upload") || q.includes("photo")) {
     return "Snap or upload a receipt and I’ll extract merchant, date, amount, sales tax, category, purpose, and payment method — then flag anything uncertain for review.";
   }
-  if (q.includes("deduct") || q.includes("mileage") || q.includes("fuel")) {
+  if (q.includes("deduct") || q.includes("fuel")) {
     return "Likely deductions this month include fuel, mileage, equipment, software, ads, office supplies, insurance, CPA fees, and training. Home-office items stay in Needs Review.";
   }
-  return "Tax Center tracks income across your connected sources and expense deductions from receipts. Uncertain items stay in Needs Review — nothing is claimed automatically.";
+  return "Tax Center covers estimates, quarterly payments, mileage, filing checklists, income sync, and receipt deductions. Uncertain items stay in Needs Review — nothing is claimed automatically.";
 }
 
 export const inventoryItems = [
