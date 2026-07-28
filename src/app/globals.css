@@ -194,7 +194,7 @@ img {
   font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.2;
-  max-width: 18ch;
+  max-width: 28ch;
   margin-bottom: 0.85rem;
 }
 
@@ -365,6 +365,38 @@ img {
   color: var(--sand);
 }
 
+.mission-band {
+  margin-top: 1.5rem;
+  padding: 1.35rem 1.4rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(20, 48, 40, 0.06), rgba(196, 154, 74, 0.1)),
+    var(--paper);
+  border: 1px solid var(--line);
+}
+
+.mission-band .mission-kicker {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.55rem;
+}
+
+.mission-band h2 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.45rem, 2.8vw, 2rem);
+  line-height: 1.2;
+  max-width: 22ch;
+  margin-bottom: 0.65rem;
+}
+
+.mission-band p {
+  color: var(--ink-soft);
+  max-width: 48ch;
+  margin: 0;
+}
+
 .final-cta {
   text-align: center;
   padding-bottom: 4.5rem;
@@ -372,9 +404,12 @@ img {
 
 .final-cta h2 {
   font-family: var(--font-display), Georgia, serif;
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(1.65rem, 3.4vw, 2.55rem);
   letter-spacing: -0.035em;
   margin-bottom: 0.7rem;
+  max-width: 22ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .final-cta p {

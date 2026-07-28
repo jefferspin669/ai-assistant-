@@ -6,6 +6,7 @@ export const navGroups: NavGroup[] = [
     label: "Command",
     items: [
       { href: "/app", label: "Atlas", exact: true },
+      { href: "/app/mission", label: "Atlas Mission" },
       { href: "/app/mission-control", label: "Mission Control" },
       { href: "/app/autonomous", label: "Autonomous Mode" },
       { href: "/app/os", label: "AI Operating System" },
@@ -71,8 +72,10 @@ export const navGroups: NavGroup[] = [
       { href: "/app/global-memory", label: "Global Business Memory" },
       { href: "/app/explainable", label: "Explainable AI" },
       { href: "/app/digital-twin", label: "Digital Twin" },
+      { href: "/app/customer-twin", label: "Customer Digital Twin" },
       { href: "/app/simulator", label: "Business Simulator" },
       { href: "/app/security", label: "Security Center" },
+      { href: "/app/governance", label: "Trust & Governance" },
     ],
   },
   {
@@ -83,6 +86,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/vision", label: "Atlas Vision" },
       { href: "/app/meetings", label: "Meeting Assistant" },
       { href: "/app/projects", label: "Project Manager" },
+      { href: "/app/command-language", label: "Command Language" },
       { href: "/app/workflows", label: "Workflow Builder" },
       { href: "/app/coach", label: "Live AI Coach" },
     ],
@@ -2698,5 +2702,261 @@ export const riskCenterAlerts = [
     title: "Unusual account activity",
     detail: "Three refunds same day + export permission change requested.",
     action: "Hold refunds over $200 for owner confirm; review role change.",
+  },
+] as const;
+
+export const businessCommandExamples = [
+  "Increase Facebook ads by 20% if lead quality stays above last month’s average.",
+  "If a VIP customer hasn’t visited in 90 days, create a follow-up task and draft a personalized email.",
+  "Pause Google Ads when cost per booked job exceeds $85 for three days.",
+  "Text the on-call tech when an emergency call comes in after 6pm.",
+] as const;
+
+export function compileBusinessCommand(command: string) {
+  const q = command.toLowerCase();
+
+  if (q.includes("facebook") || (q.includes("ads") && q.includes("20"))) {
+    return {
+      id: "fb-ads",
+      title: "Conditional Facebook ad increase",
+      plainEnglish: command.trim() || businessCommandExamples[0],
+      trigger: "Daily at 7:00 AM — evaluate yesterday’s Facebook lead quality",
+      condition: "Lead quality score ≥ last month’s average (currently 72)",
+      actions: [
+        "Increase Facebook Ads daily budget by 20%",
+        "Log change to Marketing AI memory",
+        "Notify owner if spend jumps more than $150/day",
+      ],
+      safeguards: ["Cap total daily spend at $400", "Auto-revert if quality drops below average for 2 days"],
+      status: "Ready to activate",
+    };
+  }
+
+  if (q.includes("vip") || (q.includes("90") && q.includes("follow"))) {
+    return {
+      id: "vip-followup",
+      title: "VIP dormant follow-up",
+      plainEnglish: command.trim() || businessCommandExamples[1],
+      trigger: "Nightly CRM scan — VIP customers with no visit in 90+ days",
+      condition: "Customer tagged VIP AND last completed job ≥ 90 days ago",
+      actions: [
+        "Create follow-up task assigned to account owner",
+        "Draft personalized email using Customer Digital Twin preferences",
+        "Queue task for human send approval if LTV > $5,000",
+      ],
+      safeguards: ["Skip if open complaint ticket", "Do not email more than once per 60 days"],
+      status: "Ready to activate",
+    };
+  }
+
+  if (q.includes("google") || q.includes("cost per")) {
+    return {
+      id: "pause-ads",
+      title: "Pause ads on unit economics",
+      plainEnglish: command.trim() || businessCommandExamples[2],
+      trigger: "Every morning — compute 3-day rolling cost per booked job",
+      condition: "Cost per booked job > $85 for 3 consecutive days",
+      actions: ["Pause Google Ads campaigns tagged ‘acquisition’", "Alert Marketing AI + owner", "Suggest creative refresh"],
+      safeguards: ["Leave brand-search campaigns running", "Require owner confirm to resume spend"],
+      status: "Ready to activate",
+    };
+  }
+
+  if (q.includes("emergency") || q.includes("after") || q.includes("on-call") || q.includes("6pm")) {
+    return {
+      id: "after-hours",
+      title: "After-hours emergency text",
+      plainEnglish: command.trim() || businessCommandExamples[3],
+      trigger: "Inbound call classified as emergency after 6:00 PM local",
+      condition: "Intent = emergency AND outside regional business hours",
+      actions: ["Text on-call technician with address + issue summary", "Create high-priority job draft", "Send ETA SMS to caller"],
+      safeguards: ["Escalate to owner if no tech ack in 10 minutes"],
+      status: "Ready to activate",
+    };
+  }
+
+  return {
+    id: "custom",
+    title: "Compiled automation",
+    plainEnglish: command.trim() || businessCommandExamples[0],
+    trigger: "When the described condition becomes true",
+    condition: "Parsed from your plain-English rule",
+    actions: [
+      "Convert the instruction into an Atlas workflow",
+      "Attach to the matching agents (Marketing, CRM, or Ops)",
+      "Ask for confirmation if the action is sensitive",
+    ],
+    safeguards: ["Human approval required for spend, refunds, or data exports"],
+    status: "Draft — review steps",
+  };
+}
+
+export const governanceApprovals = [
+  {
+    id: "ga1",
+    action: "Increase Facebook Ads budget +20%",
+    requester: "Marketing AI",
+    risk: "Medium",
+    status: "Pending",
+    why: "Spend change over $100/day requires owner approval.",
+  },
+  {
+    id: "ga2",
+    action: "Export full customer list to CSV",
+    requester: "Jordan Lee",
+    risk: "High",
+    status: "Pending",
+    why: "Bulk PII export needs dual approval.",
+  },
+  {
+    id: "ga3",
+    action: "Issue refund $640 — Harbor Dental",
+    requester: "Finance AI",
+    risk: "Medium",
+    status: "Approved",
+    why: "Within refund policy; owner approved remotely.",
+  },
+] as const;
+
+export const governanceAuditLog = [
+  {
+    id: "al1",
+    time: "Today 9:14 AM",
+    actor: "Owner",
+    event: "Approved Facebook budget change",
+    detail: "Governance workflow GW-184",
+  },
+  {
+    id: "al2",
+    time: "Yesterday 4:02 PM",
+    actor: "Security AI",
+    event: "Blocked unusual login from new device",
+    detail: "MFA challenge sent to owner",
+  },
+  {
+    id: "al3",
+    time: "Yesterday 11:20 AM",
+    actor: "Jordan Lee",
+    event: "Role change: Scheduling → Manager",
+    detail: "Permission set updated; audit retained 7 years",
+  },
+  {
+    id: "al4",
+    time: "Mon 2:45 PM",
+    actor: "Compliance AI",
+    event: "Generated SOC2 access report",
+    detail: "Exported to Trust Center folder",
+  },
+] as const;
+
+export const governanceRoles = [
+  {
+    role: "Owner",
+    permissions: ["Approve all sensitive actions", "Manage roles", "Change retention", "View audit log"],
+  },
+  {
+    role: "Manager",
+    permissions: ["Approve medium-risk actions", "View team data", "Run reports", "Cannot export full CRM"],
+  },
+  {
+    role: "Technician",
+    permissions: ["View assigned jobs", "Update job notes", "No pricing or refunds"],
+  },
+  {
+    role: "AI Agent",
+    permissions: ["Propose actions", "Auto-run low-risk loops", "Escalate high-risk for human approval"],
+  },
+] as const;
+
+export const governanceRetention = [
+  { data: "Call recordings", keep: "24 months", status: "Active" },
+  { data: "Chat & SMS transcripts", keep: "36 months", status: "Active" },
+  { data: "Audit logs", keep: "7 years", status: "Locked" },
+  { data: "Marketing audiences", keep: "13 months", status: "Active" },
+  { data: "Deleted customer PII", keep: "30-day purge queue", status: "Scheduled" },
+] as const;
+
+export const governanceReports = [
+  {
+    id: "r1",
+    name: "Monthly access & approval report",
+    cadence: "1st of month",
+    audience: "Owner · Compliance",
+  },
+  {
+    id: "r2",
+    name: "Sensitive decision human-approval log",
+    cadence: "Weekly",
+    audience: "Owner · Board",
+  },
+  {
+    id: "r3",
+    name: "Data retention compliance summary",
+    cadence: "Quarterly",
+    audience: "Legal · IT",
+  },
+] as const;
+
+export const customerDigitalTwins = [
+  {
+    id: "elena",
+    name: "Elena Brooks",
+    segment: "VIP · Residential",
+    ltv: "$12,480",
+    loyalty: "Gold",
+    satisfaction: "4.9 / 5",
+    preference: "Text first · mornings · Sam preferred",
+    purchases: [
+      "AC tune-up plan — annual",
+      "Capacitor replacement — Mar 2026",
+      "Duct cleaning — Nov 2025",
+    ],
+    serviceHistory: [
+      "Mar 12 — capacitor swap, same-day",
+      "Nov 3 — duct clean, 2 techs",
+      "Jul 2025 — emergency no-cool",
+    ],
+    satisfactionTrend: ["5.0", "5.0", "4.8", "4.9"],
+    upcomingNeeds: ["Filter reminder in 18 days", "Likely tune-up renewal in June"],
+    personalizedOpener:
+      "Hi Elena — Sam can swing by mornings next week for your filter swap before peak heat.",
+  },
+  {
+    id: "harbor",
+    name: "Harbor Dental",
+    segment: "Commercial · Contract",
+    ltv: "$48,200",
+    loyalty: "Platinum",
+    satisfaction: "4.7 / 5",
+    preference: "Email + portal · no SMS after 7pm",
+    purchases: [
+      "Quarterly HVAC maintenance",
+      "RTU repair — Jan 2026",
+      "IAQ sensor install — 2025",
+    ],
+    serviceHistory: [
+      "Jan 28 — RTU #2 compressor",
+      "Oct 2025 — quarterly PM",
+      "Aug 2025 — after-hours callout",
+    ],
+    satisfactionTrend: ["4.6", "4.8", "4.7", "4.7"],
+    upcomingNeeds: ["Q2 PM due in 21 days", "Budget cycle — propose multi-year PM"],
+    personalizedOpener:
+      "Harbor team — your Q2 PM window opens Apr 14. I can hold Tuesday mornings to avoid patient hours.",
+  },
+  {
+    id: "nina",
+    name: "Nina Alvarez",
+    segment: "At-risk · Residential",
+    ltv: "$3,120",
+    loyalty: "Standard",
+    satisfaction: "4.2 / 5",
+    preference: "Phone · evenings",
+    purchases: ["Diagnostic visit", "Thermostat install"],
+    serviceHistory: ["Feb 2 — diagnostic, deferred repair", "Sep 2025 — thermostat"],
+    satisfactionTrend: ["4.8", "4.5", "4.1", "4.2"],
+    upcomingNeeds: ["Deferred repair follow-up", "Payment plan offer if needed"],
+    personalizedOpener:
+      "Hi Nina — checking in on the repair we quoted in February. I can hold last month’s rate through Friday.",
   },
 ] as const;
