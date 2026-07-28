@@ -7,6 +7,10 @@ import {
   TaxInterviewPanel,
   TaxPayrollPanel,
   TaxPortalPanel,
+  TaxProPanel,
+  TaxSafetyBanner,
+  TaxSafetyLedgerPanel,
+  TaxTiersPanel,
 } from "@/components/TaxCenterAdvanced";
 import {
   taxCenterReply,
@@ -17,6 +21,7 @@ import {
   taxIncomeEntries,
   taxIncomeSources,
   taxMileageTrips,
+  taxProfile,
   taxQuarterlyPayments,
   taxSmartAlerts,
 } from "@/lib/atlas-platform";
@@ -34,7 +39,10 @@ type Mode =
   | "alerts"
   | "filing"
   | "sources"
-  | "review";
+  | "review"
+  | "tiers"
+  | "pro"
+  | "safety";
 
 type ExpenseOverride = "Approved" | "Rejected" | "Needs Review" | "Categorized";
 type TripClass = "Business" | "Personal" | "Needs Review";
@@ -42,6 +50,9 @@ type ChecklistStatus = "Done" | "In progress" | "Not started";
 
 const modes: { id: Mode; label: string }[] = [
   { id: "estimate", label: "Estimate" },
+  { id: "tiers", label: "Tiers" },
+  { id: "pro", label: "Tax Pro" },
+  { id: "safety", label: "Safety" },
   { id: "income", label: "Income" },
   { id: "expenses", label: "Expenses" },
   { id: "quarterly", label: "Quarterly" },
@@ -105,6 +116,7 @@ export function TaxCenterStudio() {
   const [checklistStatus, setChecklistStatus] = useState<Record<string, ChecklistStatus>>({});
   const [autosaveOn, setAutosaveOn] = useState(true);
   const [exportedReport, setExportedReport] = useState(false);
+  const [selectedTier, setSelectedTier] = useState("business");
   const [uploaded, setUploaded] = useState<
     {
       id: string;
@@ -286,11 +298,16 @@ export function TaxCenterStudio() {
 
   return (
     <div className="training-studio">
+      <TaxSafetyBanner />
+
       <div className="stat-grid metrics-dense">
         <div className="stat">
           <span>Estimated taxes owed</span>
           <strong>{taxEstimate.estimatedOwed}</strong>
-          <small>Federal + state + SE − credits</small>
+          <small>
+            <span className="tax-source-chip tax-source-estimated">Estimated</span> ·{" "}
+            {taxProfile.taxYear} {taxProfile.state}
+          </small>
         </div>
         <div className="stat">
           <span>Already saved</span>
@@ -337,66 +354,72 @@ export function TaxCenterStudio() {
           <section className="panel">
             <h2>Tax estimate dashboard</h2>
             <p className="panel-lead">
-              Live view of income, expenses, taxable profit, and what you still need to set aside.
-              Recalculated {taxEstimate.lastRecalc}.
+              Calculated for tax year {taxProfile.taxYear}, {taxProfile.filingStatus},{" "}
+              {taxProfile.businessStructure}, {taxProfile.state}. Recalculated{" "}
+              {taxEstimate.lastRecalc}.
             </p>
             <div className="list">
               <div className="list-row">
-                <span className="badge">Income</span>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
                 <p>
                   <strong>{taxEstimate.totalIncome}</strong>
                   <small className="muted-line"> Total income YTD</small>
                 </p>
               </div>
               <div className="list-row">
-                <span className="badge">Expenses</span>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
                 <p>
                   <strong>{taxEstimate.businessExpenses}</strong>
                   <small className="muted-line"> Business expenses</small>
                 </p>
               </div>
               <div className="list-row">
-                <span className="badge ok">Profit</span>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
                 <p>
                   <strong>{taxEstimate.taxableProfit}</strong>
                   <small className="muted-line"> Estimated taxable profit</small>
                 </p>
               </div>
               <div className="list-row">
-                <span className="badge">Federal</span>
-                <p>{taxEstimate.federalTax} estimated federal tax</p>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
+                <p>{taxEstimate.federalTax} federal tax</p>
               </div>
               <div className="list-row">
-                <span className="badge">State</span>
-                <p>{taxEstimate.stateTax} estimated state tax</p>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
+                <p>
+                  {taxEstimate.stateTax} state tax ({taxProfile.state})
+                </p>
               </div>
               <div className="list-row">
-                <span className="badge">SE tax</span>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
                 <p>{taxEstimate.selfEmploymentTax} self-employment tax</p>
               </div>
               <div className="list-row">
-                <span className="badge ok">Credits</span>
+                <span className="tax-source-chip tax-source-suggestion">AI suggestion</span>
                 <p>{taxEstimate.taxCredits} estimated tax credits</p>
               </div>
               <div className="list-row">
-                <span className="badge">Paid</span>
-                <p>{taxEstimate.taxesPaid} taxes already paid / saved</p>
+                <span className="tax-source-chip tax-source-filed">Officially filed</span>
+                <p>{taxEstimate.taxesPaid} taxes already paid / confirmed</p>
               </div>
               <div className="list-row">
-                <span className="badge warn">Remaining</span>
+                <span className="tax-source-chip tax-source-estimated">Estimated</span>
                 <p>
-                  <strong>{taxEstimate.remainingBalance}</strong> estimated remaining balance
+                  <strong>{taxEstimate.remainingBalance}</strong> remaining balance
                 </p>
               </div>
             </div>
             <div className="confirm-card" style={{ marginTop: "1rem" }}>
-              <div className="agent-tag">Savings plan</div>
+              <div className="agent-tag">Savings plan · planning only</div>
               <p>
                 Estimated taxes owed: <strong>{taxEstimate.estimatedOwed}</strong>
                 <br />
                 Already saved: <strong>{taxEstimate.alreadySaved}</strong>
                 <br />
                 Additional amount recommended: <strong>{taxEstimate.recommendedSave}</strong>
+              </p>
+              <p className="muted-line" style={{ marginTop: "0.55rem" }}>
+                {taxProfile.disclaimer}
               </p>
               <div className="train-actions">
                 <button
@@ -413,6 +436,9 @@ export function TaxCenterStudio() {
                 <button className="btn btn-outline" type="button" onClick={() => setMode("quarterly")}>
                   Open quarterly assistant
                 </button>
+                <button className="btn btn-outline" type="button" onClick={() => setMode("safety")}>
+                  View source labels
+                </button>
               </div>
             </div>
           </section>
@@ -423,7 +449,7 @@ export function TaxCenterStudio() {
               Atlas can move a percentage of each payment into a separate tax savings account.
             </p>
             <div className="memory-card">
-              <div className="label">Recommendation</div>
+              <div className="label">AI suggestion</div>
               <p>
                 Set aside <strong>{taxEstimate.autosavePercent}%</strong> of each customer payment
                 into <strong>{taxEstimate.taxSavingsAccount}</strong> so quarterly estimates stay
@@ -1007,6 +1033,20 @@ export function TaxCenterStudio() {
           </section>
         </div>
       ) : null}
+
+      {mode === "tiers" ? (
+        <TaxTiersPanel
+          selectedTier={selectedTier}
+          setSelectedTier={setSelectedTier}
+          onOpenPro={() => setMode("pro")}
+          note={note}
+          setNote={setNote}
+        />
+      ) : null}
+
+      {mode === "pro" ? <TaxProPanel note={note} setNote={setNote} /> : null}
+
+      {mode === "safety" ? <TaxSafetyLedgerPanel /> : null}
 
       {mode === "documents" ? <TaxDocumentsPanel note={note} setNote={setNote} /> : null}
 

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   taxDocuments,
+  taxInformationLedger,
   taxInterviewQuestions,
   taxPayroll,
   taxPayrollItems,
@@ -10,6 +11,10 @@ import {
   taxPortalPro,
   taxPortalTransactions,
   taxPrepPackageParts,
+  taxProClients,
+  taxProductTiers,
+  taxProfile,
+  taxSafetyLayers,
   taxSmartAlerts,
 } from "@/lib/atlas-platform";
 
@@ -21,7 +26,8 @@ function tone(status: string) {
     status === "Authorized" ||
     status === "Exported" ||
     status === "Yes" ||
-    status === "Acked"
+    status === "Acked" ||
+    status === "Pro approved"
   ) {
     return "ok";
   }
@@ -36,7 +42,10 @@ function tone(status: string) {
     status === "Warn" ||
     status === "Action" ||
     status === "No" ||
-    status === "Staged"
+    status === "Staged" ||
+    status === "Needs review" ||
+    status === "Interview open" ||
+    status === "Docs missing"
   ) {
     return "warn";
   }
@@ -46,6 +55,274 @@ function tone(status: string) {
 function Badge({ status }: { status: string }) {
   const t = tone(status);
   return <span className={`badge${t === "ok" ? " ok" : t === "warn" ? " warn" : ""}`}>{status}</span>;
+}
+
+export function TaxSafetyBanner() {
+  return (
+    <div className="tax-safety-banner">
+      <div className="tax-safety-banner-head">
+        <strong>Safety design</strong>
+        <span>
+          {taxProfile.taxYear} · {taxProfile.filingStatus} · {taxProfile.businessStructure} ·{" "}
+          {taxProfile.state}
+        </span>
+      </div>
+      <p className="tax-safety-disclaimer">{taxProfile.disclaimer}</p>
+      <div className="tax-source-row">
+        {taxSafetyLayers.map((layer) => (
+          <span
+            key={layer.id}
+            className={`tax-source-chip tax-source-${layer.id}`}
+            title={layer.meaning}
+          >
+            {layer.label}
+          </span>
+        ))}
+      </div>
+      <small className="muted-line">Rules: {taxProfile.rulesVersion}</small>
+    </div>
+  );
+}
+
+export function TaxTiersPanel({
+  selectedTier,
+  setSelectedTier,
+  onOpenPro,
+  note,
+  setNote,
+}: {
+  selectedTier: string;
+  setSelectedTier: (id: string) => void;
+  onOpenPro: () => void;
+  note: string | null;
+  setNote: (value: string | null) => void;
+}) {
+  const selected = taxProductTiers.find((t) => t.id === selectedTier) ?? taxProductTiers[2];
+
+  return (
+    <div className="split">
+      <section className="panel">
+        <h2>Product tiers</h2>
+        <p className="panel-lead">
+          Choose the Atlas Tax surface that matches how you earn — or open Tax Pro if you manage
+          clients.
+        </p>
+        <div className="list">
+          {taxProductTiers.map((tier) => (
+            <button
+              key={tier.id}
+              type="button"
+              className={selectedTier === tier.id ? "compliance-row active" : "compliance-row"}
+              onClick={() => {
+                setSelectedTier(tier.id);
+                setNote(`Viewing ${tier.name}.`);
+                if (tier.id === "pro") onOpenPro();
+              }}
+            >
+              <span className={`badge${selectedTier === tier.id ? " ok" : ""}`}>
+                {selectedTier === tier.id ? "Selected" : "Tier"}
+              </span>
+              <div>
+                <p>
+                  <strong>{tier.name}</strong>
+                </p>
+                <small className="muted-line">
+                  {tier.audience} · {tier.price}
+                </small>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>{selected.name}</h2>
+        <p className="panel-lead">{selected.audience}</p>
+        <div className="list">
+          {selected.includes.map((item) => (
+            <div className="list-row" key={item}>
+              <span className="badge ok">Includes</span>
+              <p>{item}</p>
+            </div>
+          ))}
+        </div>
+        <div className="memory-card" style={{ marginTop: "1rem" }}>
+          <div className="label">Safety across every tier</div>
+          <p>
+            Estimated · AI suggestion · Accountant-reviewed · Officially filed stay labeled.{" "}
+            {taxProfile.disclaimer}
+          </p>
+        </div>
+        <div className="train-actions">
+          {selected.id === "pro" ? (
+            <button className="btn btn-dark" type="button" onClick={onOpenPro}>
+              Open Tax Pro dashboard
+            </button>
+          ) : (
+            <button
+              className="btn btn-dark"
+              type="button"
+              onClick={() => setNote(`${selected.name} is active for this demo workspace.`)}
+            >
+              Use {selected.name.split(" ").slice(-2).join(" ")}
+            </button>
+          )}
+        </div>
+        {note ? (
+          <p className="muted-line" style={{ marginTop: "0.85rem" }}>
+            {note}
+          </p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+export function TaxProPanel({
+  note,
+  setNote,
+}: {
+  note: string | null;
+  setNote: (value: string | null) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string>(taxProClients[0].id);
+  const [requested, setRequested] = useState<Record<string, boolean>>({});
+  const selected = taxProClients.find((c) => c.id === selectedId) ?? taxProClients[0];
+
+  return (
+    <div className="split">
+      <section className="panel">
+        <h2>Atlas Tax Pro</h2>
+        <p className="panel-lead">
+          Dashboard for accountants managing multiple Atlas customers — review queues, document
+          requests, packages, and audit-ready handoffs.
+        </p>
+        <div className="list">
+          {taxProClients.map((client) => (
+            <button
+              key={client.id}
+              type="button"
+              className={selectedId === client.id ? "compliance-row active" : "compliance-row"}
+              onClick={() => setSelectedId(client.id)}
+            >
+              <Badge status={client.status} />
+              <div>
+                <p>
+                  <strong>{client.business}</strong>
+                </p>
+                <small className="muted-line">
+                  {client.tier} · {client.openItems} open · {client.lastActive}
+                </small>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>{selected.business}</h2>
+        <div className="list">
+          <div className="list-row">
+            <span className="badge">Tier</span>
+            <p>{selected.tier}</p>
+          </div>
+          <div className="list-row">
+            <Badge status={selected.status} />
+            <p>Client status</p>
+          </div>
+          <div className="list-row">
+            <span className="badge">Package</span>
+            <p>{selected.package}</p>
+          </div>
+          <div className="list-row">
+            <span className="badge warn">Open items</span>
+            <p>{selected.openItems}</p>
+          </div>
+        </div>
+        <div className="train-actions">
+          <button
+            className="btn btn-dark"
+            type="button"
+            onClick={() => {
+              setRequested((prev) => ({ ...prev, [selected.id]: true }));
+              setNote(`Document request sent to ${selected.business}. Logged on audit trail.`);
+            }}
+          >
+            {requested[selected.id] ? "Request sent" : "Request missing documents"}
+          </button>
+          <button
+            className="btn btn-outline"
+            type="button"
+            onClick={() =>
+              setNote(
+                `Downloaded staged package for ${selected.business}. Client authorization still required before any filing.`,
+              )
+            }
+          >
+            Download client package
+          </button>
+        </div>
+        <div className="confirm-card" style={{ marginTop: "1rem" }}>
+          <div className="agent-tag">Client authorization</div>
+          <p>
+            Tax Pro can prepare and review. Atlas will not file for any customer without that
+            customer’s explicit authorization.
+          </p>
+        </div>
+        {note ? (
+          <p className="muted-line" style={{ marginTop: "0.85rem" }}>
+            {note}
+          </p>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
+export function TaxSafetyLedgerPanel() {
+  return (
+    <section className="panel">
+      <h2>Information sources</h2>
+      <p className="panel-lead">
+        Every figure is labeled so estimated math, AI suggestions, accountant review, and filed
+        facts stay separate.
+      </p>
+      <div className="list">
+        {taxSafetyLayers.map((layer) => (
+          <div className="list-row" key={layer.id}>
+            <span className={`tax-source-chip tax-source-${layer.id}`}>{layer.label}</span>
+            <p>{layer.meaning}</p>
+          </div>
+        ))}
+      </div>
+      <h2 style={{ marginTop: "1.25rem" }}>Live ledger</h2>
+      <div className="list">
+        {taxInformationLedger.map((row) => (
+          <div className="list-row" key={row.id}>
+            <span
+              className={`tax-source-chip tax-source-${
+                row.layer === "Estimated"
+                  ? "estimated"
+                  : row.layer === "AI suggestion"
+                    ? "suggestion"
+                    : row.layer === "Accountant-reviewed"
+                      ? "accountant"
+                      : "filed"
+              }`}
+            >
+              {row.layer}
+            </span>
+            <div>
+              <p>
+                <strong>{row.item}</strong>
+              </p>
+              <small className="muted-line">{row.detail}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export function TaxDocumentsPanel({
@@ -413,6 +690,17 @@ export function TaxPortalPanel({
                 <small className="muted-line">
                   {tx.category} · {tx.note}
                 </small>
+                <div style={{ marginTop: "0.35rem" }}>
+                  <span
+                    className={`tax-source-chip ${
+                      tx.status === "Approved"
+                        ? "tax-source-accountant"
+                        : "tax-source-suggestion"
+                    }`}
+                  >
+                    {tx.status === "Approved" ? "Accountant-reviewed" : "AI suggestion"}
+                  </span>
+                </div>
                 <div className="train-actions">
                   <button
                     className="btn btn-outline"

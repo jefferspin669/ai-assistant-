@@ -2013,3 +2013,78 @@ button.linkish:hover {
     transition: none !important;
   }
 }
+
+.tax-safety-banner {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: 14px;
+  border: 1px solid rgba(47, 143, 138, 0.28);
+  background: linear-gradient(160deg, rgba(47, 143, 138, 0.08), rgba(217, 164, 65, 0.1));
+}
+
+.tax-safety-banner-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.tax-safety-banner-head strong {
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--teal-deep);
+}
+
+.tax-safety-banner-head span,
+.tax-safety-disclaimer {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.tax-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tax-source-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.tax-source-estimated {
+  border-color: rgba(47, 143, 138, 0.35);
+  background: rgba(47, 143, 138, 0.1);
+  color: var(--teal-deep);
+}
+
+.tax-source-suggestion {
+  border-color: rgba(217, 164, 65, 0.45);
+  background: rgba(217, 164, 65, 0.14);
+  color: #8a5a10;
+}
+
+.tax-source-accountant {
+  border-color: rgba(70, 110, 180, 0.4);
+  background: rgba(70, 110, 180, 0.12);
+  color: #2f4f8a;
+}
+
+.tax-source-filed {
+  border-color: rgba(40, 120, 70, 0.4);
+  background: rgba(40, 120, 70, 0.12);
+  color: #1f6b3a;
+}

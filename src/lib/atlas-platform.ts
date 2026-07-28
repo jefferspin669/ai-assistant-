@@ -592,6 +592,160 @@ export const taxEstimate = {
   lastRecalc: "Today · after Harbor Dental invoice",
 } as const;
 
+export const taxProfile = {
+  taxYear: "2026",
+  filingStatus: "Married filing jointly",
+  businessStructure: "Single-member LLC (Schedule C)",
+  state: "Arizona",
+  rulesVersion: "IRS + AZ TY2026 rules · refreshed Mar 1, 2026",
+  disclaimer:
+    "Estimates are planning tools only. They are not a filed return. Figures are not final until reviewed or filed through an authorized tax professional or filing provider.",
+} as const;
+
+export const taxSafetyLayers = [
+  {
+    id: "estimated",
+    label: "Estimated",
+    meaning: "Atlas calculations using your profile, income, and current tax rules — planning only.",
+  },
+  {
+    id: "suggestion",
+    label: "AI suggestion",
+    meaning: "Model recommendations (deductions, splits, flags). Never claimed until you or a pro confirm.",
+  },
+  {
+    id: "accountant",
+    label: "Accountant-reviewed",
+    meaning: "Corrected or approved by an invited tax professional in the Portal.",
+  },
+  {
+    id: "filed",
+    label: "Officially filed",
+    meaning: "Submitted through an authorized filing provider or your professional — with your authorization.",
+  },
+] as const;
+
+export const taxInformationLedger = [
+  {
+    id: "led-1",
+    item: "Federal tax $5,120",
+    layer: "Estimated" as const,
+    detail: "TY2026 · MFJ · AZ · Schedule C rules",
+  },
+  {
+    id: "led-2",
+    item: "Home-office possible",
+    layer: "AI suggestion" as const,
+    detail: "Interview + Target/Amazon receipts — Needs Review",
+  },
+  {
+    id: "led-3",
+    item: "Verizon 80/20 split",
+    layer: "Accountant-reviewed" as const,
+    detail: "Maya Rivera, CPA corrected category",
+  },
+  {
+    id: "led-4",
+    item: "Q1 estimate payment $1,800",
+    layer: "Officially filed" as const,
+    detail: "IRS Direct Pay confirmation IRS-Q1-88421",
+  },
+] as const;
+
+export const taxProductTiers = [
+  {
+    id: "personal",
+    name: "Atlas Personal Tax",
+    audience: "W-2 workers, students, homeowners, and families",
+    includes: [
+      "W-2 & personal income tracking",
+      "Mortgage, student loan, and health forms",
+      "Estimate dashboard + Smart Alerts",
+      "Tax Interview for credits & deductions",
+      "Tax Preparation Package export",
+    ],
+    price: "Included with Personal AI",
+  },
+  {
+    id: "freelancer",
+    name: "Atlas Freelancer Tax",
+    audience: "Contractors, creators, delivery drivers, and 1099 workers",
+    includes: [
+      "Everything in Personal",
+      "1099 / processor income sync",
+      "Mileage tracker & vehicle expense",
+      "Quarterly estimated tax assistant",
+      "Receipt deductions with Needs Review",
+    ],
+    price: "Freelancer plan",
+  },
+  {
+    id: "business",
+    name: "Atlas Business Tax",
+    audience: "LLCs, small businesses, payroll, sales tax, and accountant collaboration",
+    includes: [
+      "Everything in Freelancer",
+      "Multi-source business income",
+      "Payroll & Tax add-on hooks",
+      "Sales tax collected / due",
+      "Tax Professional Portal",
+    ],
+    price: "Business plan",
+  },
+  {
+    id: "pro",
+    name: "Atlas Tax Pro",
+    audience: "Accountants managing multiple Atlas customers",
+    includes: [
+      "Multi-client dashboard",
+      "Review queues across customers",
+      "Document requests at scale",
+      "Package downloads & audit trails",
+      "Never file without client authorization",
+    ],
+    price: "Pro / firm seat",
+  },
+] as const;
+
+export const taxProClients = [
+  {
+    id: "cli-1",
+    business: "Desert Air HVAC",
+    tier: "Business",
+    status: "Needs review" as const,
+    openItems: 5,
+    package: "Staged",
+    lastActive: "2 hr ago",
+  },
+  {
+    id: "cli-2",
+    business: "Elena Brooks · Freelancer",
+    tier: "Freelancer",
+    status: "Interview open" as const,
+    openItems: 2,
+    package: "Not started",
+    lastActive: "Yesterday",
+  },
+  {
+    id: "cli-3",
+    business: "Harbor Dental LLC",
+    tier: "Business",
+    status: "Pro approved" as const,
+    openItems: 0,
+    package: "Ready · awaiting client auth",
+    lastActive: "Today",
+  },
+  {
+    id: "cli-4",
+    business: "Jordan Lee · W-2",
+    tier: "Personal",
+    status: "Docs missing" as const,
+    openItems: 3,
+    package: "Blocked",
+    lastActive: "3 days ago",
+  },
+] as const;
+
 export const taxQuarterlyPayments = [
   {
     id: "q1",
@@ -943,6 +1097,12 @@ export const taxSmartAlerts = [
 
 export function taxCenterReply(prompt: string): string {
   const q = prompt.toLowerCase();
+  if (q.includes("personal tax") || q.includes("freelancer tax") || q.includes("business tax") || q.includes("tax pro") || q.includes("product tier")) {
+    return "Atlas Tax tiers: Personal (W-2 & families), Freelancer (1099 & mileage), Business (LLC, payroll, CPA portal), and Tax Pro (accountants managing many Atlas customers). Open Tiers to compare.";
+  }
+  if (q.includes("disclaimer") || q.includes("planning tool") || q.includes("estimated") || q.includes("safety")) {
+    return "Atlas separates Estimated, AI suggestion, Accountant-reviewed, and Officially filed data. Estimates use tax year, filing status, structure, state, and current rules — planning tools until reviewed or filed through an authorized professional.";
+  }
   if (
     (q.includes("chicago") || q.includes("trip")) &&
     (q.includes("business") || q.includes("mileage") || q.includes("mark"))
@@ -998,7 +1158,7 @@ export function taxCenterReply(prompt: string): string {
   if (q.includes("deduct") || q.includes("fuel")) {
     return "Likely deductions this month include fuel, mileage, equipment, software, ads, office supplies, insurance, CPA fees, and training. Home-office items stay in Needs Review.";
   }
-  return "Tax Center covers estimates, documents, interview, accountant portal, payroll taxes, alerts, quarterly payments, mileage, and filing — Atlas never submits a return without your review and authorization.";
+  return "Tax Center separates estimates, AI suggestions, accountant-reviewed, and filed data across Personal, Freelancer, Business, and Tax Pro tiers — Atlas never submits a return without your review and authorization.";
 }
 
 export const inventoryItems = [

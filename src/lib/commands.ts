@@ -239,6 +239,12 @@ export function runOwnerCommand(input: string): CommandResult {
       "payroll and tax",
       "smart tax alert",
       "tax preparation package",
+      "personal tax",
+      "freelancer tax",
+      "business tax",
+      "tax pro",
+      "planning tool",
+      "disclaimer",
     ])
   ) {
     return {
@@ -246,7 +252,7 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Tax Center",
       needsConfirm: false,
       reply:
-        "Tax Center can run an AI interview, build a Tax Preparation Package, invite your CPA via the Professional Portal, track Payroll & Tax (add-on), and fire Smart Tax Alerts — Atlas never files without your authorization.",
+        "Atlas Tax tiers: Personal, Freelancer, Business, and Tax Pro. Figures are labeled Estimated, AI suggestion, Accountant-reviewed, or Officially filed — estimates are planning tools until reviewed or filed. Atlas never files without your authorization.",
     };
   }
 
