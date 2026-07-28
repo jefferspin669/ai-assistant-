@@ -11,9 +11,9 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
+          <a href="#mission">Mission</a>
           <a href="#command-language">Command Language</a>
-          <a href="#governance">Trust & Governance</a>
-          <a href="#customer-twin">Customer Twin</a>
+          <a href="#governance">Trust</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
           </Link>
@@ -34,28 +34,57 @@ export default function HomePage() {
           <p className="brand-mark">
             Atlas <span>AI</span>
           </p>
-          <h1>Everyone deserves an AI employee.</h1>
+          <h1>Every business deserves an intelligent workforce, regardless of its size.</h1>
           <p>
-            Atlas — Your AI Workforce. Not one chatbot. An ecosystem of helpers for individuals,
-            families, events, businesses, nonprofits, and schools.
+            We don’t just sell software. We build the AI workforce any company can run — purpose
+            beyond technology.
           </p>
           <div className="cta-row">
             <Link className="btn btn-primary" href="/onboarding">
-              Choose who Atlas helps
+              Build your workforce
             </Link>
-            <Link className="btn btn-ghost" href="/app">
-              Open the business beachhead
+            <Link className="btn btn-ghost" href="#mission">
+              Read the mission
             </Link>
           </div>
           <div className="exchange" aria-label="Atlas examples">
-            <div className="exchange-line exchange-owner">“Atlas, plan my daughter’s birthday.”</div>
-            <div className="exchange-line exchange-reply">“How many guests are you expecting?”</div>
+            <div className="exchange-line exchange-owner">
+              “We’re five people. Can Atlas really staff us?”
+            </div>
+            <div className="exchange-line exchange-reply">
+              “Yes — size shouldn’t decide who gets an intelligent workforce.”
+            </div>
           </div>
         </div>
       </header>
 
       <main>
-        <section className="section" id="everyone">
+        <section className="section" id="mission">
+          <div className="container">
+            <div className="section-head">
+              <h2>Atlas Mission</h2>
+              <p>Don’t just sell software. Build around a mission.</p>
+            </div>
+            <div className="mission-band">
+              <p className="mission-kicker">Our purpose</p>
+              <h2>Every business deserves an intelligent workforce, regardless of its size.</h2>
+              <p>
+                Enterprise tools used to be reserved for companies with huge budgets and IT teams.
+                Atlas exists so a five-person HVAC shop, a family clinic, or a growing franchise can
+                run with the same kind of intelligent workforce — digital employees, memory, and
+                judgment — that used to be out of reach. That message is the company. Technology is
+                how we deliver it.
+              </p>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/mission">
+                Open the mission inside Atlas
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="everyone" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
               <h2>One platform. Many kinds of help.</h2>
@@ -85,9 +114,9 @@ export default function HomePage() {
               <div>
                 <h2>Your AI Workforce</h2>
                 <p>
-                  Personal AI for life admin. Event AI for celebrations. Business AI for the front
-                  desk. Digital employees share one business memory — plus a marketplace and industry
-                  packs.
+                  Built for the mission: digital employees that share one business memory — so a
+                  small shop can run with the same intelligent workforce energy as a much larger
+                  company. Marketplace and industry packs help you specialize.
                 </p>
                 <div className="cta-row">
                   <Link className="btn btn-primary" href="/app/digital-employees">
@@ -440,11 +469,10 @@ export default function HomePage() {
         <section className="section" id="beachhead" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Start focused. Expand later.</h2>
+              <h2>Start where the mission bites hardest.</h2>
               <p>
-                Launch beachhead: small service businesses that need an AI receptionist and
-                scheduling. Once that wins, expand into personal assistants and celebration planning
-                on the same platform.
+                Small service businesses feel the gap first — no IT army, still drowning in calls and
+                scheduling. Win there, then expand on the same platform.
               </p>
             </div>
             <div className="roadmap">
@@ -462,17 +490,17 @@ export default function HomePage() {
         </section>
 
         <section className="container final-cta">
-          <h2>Everyone deserves an AI employee.</h2>
-          <p>Start with business. Grow into life, family, and events.</p>
+          <h2>Every business deserves an intelligent workforce, regardless of its size.</h2>
+          <p>Don’t just buy software. Join the mission.</p>
           <Link className="btn btn-dark" href="/onboarding">
-            Create your first AI helper
+            Create your AI workforce
           </Link>
         </section>
       </main>
 
       <footer className="container footer">
-        <span>Atlas — Your AI Workforce</span>
-        <span>Beachhead: small service businesses</span>
+        <span>Atlas — intelligent workforce for every size</span>
+        <span>Mission over features</span>
       </footer>
     </div>
   );

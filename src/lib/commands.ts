@@ -107,6 +107,16 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["mission", "regardless of its size", "deserve an intelligent", "purpose beyond"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas Mission",
+      needsConfirm: false,
+      reply:
+        "Our mission: every business deserves an intelligent workforce, regardless of its size. We don’t just sell software — that purpose guides product, pricing, and who we build for first.",
+    };
+  }
+
   if (includesAny(q, ["facebook ads", "command language", "vip customer", "plain english automation"])) {
     return {
       agent: "ceo",
