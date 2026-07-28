@@ -217,6 +217,16 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["tax center", "tax prep", "needs review", "receipt", "deduction", "1099", "w-2"])) {
+    return {
+      agent: "finance",
+      agentLabel: "Tax Center",
+      needsConfirm: false,
+      reply:
+        "Tax Center is syncing income from banks, payroll, Stripe, Square, Venmo, Cash App, QuickBooks, and Atlas invoices. Three expenses are in Needs Review — Atlas won’t claim uncertain deductions until you approve. Open Tax Center to review.",
+    };
+  }
+
   if (includesAny(q, ["autonomous", "work continuously", "without me", "on its own"])) {
     return {
       agent: "ceo",
