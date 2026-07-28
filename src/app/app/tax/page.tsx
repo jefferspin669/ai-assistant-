@@ -5,7 +5,7 @@ export default function TaxCenterPage() {
   return (
     <AppShell
       title="Atlas Tax Center"
-      subtitle="Estimates, quarterly payments, mileage, Tax-Time Mode, income sync, and receipt deductions — with Needs Review for anything uncertain."
+      subtitle="Estimates, documents, interview, accountant portal, payroll taxes, alerts, quarterly payments, mileage, and Tax-Time — Atlas never files without your authorization."
     >
       <TaxCenterStudio />
     </AppShell>

@@ -768,6 +768,179 @@ export const taxFilingChecklist = [
   },
 ] as const;
 
+export const taxDocuments = [
+  { id: "doc-w2", name: "W-2 — Gusto wages", kind: "W-2", status: "Collected" as const, detail: "Mar 1–15 · Personal" },
+  { id: "doc-1099a", name: "1099-NEC — Rivera Properties", kind: "1099", status: "Collected" as const, detail: "$2,100 contractor income" },
+  { id: "doc-1099b", name: "1099-K — Stripe / Square", kind: "1099", status: "Missing" as const, detail: "Request from processors" },
+  { id: "doc-biz", name: "Business income report YTD", kind: "Business income", status: "Collected" as const, detail: "Atlas + QuickBooks sync" },
+  { id: "doc-mort", name: "Mortgage interest Form 1098", kind: "Mortgage", status: "Missing" as const, detail: "Home-office allocation may apply" },
+  { id: "doc-loan", name: "Student loan interest Form 1098-E", kind: "Student loan", status: "Collected" as const, detail: "Uploaded Jan 12" },
+  { id: "doc-health", name: "Form 1095-A / health insurance", kind: "Health insurance", status: "Missing" as const, detail: "Marketplace or employer copy" },
+  { id: "doc-veh", name: "Vehicle info — Transit + Camry", kind: "Vehicle", status: "Collected" as const, detail: "Business % · mileage logs linked" },
+  { id: "doc-est", name: "Estimated tax payments Q1–Q4", kind: "Estimated taxes", status: "Partial" as const, detail: "Q1 confirmation saved; Q2–Q4 pending" },
+  { id: "doc-recv", name: "Receipts & deductions pack", kind: "Receipts", status: "Partial" as const, detail: "3 expenses still Needs Review" },
+  { id: "doc-prior", name: "Prior-year tax return (2025)", kind: "Prior return", status: "Collected" as const, detail: "PDF from Rivera CPA" },
+] as const;
+
+export const taxPrepPackageParts = [
+  { id: "pkg-inc", title: "Income summary", detail: "W-2, 1099, invoices, processors — by business & type" },
+  { id: "pkg-exp", title: "Expense summary", detail: "Categorized business expenses with sales tax" },
+  { id: "pkg-ded", title: "Deduction report", detail: "Approved deductions; Needs Review excluded" },
+  { id: "pkg-mi", title: "Mileage report", detail: "Business miles, purpose, start/end, vehicle expense" },
+  { id: "pkg-q", title: "Quarterly payment history", detail: "Estimates, paid amounts, confirmations, receipts" },
+  { id: "pkg-miss", title: "Missing-document checklist", detail: "1099-K, 1098, 1095-A, and open reviews" },
+  { id: "pkg-pdf", title: "Accountant-ready PDF", detail: "Printable package for CPA handoff" },
+  { id: "pkg-xls", title: "Spreadsheet export", detail: "CSV / XLSX transaction & mileage workbooks" },
+] as const;
+
+export const taxInterviewQuestions = [
+  {
+    id: "iq-equip",
+    question: "Did you purchase any equipment for your business this year?",
+    hint: "Tools, truck stock, computers, or major gear",
+    yesFlag: "Equipment purchases flagged — link receipts and asset list",
+    noFlag: "No equipment purchases noted for this year",
+  },
+  {
+    id: "iq-home",
+    question: "Did you work from a dedicated area of your home?",
+    hint: "Exclusive-use space for home-office deduction",
+    yesFlag: "Home-office worksheet opened — need sq ft and exclusive use",
+    noFlag: "Home-office deduction not claimed",
+  },
+  {
+    id: "iq-qtr",
+    question: "Did you make any quarterly estimated payments?",
+    hint: "1040-ES or state estimates",
+    yesFlag: "Quarterly assistant linked — confirm Q1 top-up and upcoming dues",
+    noFlag: "No estimated payments recorded — underpayment risk flagged",
+  },
+  {
+    id: "iq-veh",
+    question: "Was this vehicle used for both personal and business travel?",
+    hint: "Camry and Transit mixed-use classification",
+    yesFlag: "Mixed-use vehicle — keep mileage logs split by purpose",
+    noFlag: "Vehicle marked business-only for deduction tracking",
+  },
+] as const;
+
+export const taxPortalPro = {
+  name: "Maya Rivera, CPA",
+  firm: "Rivera Tax Advisors",
+  email: "maya@riveratax.example",
+  access: "Review · correct · request docs · notes · approve",
+  invited: true,
+} as const;
+
+export const taxPortalTransactions = [
+  {
+    id: "ptx-1",
+    merchant: "Verizon Wireless",
+    amount: "$142.18",
+    category: "Phone & internet",
+    note: "Suggest 80/20 business split",
+    status: "Needs correction" as const,
+  },
+  {
+    id: "ptx-2",
+    merchant: "Home Depot",
+    amount: "$214.88",
+    category: "Equipment",
+    note: "OK — job stock",
+    status: "Approved" as const,
+  },
+  {
+    id: "ptx-3",
+    merchant: "Target",
+    amount: "$87.45",
+    category: "Unclear",
+    note: "Request itemized receipt",
+    status: "Docs requested" as const,
+  },
+] as const;
+
+export const taxPortalAudit = [
+  { id: "aud-1", when: "Mar 18 · 4:12 PM", actor: "Maya Rivera, CPA", action: "Requested document", detail: "Target itemized receipt" },
+  { id: "aud-2", when: "Mar 18 · 3:55 PM", actor: "Maya Rivera, CPA", action: "Corrected category", detail: "Verizon → Phone & internet (split)" },
+  { id: "aud-3", when: "Mar 17 · 9:02 AM", actor: "You", action: "Invited professional", detail: "maya@riveratax.example · view + edit" },
+  { id: "aud-4", when: "Mar 16 · 2:20 PM", actor: "Atlas", action: "Package staged", detail: "Draft Tax Preparation Package — awaiting your authorization" },
+] as const;
+
+export const taxPayroll = {
+  addon: "Atlas Payroll & Tax",
+  blurb: "Paid add-on for employee wages, withholding, employer taxes, contractors, filings, and sales tax.",
+  wagesYtd: "$128,400",
+  withholdingYtd: "$31,220",
+  employerTaxes: "$9,840",
+  contractorPayments: "$18,650",
+  salesTaxCollected: "$4,912",
+  salesTaxDue: "$1,280",
+  nextDeadline: "Apr 15 · Form 941",
+} as const;
+
+export const taxPayrollItems = [
+  { id: "pay-1", label: "Employee wages", value: "$128,400 YTD", status: "Tracked" as const, detail: "3 employees · Gusto sync" },
+  { id: "pay-2", label: "Payroll withholding", value: "$31,220", status: "Tracked" as const, detail: "Federal + state + FICA" },
+  { id: "pay-3", label: "Employer payroll taxes", value: "$9,840", status: "Due soon" as const, detail: "Next deposit Apr 15" },
+  { id: "pay-4", label: "Contractor payments", value: "$18,650", status: "Tracked" as const, detail: "1099 prep queue · 4 vendors" },
+  { id: "pay-5", label: "W-2 preparation", value: "Draft ready", status: "In progress" as const, detail: "Year-end packet staged" },
+  { id: "pay-6", label: "1099 preparation", value: "4 drafts", status: "In progress" as const, detail: "NEC + K matching" },
+  { id: "pay-7", label: "Payroll filing deadlines", value: "Apr 15 · 941", status: "Upcoming" as const, detail: "Atlas will warn 14 and 3 days prior" },
+  { id: "pay-8", label: "Sales tax collected", value: "$4,912", status: "Tracked" as const, detail: "AZ TPT on taxable services" },
+  { id: "pay-9", label: "Sales-tax payment due", value: "$1,280", status: "Due soon" as const, detail: "State + city add-ons" },
+] as const;
+
+export const taxSmartAlerts = [
+  {
+    id: "al-1",
+    title: "You received a new tax document.",
+    detail: "1099-NEC from Rivera Properties landed in Documents.",
+    severity: "Info" as const,
+  },
+  {
+    id: "al-2",
+    title: "Your quarterly payment deadline is approaching.",
+    detail: "Q2 estimated tax due Jun 15 — $2,100 from tax savings.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-3",
+    title: "This transaction may be deductible.",
+    detail: "Office Depot $54.18 — office supplies · Needs Review.",
+    severity: "Info" as const,
+  },
+  {
+    id: "al-4",
+    title: "Your tax savings balance is below the recommended amount.",
+    detail: "Saved $6,200 · recommend $8,450 · shortfall $2,250.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-5",
+    title: "Your business mileage has not been updated recently.",
+    detail: "Last auto-detect Mar 18 — confirm Chicago trip classification.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-6",
+    title: "Your income is significantly higher than last quarter.",
+    detail: "Q1 estimate may need to rise from $1,800 to $2,250.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-7",
+    title: "Three transactions still need categorization.",
+    detail: "Verizon, Target, and Amazon are in Needs Review.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-8",
+    title: "Your accountant requested another document.",
+    detail: "Maya Rivera, CPA asked for the Target itemized receipt.",
+    severity: "Action" as const,
+  },
+] as const;
+
 export function taxCenterReply(prompt: string): string {
   const q = prompt.toLowerCase();
   if (
@@ -775,6 +948,31 @@ export function taxCenterReply(prompt: string): string {
     (q.includes("business") || q.includes("mileage") || q.includes("mark"))
   ) {
     return "Marked yesterday’s trip to Chicago as business mileage (412.0 mi · Personal Camry). Added to your mileage report and estimated deduction at the current IRS rate.";
+  }
+  if (
+    q.includes("interview") ||
+    q.includes("equipment") ||
+    (q.includes("home") && q.includes("work")) ||
+    q.includes("dedicated")
+  ) {
+    return "Tax Interview updates your estimate from conversational answers — equipment, home office, quarterly payments, and mixed-use vehicles. Open Interview to continue.";
+  }
+  if (q.includes("accountant") || q.includes("preparer") || q.includes("portal") || q.includes("invite")) {
+    return "Tax Professional Portal lets you invite your CPA securely. They can review transactions, request docs, leave notes, and approve reports — Atlas never files without your authorization.";
+  }
+  if (
+    q.includes("payroll") ||
+    q.includes("withholding") ||
+    q.includes("sales tax") ||
+    (q.includes("w-2") && q.includes("prep"))
+  ) {
+    return "Atlas Payroll & Tax (paid add-on) tracks wages, withholding, employer taxes, contractors, W-2/1099 prep, filing deadlines, and sales tax obligations.";
+  }
+  if (q.includes("package") || q.includes("export") || q.includes("pdf") || q.includes("spreadsheet")) {
+    return "Tax Preparation Package includes income, expense, deduction, mileage, and quarterly summaries plus a missing-document checklist — export PDF and spreadsheet when you’re ready. You must authorize before any filing.";
+  }
+  if (q.includes("alert") || q.includes("deadline") || q.includes("document.")) {
+    return "Smart Tax Alerts watch documents, quarterly deadlines, deductible transactions, tax savings balance, mileage gaps, income spikes, uncategorized items, and accountant requests.";
   }
   if (q.includes("quarterly") || q.includes("estimated payment") || q.includes("1040-es")) {
     return "Q1 may need a top-up: income rose, so the estimate moved from $1,800 to $2,250 ($450 remaining). Q2 is due Jun 15 — Atlas will warn before the deadline.";
@@ -791,7 +989,7 @@ export function taxCenterReply(prompt: string): string {
   if (q.includes("review") || q.includes("uncertain")) {
     return "Three expenses are marked Needs Review — Verizon (personal vs business split), Target, and Amazon. Atlas will not claim them until you approve.";
   }
-  if (q.includes("income") || q.includes("stripe") || q.includes("w-2") || q.includes("1099")) {
+  if (q.includes("income") || q.includes("stripe") || q.includes("1099")) {
     return "Income is synced from banks, payroll, Stripe, Square, Venmo, Cash App, QuickBooks, and Atlas invoices — organized by business, job, client, and type. PayPal still needs re-auth.";
   }
   if (q.includes("receipt") || q.includes("upload") || q.includes("photo")) {
@@ -800,7 +998,7 @@ export function taxCenterReply(prompt: string): string {
   if (q.includes("deduct") || q.includes("fuel")) {
     return "Likely deductions this month include fuel, mileage, equipment, software, ads, office supplies, insurance, CPA fees, and training. Home-office items stay in Needs Review.";
   }
-  return "Tax Center covers estimates, quarterly payments, mileage, filing checklists, income sync, and receipt deductions. Uncertain items stay in Needs Review — nothing is claimed automatically.";
+  return "Tax Center covers estimates, documents, interview, accountant portal, payroll taxes, alerts, quarterly payments, mileage, and filing — Atlas never submits a return without your review and authorization.";
 }
 
 export const inventoryItems = [

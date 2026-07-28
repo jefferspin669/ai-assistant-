@@ -27,7 +27,7 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - **AI Trust & Governance** (`/app/governance`) — approvals, audit logs, RBAC, retention, compliance reports
 - **Customer Digital Twin** (`/app/customer-twin`) — living customer profiles for personalized interactions
 - **Atlas Mission** (`/app/mission`) — every business deserves an intelligent workforce, regardless of size
-- **Tax Center** (`/app/tax`) — estimates, quarterly assistant, mileage tracker, Tax-Time Mode, income sync, and receipt deductions with Needs Review
+- **Tax Center** (`/app/tax`) — estimates, documents & prep package, AI interview, CPA portal, payroll taxes add-on, smart alerts, quarterly assistant, mileage, Tax-Time Mode
 
 ## Atlas Brain
 

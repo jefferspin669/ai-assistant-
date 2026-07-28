@@ -2,6 +2,13 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import {
+  TaxAlertsPanel,
+  TaxDocumentsPanel,
+  TaxInterviewPanel,
+  TaxPayrollPanel,
+  TaxPortalPanel,
+} from "@/components/TaxCenterAdvanced";
+import {
   taxCenterReply,
   taxDeductionHints,
   taxEstimate,
@@ -11,6 +18,7 @@ import {
   taxIncomeSources,
   taxMileageTrips,
   taxQuarterlyPayments,
+  taxSmartAlerts,
 } from "@/lib/atlas-platform";
 
 type Mode =
@@ -19,6 +27,11 @@ type Mode =
   | "expenses"
   | "quarterly"
   | "mileage"
+  | "documents"
+  | "interview"
+  | "portal"
+  | "payroll"
+  | "alerts"
   | "filing"
   | "sources"
   | "review";
@@ -33,6 +46,11 @@ const modes: { id: Mode; label: string }[] = [
   { id: "expenses", label: "Expenses" },
   { id: "quarterly", label: "Quarterly" },
   { id: "mileage", label: "Mileage" },
+  { id: "documents", label: "Documents" },
+  { id: "interview", label: "Interview" },
+  { id: "portal", label: "Portal" },
+  { id: "payroll", label: "Payroll" },
+  { id: "alerts", label: "Alerts" },
   { id: "filing", label: "Tax-Time" },
   { id: "sources", label: "Sources" },
   { id: "review", label: "Needs Review" },
@@ -306,6 +324,10 @@ export function TaxCenterStudio() {
               <span className="hub-tab-count">{reviewCount}</span>
             ) : null}
             {item.id === "quarterly" ? <span className="hub-tab-count">1</span> : null}
+            {item.id === "alerts" ? (
+              <span className="hub-tab-count">{taxSmartAlerts.length}</span>
+            ) : null}
+            {item.id === "documents" ? <span className="hub-tab-count">3</span> : null}
           </button>
         ))}
       </div>
@@ -984,6 +1006,22 @@ export function TaxCenterStudio() {
             ) : null}
           </section>
         </div>
+      ) : null}
+
+      {mode === "documents" ? <TaxDocumentsPanel note={note} setNote={setNote} /> : null}
+
+      {mode === "interview" ? <TaxInterviewPanel note={note} setNote={setNote} /> : null}
+
+      {mode === "portal" ? <TaxPortalPanel note={note} setNote={setNote} /> : null}
+
+      {mode === "payroll" ? <TaxPayrollPanel note={note} setNote={setNote} /> : null}
+
+      {mode === "alerts" ? (
+        <TaxAlertsPanel
+          note={note}
+          setNote={setNote}
+          onOpen={(target) => setMode(target)}
+        />
       ) : null}
 
       {mode === "filing" ? (

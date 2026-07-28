@@ -229,6 +229,29 @@ export function runOwnerCommand(input: string): CommandResult {
 
   if (
     includesAny(q, [
+      "tax interview",
+      "purchase any equipment",
+      "dedicated area",
+      "work from home",
+      "invite accountant",
+      "tax portal",
+      "payroll & tax",
+      "payroll and tax",
+      "smart tax alert",
+      "tax preparation package",
+    ])
+  ) {
+    return {
+      agent: "finance",
+      agentLabel: "Tax Center",
+      needsConfirm: false,
+      reply:
+        "Tax Center can run an AI interview, build a Tax Preparation Package, invite your CPA via the Professional Portal, track Payroll & Tax (add-on), and fire Smart Tax Alerts — Atlas never files without your authorization.",
+    };
+  }
+
+  if (
+    includesAny(q, [
       "tax center",
       "tax prep",
       "needs review",
@@ -248,7 +271,7 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Tax Center",
       needsConfirm: false,
       reply:
-        "Tax Center estimate: $8,450 owed, $6,200 saved, $2,250 more recommended. Q1 may need a top-up from $1,800 to $2,250. Mileage and Tax-Time checklist are ready — open Tax Center.",
+        "Tax Center estimate: $8,450 owed, $6,200 saved, $2,250 more recommended. Documents, interview, CPA portal, payroll add-on, and alerts are ready — open Tax Center.",
     };
   }
 
