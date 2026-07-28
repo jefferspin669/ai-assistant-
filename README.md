@@ -27,6 +27,7 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - **AI Trust & Governance** (`/app/governance`) — approvals, audit logs, RBAC, retention, compliance reports
 - **Customer Digital Twin** (`/app/customer-twin`) — living customer profiles for personalized interactions
 - **Atlas Mission** (`/app/mission`) — every business deserves an intelligent workforce, regardless of size
+- **Tax Center** (`/app/tax`) — Personal / Freelancer / Business / Tax Pro tiers; Estimated vs AI suggestion vs Accountant-reviewed vs Officially filed; estimates use tax year, filing status, structure, state, and current rules with a planning-tool disclaimer
 
 ## Atlas Brain
 
@@ -59,6 +60,7 @@ npm run dev
 - AI Trust & Governance: `/app/governance`
 - Customer Digital Twin: `/app/customer-twin`
 - Atlas Mission: `/app/mission`
+- Tax Center: `/app/tax`
 - App Store / API: `/app/app-store`, `/app/developers`
 
 ## Runtime security

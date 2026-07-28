@@ -217,6 +217,70 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["chicago", "business mileage", "mark yesterday"])) {
+    return {
+      agent: "finance",
+      agentLabel: "Mileage Tracker",
+      needsConfirm: false,
+      reply:
+        "Marked yesterday’s trip to Chicago as business mileage (412.0 mi). It’s on your exportable mileage report and included in estimated deductions. Open Tax Center → Mileage to review.",
+    };
+  }
+
+  if (
+    includesAny(q, [
+      "tax interview",
+      "purchase any equipment",
+      "dedicated area",
+      "work from home",
+      "invite accountant",
+      "tax portal",
+      "payroll & tax",
+      "payroll and tax",
+      "smart tax alert",
+      "tax preparation package",
+      "personal tax",
+      "freelancer tax",
+      "business tax",
+      "tax pro",
+      "planning tool",
+      "disclaimer",
+    ])
+  ) {
+    return {
+      agent: "finance",
+      agentLabel: "Tax Center",
+      needsConfirm: false,
+      reply:
+        "Atlas Tax tiers: Personal, Freelancer, Business, and Tax Pro. Figures are labeled Estimated, AI suggestion, Accountant-reviewed, or Officially filed — estimates are planning tools until reviewed or filed. Atlas never files without your authorization.",
+    };
+  }
+
+  if (
+    includesAny(q, [
+      "tax center",
+      "tax prep",
+      "needs review",
+      "receipt",
+      "deduction",
+      "1099",
+      "w-2",
+      "quarterly",
+      "estimated tax",
+      "mileage",
+      "tax-time",
+      "tax time",
+    ])
+  ) {
+    return {
+      agent: "finance",
+      agentLabel: "Tax Center",
+      needsConfirm: false,
+      reply:
+        "Tax Center estimate: $8,450 owed, $6,200 saved, $2,250 more recommended. Documents, interview, CPA portal, payroll add-on, and alerts are ready — open Tax Center.",
+    };
+  }
+
   if (includesAny(q, ["autonomous", "work continuously", "without me", "on its own"])) {
     return {
       agent: "ceo",

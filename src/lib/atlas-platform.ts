@@ -41,6 +41,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/marketing", label: "Marketing AI" },
       { href: "/app/payments", label: "Payments" },
       { href: "/app/accountant", label: "Accountant Helper" },
+      { href: "/app/tax", label: "Tax Center" },
     ],
   },
   {
@@ -281,6 +282,884 @@ export const accountantTasks = [
   { task: "Payroll summary", detail: "Ready for Friday approve" },
   { task: "Cash flow forecast", detail: "Healthy for next 6 weeks" },
 ];
+
+export const taxIncomeSources = [
+  { id: "biz-bank", name: "Chase Business Checking", kind: "Business bank", status: "Connected" as const, lastSync: "2 min ago" },
+  { id: "pers-bank", name: "Ally Personal Checking", kind: "Personal bank", status: "Connected" as const, lastSync: "1 hr ago" },
+  { id: "payroll", name: "Gusto Payroll", kind: "Payroll", status: "Connected" as const, lastSync: "Today" },
+  { id: "stripe", name: "Stripe", kind: "Payments", status: "Connected" as const, lastSync: "5 min ago" },
+  { id: "square", name: "Square", kind: "Payments", status: "Connected" as const, lastSync: "12 min ago" },
+  { id: "paypal", name: "PayPal", kind: "Payments", status: "Needs auth" as const, lastSync: "—" },
+  { id: "venmo", name: "Venmo", kind: "Payments", status: "Connected" as const, lastSync: "Today" },
+  { id: "cashapp", name: "Cash App", kind: "Payments", status: "Connected" as const, lastSync: "3 hr ago" },
+  { id: "qb", name: "QuickBooks Online", kind: "Accounting", status: "Connected" as const, lastSync: "30 min ago" },
+  { id: "atlas-inv", name: "Atlas Invoices", kind: "Atlas", status: "Connected" as const, lastSync: "Live" },
+] as const;
+
+export const taxIncomeEntries = [
+  {
+    id: "inc-1",
+    amount: "$4,850.00",
+    date: "Mar 18",
+    source: "Atlas Invoices",
+    business: "Desert Air HVAC",
+    job: "Harbor Dental RTU repair",
+    client: "Harbor Dental",
+    incomeType: "Invoice",
+    status: "Categorized" as const,
+  },
+  {
+    id: "inc-2",
+    amount: "$1,240.00",
+    date: "Mar 17",
+    source: "Stripe",
+    business: "Desert Air HVAC",
+    job: "Online deposit — Martinez",
+    client: "Elena Martinez",
+    incomeType: "Card payment",
+    status: "Categorized" as const,
+  },
+  {
+    id: "inc-3",
+    amount: "$2,100.00",
+    date: "Mar 15",
+    source: "Chase Business Checking",
+    business: "Desert Air HVAC",
+    job: "Side contract — duct clean",
+    client: "Rivera Properties",
+    incomeType: "1099 / contractor",
+    status: "Categorized" as const,
+  },
+  {
+    id: "inc-4",
+    amount: "$620.00",
+    date: "Mar 14",
+    source: "Square",
+    business: "Desert Air HVAC",
+    job: "Same-day service call",
+    client: "Walk-in / Square",
+    incomeType: "Card payment",
+    status: "Categorized" as const,
+  },
+  {
+    id: "inc-5",
+    amount: "$3,400.00",
+    date: "Mar 12",
+    source: "Gusto Payroll",
+    business: "Personal",
+    job: "W-2 wages — Mar 1–15",
+    client: "—",
+    incomeType: "W-2",
+    status: "User entered" as const,
+  },
+  {
+    id: "inc-6",
+    amount: "$180.00",
+    date: "Mar 11",
+    source: "Venmo",
+    business: "Desert Air HVAC",
+    job: "Filter drop-off",
+    client: "Nina Alvarez",
+    incomeType: "P2P payment",
+    status: "Needs Review" as const,
+  },
+  {
+    id: "inc-7",
+    amount: "$95.00",
+    date: "Mar 10",
+    source: "Cash App",
+    business: "Desert Air HVAC",
+    job: "Diagnostic fee",
+    client: "Tom Chen",
+    incomeType: "P2P payment",
+    status: "Categorized" as const,
+  },
+  {
+    id: "inc-8",
+    amount: "$8,200.00",
+    date: "Mar 8",
+    source: "QuickBooks Online",
+    business: "Desert Air HVAC",
+    job: "Q1 retainer — Harbor",
+    client: "Harbor Dental",
+    incomeType: "Accounting sync",
+    status: "Categorized" as const,
+  },
+] as const;
+
+export const taxDeductionHints = [
+  "Business mileage",
+  "Fuel",
+  "Equipment",
+  "Software subscriptions",
+  "Advertising",
+  "Office supplies",
+  "Phone and internet",
+  "Business insurance",
+  "Professional services",
+  "Education and training",
+  "Home-office expenses",
+] as const;
+
+export const taxExpenses = [
+  {
+    id: "exp-1",
+    merchant: "Shell #4421",
+    date: "Mar 18",
+    amount: "$68.40",
+    salesTax: "$5.12",
+    category: "Fuel",
+    businessPurpose: "Truck fuel — job route day",
+    paymentMethod: "Business debit",
+    deduction: "Fuel",
+    status: "Categorized" as const,
+    confidence: 94,
+    receipt: "Photo · 9:14 AM",
+  },
+  {
+    id: "exp-2",
+    merchant: "Home Depot",
+    date: "Mar 17",
+    amount: "$214.88",
+    salesTax: "$16.11",
+    category: "Equipment",
+    businessPurpose: "Capacitors + fittings for truck stock",
+    paymentMethod: "Business card",
+    deduction: "Equipment",
+    status: "Categorized" as const,
+    confidence: 91,
+    receipt: "Photo · 4:02 PM",
+  },
+  {
+    id: "exp-3",
+    merchant: "Adobe Creative Cloud",
+    date: "Mar 16",
+    amount: "$59.99",
+    salesTax: "$0.00",
+    category: "Software",
+    businessPurpose: "Marketing creatives subscription",
+    paymentMethod: "Card on file",
+    deduction: "Software subscriptions",
+    status: "Categorized" as const,
+    confidence: 97,
+    receipt: "Email receipt",
+  },
+  {
+    id: "exp-4",
+    merchant: "Facebook Ads",
+    date: "Mar 15",
+    amount: "$320.00",
+    salesTax: "$0.00",
+    category: "Advertising",
+    businessPurpose: "Spring tune-up campaign",
+    paymentMethod: "Stripe card",
+    deduction: "Advertising",
+    status: "Categorized" as const,
+    confidence: 96,
+    receipt: "Platform export",
+  },
+  {
+    id: "exp-5",
+    merchant: "Staples",
+    date: "Mar 14",
+    amount: "$47.22",
+    salesTax: "$3.54",
+    category: "Office supplies",
+    businessPurpose: "Invoices, folders, toner",
+    paymentMethod: "Business debit",
+    deduction: "Office supplies",
+    status: "Categorized" as const,
+    confidence: 88,
+    receipt: "Upload · PDF",
+  },
+  {
+    id: "exp-6",
+    merchant: "Verizon Wireless",
+    date: "Mar 12",
+    amount: "$142.18",
+    salesTax: "$10.66",
+    category: "Phone & internet",
+    businessPurpose: "Field phones + hotspot",
+    paymentMethod: "Auto-pay",
+    deduction: "Phone and internet",
+    status: "Needs Review" as const,
+    confidence: 62,
+    receipt: "Bank match",
+  },
+  {
+    id: "exp-7",
+    merchant: "Hiscox Insurance",
+    date: "Mar 10",
+    amount: "$286.00",
+    salesTax: "$0.00",
+    category: "Insurance",
+    businessPurpose: "GL policy installment",
+    paymentMethod: "ACH",
+    deduction: "Business insurance",
+    status: "Categorized" as const,
+    confidence: 99,
+    receipt: "Accounting sync",
+  },
+  {
+    id: "exp-8",
+    merchant: "Rivera CPA",
+    date: "Mar 9",
+    amount: "$450.00",
+    salesTax: "$0.00",
+    category: "Professional services",
+    businessPurpose: "Q1 bookkeeping consult",
+    paymentMethod: "Business check",
+    deduction: "Professional services",
+    status: "Categorized" as const,
+    confidence: 98,
+    receipt: "Invoice PDF",
+  },
+  {
+    id: "exp-9",
+    merchant: "HVAC Excellence Course",
+    date: "Mar 7",
+    amount: "$199.00",
+    salesTax: "$0.00",
+    category: "Education",
+    businessPurpose: "EPA refresher for Sam",
+    paymentMethod: "Card",
+    deduction: "Education and training",
+    status: "Categorized" as const,
+    confidence: 93,
+    receipt: "Email receipt",
+  },
+  {
+    id: "exp-10",
+    merchant: "MileIQ · Mar week 2",
+    date: "Mar 16",
+    amount: "$186.40",
+    salesTax: "$0.00",
+    category: "Mileage",
+    businessPurpose: "248 business miles @ IRS rate",
+    paymentMethod: "Tracked",
+    deduction: "Business mileage",
+    status: "Categorized" as const,
+    confidence: 90,
+    receipt: "Mileage log",
+  },
+  {
+    id: "exp-11",
+    merchant: "Target",
+    date: "Mar 13",
+    amount: "$87.45",
+    salesTax: "$6.55",
+    category: "Unclear",
+    businessPurpose: "Mixed cart — possible home office",
+    paymentMethod: "Personal card",
+    deduction: "Home-office expenses",
+    status: "Needs Review" as const,
+    confidence: 41,
+    receipt: "Photo · blurry",
+  },
+  {
+    id: "exp-12",
+    merchant: "Amazon",
+    date: "Mar 11",
+    amount: "$129.99",
+    salesTax: "$9.75",
+    category: "Unclear",
+    businessPurpose: "Possible desk chair — home office?",
+    paymentMethod: "Personal card",
+    deduction: "Home-office expenses",
+    status: "Needs Review" as const,
+    confidence: 48,
+    receipt: "Email receipt",
+  },
+] as const;
+
+export type TaxExpenseStatus = (typeof taxExpenses)[number]["status"] | "Approved" | "Rejected";
+
+export const taxEstimate = {
+  totalIncome: "$186,400",
+  businessExpenses: "$42,180",
+  taxableProfit: "$144,220",
+  federalTax: "$5,120",
+  stateTax: "$1,840",
+  selfEmploymentTax: "$2,040",
+  taxCredits: "$550",
+  taxesPaid: "$6,200",
+  estimatedOwed: "$8,450",
+  alreadySaved: "$6,200",
+  remainingBalance: "$2,250",
+  recommendedSave: "$2,250",
+  autosavePercent: 25,
+  taxSavingsAccount: "Ally Tax Savings · ••4821",
+  lastRecalc: "Today · after Harbor Dental invoice",
+} as const;
+
+export const taxProfile = {
+  taxYear: "2026",
+  filingStatus: "Married filing jointly",
+  businessStructure: "Single-member LLC (Schedule C)",
+  state: "Arizona",
+  rulesVersion: "IRS + AZ TY2026 rules · refreshed Mar 1, 2026",
+  disclaimer:
+    "Estimates are planning tools only. They are not a filed return. Figures are not final until reviewed or filed through an authorized tax professional or filing provider.",
+} as const;
+
+export const taxSafetyLayers = [
+  {
+    id: "estimated",
+    label: "Estimated",
+    meaning: "Atlas calculations using your profile, income, and current tax rules — planning only.",
+  },
+  {
+    id: "suggestion",
+    label: "AI suggestion",
+    meaning: "Model recommendations (deductions, splits, flags). Never claimed until you or a pro confirm.",
+  },
+  {
+    id: "accountant",
+    label: "Accountant-reviewed",
+    meaning: "Corrected or approved by an invited tax professional in the Portal.",
+  },
+  {
+    id: "filed",
+    label: "Officially filed",
+    meaning: "Submitted through an authorized filing provider or your professional — with your authorization.",
+  },
+] as const;
+
+export const taxInformationLedger = [
+  {
+    id: "led-1",
+    item: "Federal tax $5,120",
+    layer: "Estimated" as const,
+    detail: "TY2026 · MFJ · AZ · Schedule C rules",
+  },
+  {
+    id: "led-2",
+    item: "Home-office possible",
+    layer: "AI suggestion" as const,
+    detail: "Interview + Target/Amazon receipts — Needs Review",
+  },
+  {
+    id: "led-3",
+    item: "Verizon 80/20 split",
+    layer: "Accountant-reviewed" as const,
+    detail: "Maya Rivera, CPA corrected category",
+  },
+  {
+    id: "led-4",
+    item: "Q1 estimate payment $1,800",
+    layer: "Officially filed" as const,
+    detail: "IRS Direct Pay confirmation IRS-Q1-88421",
+  },
+] as const;
+
+export const taxProductTiers = [
+  {
+    id: "personal",
+    name: "Atlas Personal Tax",
+    audience: "W-2 workers, students, homeowners, and families",
+    includes: [
+      "W-2 & personal income tracking",
+      "Mortgage, student loan, and health forms",
+      "Estimate dashboard + Smart Alerts",
+      "Tax Interview for credits & deductions",
+      "Tax Preparation Package export",
+    ],
+    price: "Included with Personal AI",
+  },
+  {
+    id: "freelancer",
+    name: "Atlas Freelancer Tax",
+    audience: "Contractors, creators, delivery drivers, and 1099 workers",
+    includes: [
+      "Everything in Personal",
+      "1099 / processor income sync",
+      "Mileage tracker & vehicle expense",
+      "Quarterly estimated tax assistant",
+      "Receipt deductions with Needs Review",
+    ],
+    price: "Freelancer plan",
+  },
+  {
+    id: "business",
+    name: "Atlas Business Tax",
+    audience: "LLCs, small businesses, payroll, sales tax, and accountant collaboration",
+    includes: [
+      "Everything in Freelancer",
+      "Multi-source business income",
+      "Payroll & Tax add-on hooks",
+      "Sales tax collected / due",
+      "Tax Professional Portal",
+    ],
+    price: "Business plan",
+  },
+  {
+    id: "pro",
+    name: "Atlas Tax Pro",
+    audience: "Accountants managing multiple Atlas customers",
+    includes: [
+      "Multi-client dashboard",
+      "Review queues across customers",
+      "Document requests at scale",
+      "Package downloads & audit trails",
+      "Never file without client authorization",
+    ],
+    price: "Pro / firm seat",
+  },
+] as const;
+
+export const taxProClients = [
+  {
+    id: "cli-1",
+    business: "Desert Air HVAC",
+    tier: "Business",
+    status: "Needs review" as const,
+    openItems: 5,
+    package: "Staged",
+    lastActive: "2 hr ago",
+  },
+  {
+    id: "cli-2",
+    business: "Elena Brooks · Freelancer",
+    tier: "Freelancer",
+    status: "Interview open" as const,
+    openItems: 2,
+    package: "Not started",
+    lastActive: "Yesterday",
+  },
+  {
+    id: "cli-3",
+    business: "Harbor Dental LLC",
+    tier: "Business",
+    status: "Pro approved" as const,
+    openItems: 0,
+    package: "Ready · awaiting client auth",
+    lastActive: "Today",
+  },
+  {
+    id: "cli-4",
+    business: "Jordan Lee · W-2",
+    tier: "Personal",
+    status: "Docs missing" as const,
+    openItems: 3,
+    package: "Blocked",
+    lastActive: "3 days ago",
+  },
+] as const;
+
+export const taxQuarterlyPayments = [
+  {
+    id: "q1",
+    quarter: "Q1 2026",
+    due: "Apr 15, 2026",
+    originalEstimate: "$1,800",
+    revisedEstimate: "$2,250",
+    paid: "$1,800",
+    status: "Needs top-up" as const,
+    confirmation: "IRS-Q1-88421",
+    receipt: "Saved · Mar 12",
+    alert:
+      "Your income increased this quarter. Your estimated payment may need to increase from $1,800 to $2,250.",
+    instructions: "Pay $450 remaining via IRS Direct Pay → Estimated Tax → 1040-ES → Q1.",
+  },
+  {
+    id: "q2",
+    quarter: "Q2 2026",
+    due: "Jun 15, 2026",
+    originalEstimate: "$2,100",
+    revisedEstimate: "$2,100",
+    paid: "$0",
+    status: "Upcoming" as const,
+    confirmation: "—",
+    receipt: "—",
+    alert: "Deadline in 48 days. Atlas will nudge 14 days and 3 days before.",
+    instructions: "Schedule $2,100 from Ally Tax Savings on Jun 12 via IRS Direct Pay.",
+  },
+  {
+    id: "q3",
+    quarter: "Q3 2026",
+    due: "Sep 15, 2026",
+    originalEstimate: "$2,100",
+    revisedEstimate: "$2,100",
+    paid: "$0",
+    status: "Planned" as const,
+    confirmation: "—",
+    receipt: "—",
+    alert: "Estimate locked until mid-quarter income review.",
+    instructions: "Hold in tax savings; Atlas recalculates if revenue shifts >10%.",
+  },
+  {
+    id: "q4",
+    quarter: "Q4 2026",
+    due: "Jan 15, 2027",
+    originalEstimate: "$2,100",
+    revisedEstimate: "$2,100",
+    paid: "$0",
+    status: "Planned" as const,
+    confirmation: "—",
+    receipt: "—",
+    alert: "Final estimated payment before filing season.",
+    instructions: "Pay from tax savings; apply overpayment to next year if any.",
+  },
+] as const;
+
+export const taxMileageTrips = [
+  {
+    id: "trip-1",
+    date: "Mar 18",
+    from: "Shop · Phoenix",
+    to: "Harbor Dental · Scottsdale",
+    purpose: "RTU repair job",
+    miles: 28.4,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$19.88",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-2",
+    date: "Mar 17",
+    from: "Home · Tempe",
+    to: "Chicago · O’Hare area",
+    purpose: "Industry conference — unconfirmed",
+    miles: 412.0,
+    classification: "Needs Review" as const,
+    vehicle: "Personal · Camry",
+    expense: "$288.40",
+    detection: "Auto-detected · yesterday",
+  },
+  {
+    id: "trip-3",
+    date: "Mar 16",
+    from: "Shop · Phoenix",
+    to: "Rivera Properties",
+    purpose: "Duct clean contract",
+    miles: 16.2,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$11.34",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-4",
+    date: "Mar 15",
+    from: "Home · Tempe",
+    to: "Grocery · Whole Foods",
+    purpose: "Personal errand",
+    miles: 4.1,
+    classification: "Personal" as const,
+    vehicle: "Personal · Camry",
+    expense: "$0.00",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-5",
+    date: "Mar 14",
+    from: "Shop · Phoenix",
+    to: "Supply House West",
+    purpose: "Parts run",
+    miles: 11.8,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$8.26",
+    detection: "Auto-detected",
+  },
+  {
+    id: "trip-6",
+    date: "Mar 12",
+    from: "Shop · Phoenix",
+    to: "Elena Martinez · Mesa",
+    purpose: "Filter drop-off",
+    miles: 22.0,
+    classification: "Business" as const,
+    vehicle: "Ford Transit · HVAC-1",
+    expense: "$15.40",
+    detection: "Manual log",
+  },
+] as const;
+
+export const taxFilingChecklist = [
+  {
+    id: "file-1",
+    task: "Review Needs Review expenses",
+    detail: "Approve, split, or reject uncertain deductions before export",
+    status: "In progress" as const,
+  },
+  {
+    id: "file-2",
+    task: "Confirm income by source",
+    detail: "Banks, processors, 1099s, W-2, and Atlas invoices reconciled",
+    status: "Done" as const,
+  },
+  {
+    id: "file-3",
+    task: "Export mileage report",
+    detail: "Business miles YTD with start/end, purpose, and vehicle",
+    status: "Not started" as const,
+  },
+  {
+    id: "file-4",
+    task: "Attach quarterly payment receipts",
+    detail: "Confirmation numbers and IRS Direct Pay proofs",
+    status: "In progress" as const,
+  },
+  {
+    id: "file-5",
+    task: "Home-office worksheet",
+    detail: "Square footage and exclusive-use confirmation",
+    status: "Not started" as const,
+  },
+  {
+    id: "file-6",
+    task: "Generate CPA / tax-software package",
+    detail: "Schedule C summary, deductions, mileage, and estimated payments",
+    status: "Not started" as const,
+  },
+  {
+    id: "file-7",
+    task: "File or hand off to accountant",
+    detail: "Atlas stages e-file packet; human signs and submits",
+    status: "Not started" as const,
+  },
+] as const;
+
+export const taxDocuments = [
+  { id: "doc-w2", name: "W-2 — Gusto wages", kind: "W-2", status: "Collected" as const, detail: "Mar 1–15 · Personal" },
+  { id: "doc-1099a", name: "1099-NEC — Rivera Properties", kind: "1099", status: "Collected" as const, detail: "$2,100 contractor income" },
+  { id: "doc-1099b", name: "1099-K — Stripe / Square", kind: "1099", status: "Missing" as const, detail: "Request from processors" },
+  { id: "doc-biz", name: "Business income report YTD", kind: "Business income", status: "Collected" as const, detail: "Atlas + QuickBooks sync" },
+  { id: "doc-mort", name: "Mortgage interest Form 1098", kind: "Mortgage", status: "Missing" as const, detail: "Home-office allocation may apply" },
+  { id: "doc-loan", name: "Student loan interest Form 1098-E", kind: "Student loan", status: "Collected" as const, detail: "Uploaded Jan 12" },
+  { id: "doc-health", name: "Form 1095-A / health insurance", kind: "Health insurance", status: "Missing" as const, detail: "Marketplace or employer copy" },
+  { id: "doc-veh", name: "Vehicle info — Transit + Camry", kind: "Vehicle", status: "Collected" as const, detail: "Business % · mileage logs linked" },
+  { id: "doc-est", name: "Estimated tax payments Q1–Q4", kind: "Estimated taxes", status: "Partial" as const, detail: "Q1 confirmation saved; Q2–Q4 pending" },
+  { id: "doc-recv", name: "Receipts & deductions pack", kind: "Receipts", status: "Partial" as const, detail: "3 expenses still Needs Review" },
+  { id: "doc-prior", name: "Prior-year tax return (2025)", kind: "Prior return", status: "Collected" as const, detail: "PDF from Rivera CPA" },
+] as const;
+
+export const taxPrepPackageParts = [
+  { id: "pkg-inc", title: "Income summary", detail: "W-2, 1099, invoices, processors — by business & type" },
+  { id: "pkg-exp", title: "Expense summary", detail: "Categorized business expenses with sales tax" },
+  { id: "pkg-ded", title: "Deduction report", detail: "Approved deductions; Needs Review excluded" },
+  { id: "pkg-mi", title: "Mileage report", detail: "Business miles, purpose, start/end, vehicle expense" },
+  { id: "pkg-q", title: "Quarterly payment history", detail: "Estimates, paid amounts, confirmations, receipts" },
+  { id: "pkg-miss", title: "Missing-document checklist", detail: "1099-K, 1098, 1095-A, and open reviews" },
+  { id: "pkg-pdf", title: "Accountant-ready PDF", detail: "Printable package for CPA handoff" },
+  { id: "pkg-xls", title: "Spreadsheet export", detail: "CSV / XLSX transaction & mileage workbooks" },
+] as const;
+
+export const taxInterviewQuestions = [
+  {
+    id: "iq-equip",
+    question: "Did you purchase any equipment for your business this year?",
+    hint: "Tools, truck stock, computers, or major gear",
+    yesFlag: "Equipment purchases flagged — link receipts and asset list",
+    noFlag: "No equipment purchases noted for this year",
+  },
+  {
+    id: "iq-home",
+    question: "Did you work from a dedicated area of your home?",
+    hint: "Exclusive-use space for home-office deduction",
+    yesFlag: "Home-office worksheet opened — need sq ft and exclusive use",
+    noFlag: "Home-office deduction not claimed",
+  },
+  {
+    id: "iq-qtr",
+    question: "Did you make any quarterly estimated payments?",
+    hint: "1040-ES or state estimates",
+    yesFlag: "Quarterly assistant linked — confirm Q1 top-up and upcoming dues",
+    noFlag: "No estimated payments recorded — underpayment risk flagged",
+  },
+  {
+    id: "iq-veh",
+    question: "Was this vehicle used for both personal and business travel?",
+    hint: "Camry and Transit mixed-use classification",
+    yesFlag: "Mixed-use vehicle — keep mileage logs split by purpose",
+    noFlag: "Vehicle marked business-only for deduction tracking",
+  },
+] as const;
+
+export const taxPortalPro = {
+  name: "Maya Rivera, CPA",
+  firm: "Rivera Tax Advisors",
+  email: "maya@riveratax.example",
+  access: "Review · correct · request docs · notes · approve",
+  invited: true,
+} as const;
+
+export const taxPortalTransactions = [
+  {
+    id: "ptx-1",
+    merchant: "Verizon Wireless",
+    amount: "$142.18",
+    category: "Phone & internet",
+    note: "Suggest 80/20 business split",
+    status: "Needs correction" as const,
+  },
+  {
+    id: "ptx-2",
+    merchant: "Home Depot",
+    amount: "$214.88",
+    category: "Equipment",
+    note: "OK — job stock",
+    status: "Approved" as const,
+  },
+  {
+    id: "ptx-3",
+    merchant: "Target",
+    amount: "$87.45",
+    category: "Unclear",
+    note: "Request itemized receipt",
+    status: "Docs requested" as const,
+  },
+] as const;
+
+export const taxPortalAudit = [
+  { id: "aud-1", when: "Mar 18 · 4:12 PM", actor: "Maya Rivera, CPA", action: "Requested document", detail: "Target itemized receipt" },
+  { id: "aud-2", when: "Mar 18 · 3:55 PM", actor: "Maya Rivera, CPA", action: "Corrected category", detail: "Verizon → Phone & internet (split)" },
+  { id: "aud-3", when: "Mar 17 · 9:02 AM", actor: "You", action: "Invited professional", detail: "maya@riveratax.example · view + edit" },
+  { id: "aud-4", when: "Mar 16 · 2:20 PM", actor: "Atlas", action: "Package staged", detail: "Draft Tax Preparation Package — awaiting your authorization" },
+] as const;
+
+export const taxPayroll = {
+  addon: "Atlas Payroll & Tax",
+  blurb: "Paid add-on for employee wages, withholding, employer taxes, contractors, filings, and sales tax.",
+  wagesYtd: "$128,400",
+  withholdingYtd: "$31,220",
+  employerTaxes: "$9,840",
+  contractorPayments: "$18,650",
+  salesTaxCollected: "$4,912",
+  salesTaxDue: "$1,280",
+  nextDeadline: "Apr 15 · Form 941",
+} as const;
+
+export const taxPayrollItems = [
+  { id: "pay-1", label: "Employee wages", value: "$128,400 YTD", status: "Tracked" as const, detail: "3 employees · Gusto sync" },
+  { id: "pay-2", label: "Payroll withholding", value: "$31,220", status: "Tracked" as const, detail: "Federal + state + FICA" },
+  { id: "pay-3", label: "Employer payroll taxes", value: "$9,840", status: "Due soon" as const, detail: "Next deposit Apr 15" },
+  { id: "pay-4", label: "Contractor payments", value: "$18,650", status: "Tracked" as const, detail: "1099 prep queue · 4 vendors" },
+  { id: "pay-5", label: "W-2 preparation", value: "Draft ready", status: "In progress" as const, detail: "Year-end packet staged" },
+  { id: "pay-6", label: "1099 preparation", value: "4 drafts", status: "In progress" as const, detail: "NEC + K matching" },
+  { id: "pay-7", label: "Payroll filing deadlines", value: "Apr 15 · 941", status: "Upcoming" as const, detail: "Atlas will warn 14 and 3 days prior" },
+  { id: "pay-8", label: "Sales tax collected", value: "$4,912", status: "Tracked" as const, detail: "AZ TPT on taxable services" },
+  { id: "pay-9", label: "Sales-tax payment due", value: "$1,280", status: "Due soon" as const, detail: "State + city add-ons" },
+] as const;
+
+export const taxSmartAlerts = [
+  {
+    id: "al-1",
+    title: "You received a new tax document.",
+    detail: "1099-NEC from Rivera Properties landed in Documents.",
+    severity: "Info" as const,
+  },
+  {
+    id: "al-2",
+    title: "Your quarterly payment deadline is approaching.",
+    detail: "Q2 estimated tax due Jun 15 — $2,100 from tax savings.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-3",
+    title: "This transaction may be deductible.",
+    detail: "Office Depot $54.18 — office supplies · Needs Review.",
+    severity: "Info" as const,
+  },
+  {
+    id: "al-4",
+    title: "Your tax savings balance is below the recommended amount.",
+    detail: "Saved $6,200 · recommend $8,450 · shortfall $2,250.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-5",
+    title: "Your business mileage has not been updated recently.",
+    detail: "Last auto-detect Mar 18 — confirm Chicago trip classification.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-6",
+    title: "Your income is significantly higher than last quarter.",
+    detail: "Q1 estimate may need to rise from $1,800 to $2,250.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-7",
+    title: "Three transactions still need categorization.",
+    detail: "Verizon, Target, and Amazon are in Needs Review.",
+    severity: "Warn" as const,
+  },
+  {
+    id: "al-8",
+    title: "Your accountant requested another document.",
+    detail: "Maya Rivera, CPA asked for the Target itemized receipt.",
+    severity: "Action" as const,
+  },
+] as const;
+
+export function taxCenterReply(prompt: string): string {
+  const q = prompt.toLowerCase();
+  if (q.includes("personal tax") || q.includes("freelancer tax") || q.includes("business tax") || q.includes("tax pro") || q.includes("product tier")) {
+    return "Atlas Tax tiers: Personal (W-2 & families), Freelancer (1099 & mileage), Business (LLC, payroll, CPA portal), and Tax Pro (accountants managing many Atlas customers). Open Tiers to compare.";
+  }
+  if (q.includes("disclaimer") || q.includes("planning tool") || q.includes("estimated") || q.includes("safety")) {
+    return "Atlas separates Estimated, AI suggestion, Accountant-reviewed, and Officially filed data. Estimates use tax year, filing status, structure, state, and current rules — planning tools until reviewed or filed through an authorized professional.";
+  }
+  if (
+    (q.includes("chicago") || q.includes("trip")) &&
+    (q.includes("business") || q.includes("mileage") || q.includes("mark"))
+  ) {
+    return "Marked yesterday’s trip to Chicago as business mileage (412.0 mi · Personal Camry). Added to your mileage report and estimated deduction at the current IRS rate.";
+  }
+  if (
+    q.includes("interview") ||
+    q.includes("equipment") ||
+    (q.includes("home") && q.includes("work")) ||
+    q.includes("dedicated")
+  ) {
+    return "Tax Interview updates your estimate from conversational answers — equipment, home office, quarterly payments, and mixed-use vehicles. Open Interview to continue.";
+  }
+  if (q.includes("accountant") || q.includes("preparer") || q.includes("portal") || q.includes("invite")) {
+    return "Tax Professional Portal lets you invite your CPA securely. They can review transactions, request docs, leave notes, and approve reports — Atlas never files without your authorization.";
+  }
+  if (
+    q.includes("payroll") ||
+    q.includes("withholding") ||
+    q.includes("sales tax") ||
+    (q.includes("w-2") && q.includes("prep"))
+  ) {
+    return "Atlas Payroll & Tax (paid add-on) tracks wages, withholding, employer taxes, contractors, W-2/1099 prep, filing deadlines, and sales tax obligations.";
+  }
+  if (q.includes("package") || q.includes("export") || q.includes("pdf") || q.includes("spreadsheet")) {
+    return "Tax Preparation Package includes income, expense, deduction, mileage, and quarterly summaries plus a missing-document checklist — export PDF and spreadsheet when you’re ready. You must authorize before any filing.";
+  }
+  if (q.includes("alert") || q.includes("deadline") || q.includes("document.")) {
+    return "Smart Tax Alerts watch documents, quarterly deadlines, deductible transactions, tax savings balance, mileage gaps, income spikes, uncategorized items, and accountant requests.";
+  }
+  if (q.includes("quarterly") || q.includes("estimated payment") || q.includes("1040-es")) {
+    return "Q1 may need a top-up: income rose, so the estimate moved from $1,800 to $2,250 ($450 remaining). Q2 is due Jun 15 — Atlas will warn before the deadline.";
+  }
+  if (q.includes("estimate") || q.includes("owed") || q.includes("save for tax") || q.includes("remaining")) {
+    return "Estimated taxes owed: $8,450. Already saved: $6,200. Additional amount recommended: $2,250. Atlas can auto-move 25% of each payment into Ally Tax Savings.";
+  }
+  if (q.includes("filing") || q.includes("tax-time") || q.includes("tax time") || q.includes("checklist")) {
+    return "Tax-Time Mode is on a structured checklist — income confirmed, Needs Review still open, mileage export and CPA package not started yet. Open Filing to work the list.";
+  }
+  if (q.includes("mileage") || q.includes("miles") || q.includes("trip")) {
+    return "Mileage Tracker auto-detects trips, classifies business vs personal, and logs start/end, purpose, miles, and vehicle expense. Say “mark yesterday’s trip to Chicago as business mileage” anytime.";
+  }
+  if (q.includes("review") || q.includes("uncertain")) {
+    return "Three expenses are marked Needs Review — Verizon (personal vs business split), Target, and Amazon. Atlas will not claim them until you approve.";
+  }
+  if (q.includes("income") || q.includes("stripe") || q.includes("1099")) {
+    return "Income is synced from banks, payroll, Stripe, Square, Venmo, Cash App, QuickBooks, and Atlas invoices — organized by business, job, client, and type. PayPal still needs re-auth.";
+  }
+  if (q.includes("receipt") || q.includes("upload") || q.includes("photo")) {
+    return "Snap or upload a receipt and I’ll extract merchant, date, amount, sales tax, category, purpose, and payment method — then flag anything uncertain for review.";
+  }
+  if (q.includes("deduct") || q.includes("fuel")) {
+    return "Likely deductions this month include fuel, mileage, equipment, software, ads, office supplies, insurance, CPA fees, and training. Home-office items stay in Needs Review.";
+  }
+  return "Tax Center separates estimates, AI suggestions, accountant-reviewed, and filed data across Personal, Freelancer, Business, and Tax Pro tiers — Atlas never submits a return without your review and authorization.";
+}
 
 export const inventoryItems = [
   { sku: "FLT-1625", name: "16×25 filters", onHand: 14, daysLeft: 5, action: "Order in 5 days" },
