@@ -107,6 +107,36 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["marketplace", "install agent", "publish listing", "industry agent"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "AI Marketplace",
+      needsConfirm: false,
+      reply:
+        "Marketplace has industry agents, dashboards, automations, reports, integrations, and templates from developers. Your library already includes the HVAC receptionist and missed-call automation — browse to install more.",
+    };
+  }
+
+  if (includesAny(q, ["global memory", "time zone", "currency", "local holiday", "vat", "gst"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Global Business Memory",
+      needsConfirm: false,
+      reply:
+        "You’re set across US, Canada, UK, Mexico, and Australia — languages, time zones, tax display, regional hours, holidays, currency, and regulations with human review where required. Open Global Business Memory to switch markets.",
+    };
+  }
+
+  if (includesAny(q, ["raise prices", "explainable", "why raise", "confidence level", "alternative options"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Explainable AI",
+      needsConfirm: false,
+      reply:
+        "Recommendation: raise rates 6% with loyalty grandfathering (confidence 78). Why: parts +11%, OT climbing, margin −3.4 pts. Risks: short-term cancels. Expected: +$9.8k/mo if retention holds. Alternatives ranked in Explainable AI.",
+    };
+  }
+
   if (includesAny(q, ["academy", "train employees", "certification", "role-play", "roleplay"])) {
     return {
       agent: "hr",

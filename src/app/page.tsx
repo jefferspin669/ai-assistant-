@@ -11,9 +11,9 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#academy">Academy</a>
-          <a href="#builder">Business Builder</a>
-          <a href="#risk">Risk Center</a>
+          <a href="#marketplace">Marketplace</a>
+          <a href="#global-memory">Global Memory</a>
+          <a href="#explainable">Explainable AI</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
           </Link>
@@ -291,11 +291,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="section" style={{ paddingTop: 0 }}>
+        <section className="section" id="marketplace" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Marketplace + Industry Packs</h2>
-              <p>Install the assistants you need. Specialize with knowledge packs.</p>
+              <h2>AI Marketplace</h2>
+              <p>
+                Developers create industry agents, dashboards, automations, reports, integrations,
+                and templates. Businesses install what they need.
+              </p>
             </div>
             <div className="split">
               <div className="panel">
@@ -322,6 +325,52 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/marketplace">
+                Open AI Marketplace
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="global-memory" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Global Business Memory</h2>
+              <p>
+                Operate across countries with languages, time zones, tax, regional hours, holidays,
+                currency display, and local regulations — with human review where needed.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/global-memory">
+                Open Global Memory
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="explainable" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Explainable AI</h2>
+              <p>
+                Instead of “Raise prices,” Atlas shows why, supporting data, risks, expected
+                outcomes, confidence, and alternatives — so decision-makers can trust the call.
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">Raise prices.</div>
+              <div className="bubble bubble-ai">
+                Recommend +6% with loyalty grandfathering (confidence 78). Parts COGS +11%, OT
+                +18%. Risks: short-term cancels. Alternative: hold through Q4 (score 42).
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/explainable">
+                Open Explainable AI
+              </Link>
             </div>
           </div>
         </section>
