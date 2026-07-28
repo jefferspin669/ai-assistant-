@@ -7,6 +7,8 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/app", label: "Atlas", exact: true },
       { href: "/app/mission-control", label: "Mission Control" },
+      { href: "/app/autonomous", label: "Autonomous Mode" },
+      { href: "/app/os", label: "AI Operating System" },
       { href: "/app/brain", label: "Atlas Brain" },
       { href: "/app/memory", label: "AI Memory" },
       { href: "/app/knowledge", label: "Knowledge Base" },
@@ -49,9 +51,10 @@ export const navGroups: NavGroup[] = [
       { href: "/app/inventory", label: "AI Inventory" },
       { href: "/app/purchasing", label: "Purchasing AI" },
       { href: "/app/team", label: "Employee Hub" },
-      { href: "/app/training", label: "AI Training" },
+      { href: "/app/training", label: "Atlas Academy" },
       { href: "/app/quality", label: "Quality Control" },
       { href: "/app/compliance", label: "Compliance" },
+      { href: "/app/risk", label: "AI Risk Center" },
     ],
   },
   {
@@ -59,12 +62,14 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/app/analytics", label: "AI Dashboard" },
       { href: "/app/insights", label: "Predictive Analytics" },
+      { href: "/app/network", label: "Intelligence Network" },
       { href: "/app/score", label: "Intelligence Score" },
       { href: "/app/board", label: "Board Advisor" },
       { href: "/app/decisions", label: "Decision Engine" },
       { href: "/app/executive-timeline", label: "Executive Timeline" },
-      { href: "/app/ceo-memory", label: "CEO Memory" },
+      { href: "/app/ceo-memory", label: "Executive Memory" },
       { href: "/app/digital-twin", label: "Digital Twin" },
+      { href: "/app/simulator", label: "Business Simulator" },
       { href: "/app/security", label: "Security Center" },
     ],
   },
@@ -72,6 +77,7 @@ export const navGroups: NavGroup[] = [
     label: "Create & automate",
     items: [
       { href: "/app/documents", label: "Document Builder" },
+      { href: "/app/builder", label: "Business Builder" },
       { href: "/app/vision", label: "Atlas Vision" },
       { href: "/app/meetings", label: "Meeting Assistant" },
       { href: "/app/projects", label: "Project Manager" },
@@ -83,6 +89,8 @@ export const navGroups: NavGroup[] = [
     label: "Platform",
     items: [
       { href: "/app/employees", label: "AI Agents" },
+      { href: "/app/digital-employees", label: "Digital Employees" },
+      { href: "/app/dna", label: "Business DNA" },
       { href: "/app/marketplace", label: "Marketplace" },
       { href: "/app/app-store", label: "App Store" },
       { href: "/app/developers", label: "Atlas API" },
@@ -318,10 +326,41 @@ export const trainingModules = [
 ] as const;
 
 export const trainingLearners = [
-  { name: "Alex Rivera", role: "New hire · Tech", overall: 81, modulesDone: 2, modulesTotal: 4 },
-  { name: "Sam Ortiz", role: "Tech", overall: 94, modulesDone: 4, modulesTotal: 4 },
-  { name: "Jordan Lee", role: "Apprentice", overall: 36, modulesDone: 1, modulesTotal: 4 },
+  { name: "Alex Rivera", role: "New hire · Tech", overall: 81, modulesDone: 2, modulesTotal: 4, certs: 1 },
+  { name: "Sam Ortiz", role: "Tech", overall: 94, modulesDone: 4, modulesTotal: 4, certs: 3 },
+  { name: "Jordan Lee", role: "Apprentice", overall: 36, modulesDone: 1, modulesTotal: 4, certs: 0 },
 ];
+
+export const academyCertifications = [
+  {
+    id: "safety",
+    title: "Field Safety Certified",
+    holder: "Sam Ortiz",
+    status: "Active",
+    expires: "Jan 2027",
+  },
+  {
+    id: "phone",
+    title: "Front Desk Voice Pro",
+    holder: "Alex Rivera",
+    status: "Active",
+    expires: "Aug 2026",
+  },
+  {
+    id: "hvac-cap",
+    title: "HVAC Capacitor Diagnosis",
+    holder: "Sam Ortiz",
+    status: "Active",
+    expires: "Mar 2027",
+  },
+  {
+    id: "refund",
+    title: "Customer Recovery Roleplay",
+    holder: "Jordan Lee",
+    status: "In progress",
+    expires: "—",
+  },
+] as const;
 
 export const trainingLesson = {
   id: "capacitor",
@@ -1957,6 +1996,24 @@ export const executiveTimeline = [
 
 export const ceoMemories = [
   {
+    id: "m-prices-2025",
+    date: "September 18, 2025",
+    question: "Why did we increase prices in 2025?",
+    decision: "Approved 6% service-rate increase effective Oct 1, 2025, with loyalty grandfathering through year-end.",
+    answer:
+      "On September 18, 2025, you increased prices after parts inflation hit 11%, overtime climbed, and competitor rates moved up. Meeting notes from the leadership sync (Sep 16) show Finance modeling a 4–8% band; you chose 6% with loyalty protection. Supporting data: contribution margin −3.4 pts YTD, same-day demand still strong, and Board Advisor flagged cash risk if you delayed.",
+    triggers: ["parts inflation +11%", "overtime climbing", "competitor rates up", "margin −3.4 pts YTD"],
+    alternativesReviewed: ["Hold prices through Q4", "+4% across the board", "+6% with loyalty grandfathering", "+8% emergency-only"],
+    approvedBy: "CEO",
+    linkedDecisionId: "price-increase-2025",
+    meetingNotes: [
+      "Sep 16 leadership sync — Finance presented wage + parts pressure",
+      "Marketing worried about review velocity if messaging felt greedy",
+      "Ops confirmed capacity could absorb a short demand dip",
+    ],
+    supportingData: ["Parts COGS +11% YoY", "OT hours +18% vs prior summer", "Close rate still 46%"],
+  },
+  {
     id: "m-supplier",
     date: "January 15, 2026",
     question: "Why did we switch suppliers?",
@@ -1967,6 +2024,8 @@ export const ceoMemories = [
     alternativesReviewed: ["Stay with Apex", "Full cutover to Meridian", "Dual-source 60 days then cutover"],
     approvedBy: "CEO",
     linkedDecisionId: "supplier-switch",
+    meetingNotes: ["Vendor scorecard reviewed with Ops + Purchasing"],
+    supportingData: ["On-time delivery 61%", "Defect rate 2.8%"],
   },
   {
     id: "m-van",
@@ -1979,6 +2038,8 @@ export const ceoMemories = [
     alternativesReviewed: ["Wait until Q4", "Rent peak weeks only", "Lease Transit now"],
     approvedBy: "CEO",
     linkedDecisionId: "second-van",
+    meetingNotes: ["Route board review with Scheduler AI"],
+    supportingData: ["North ZIP density up 22%", "Missed same-day window: 17 jobs"],
   },
   {
     id: "m-price",
@@ -1991,6 +2052,8 @@ export const ceoMemories = [
     alternativesReviewed: ["Flat raise for everyone", "Bundle into packages", "Phased + grandfather"],
     approvedBy: "CEO",
     linkedDecisionId: "price-increase",
+    meetingNotes: ["Sales + Finance pricing huddle"],
+    supportingData: ["Diagnostic margin −9%", "Competitor median fee +$20"],
   },
   {
     id: "m-location",
@@ -2003,34 +2066,44 @@ export const ceoMemories = [
     alternativesReviewed: ["Open immediately", "Sign LOI only", "Wait 90 days"],
     approvedBy: "CEO",
     linkedDecisionId: null,
+    meetingNotes: ["Board Advisor scenario pack reviewed"],
+    supportingData: ["Cash runway 11 weeks", "Lease ask +14%"],
   },
 ] as const;
 
 export function ceoMemoryForQuestion(question: string) {
   const q = question.toLowerCase();
-  if (q.includes("supplier") || q.includes("parts") || q.includes("apex") || q.includes("meridian")) {
+  if ((q.includes("price") || q.includes("prices") || q.includes("increase")) && q.includes("2025")) {
     return ceoMemories[0];
   }
-  if (q.includes("van") || q.includes("vehicle") || q.includes("fleet") || q.includes("transit")) {
+  if (q.includes("supplier") || q.includes("parts") || q.includes("apex") || q.includes("meridian")) {
     return ceoMemories[1];
   }
-  if (q.includes("fee") || q.includes("price") || q.includes("diagnostic") || q.includes("raise")) {
+  if (q.includes("van") || q.includes("vehicle") || q.includes("fleet") || q.includes("transit")) {
     return ceoMemories[2];
   }
-  if (q.includes("location") || q.includes("second") || q.includes("delay") || q.includes("wait")) {
+  if (q.includes("fee") || q.includes("diagnostic") || q.includes("raise")) {
     return ceoMemories[3];
+  }
+  if (q.includes("price") || q.includes("increase")) {
+    return ceoMemories[0];
+  }
+  if (q.includes("location") || q.includes("second") || q.includes("delay") || q.includes("wait")) {
+    return ceoMemories[4];
   }
   return {
     id: "m-custom",
     date: "Today",
     question,
-    decision: "No exact match — Atlas searched decision history.",
+    decision: "No exact match — Atlas searched executive decision history.",
     answer:
-      "I don’t have a single matching decision yet. Ask about suppliers, the second van, diagnostic fees, or the delayed second location — or open Decision Engine to log a new one.",
-    triggers: ["search across CEO Memory", "link to Decision Engine", "executive timeline context"],
+      "I don’t have a single matching decision yet. Ask about the 2025 price increase, suppliers, the second van, diagnostic fees, or the delayed second location — or open Decision Engine to log a new one.",
+    triggers: ["search across Executive Memory", "link to Decision Engine", "executive timeline context"],
     alternativesReviewed: [] as string[],
     approvedBy: "—",
     linkedDecisionId: null as string | null,
+    meetingNotes: [] as string[],
+    supportingData: [] as string[],
   };
 }
 
@@ -2174,3 +2247,230 @@ export const missionControl = {
     { id: "a6", label: "Draft Harbor retainer expansion proposal", status: "needs-confirm" as const },
   ],
 };
+
+export const intelligenceNetworkInsights = [
+  {
+    industry: "Restaurants",
+    insight: "Restaurants in your region are seeing a 14% increase in takeout orders.",
+    signal: "Demand shift",
+  },
+  {
+    industry: "HVAC",
+    insight: "HVAC companies that respond within five minutes are closing 37% more leads.",
+    signal: "Speed-to-lead",
+  },
+  {
+    industry: "Plumbing",
+    insight: "Same-day photo collection during missed-call recovery lifts booking rate by 22%.",
+    signal: "Recovery playbook",
+  },
+  {
+    industry: "Salons",
+    insight: "Review requests sent within two hours of service convert 2.1× better than next-day sends.",
+    signal: "Reputation timing",
+  },
+] as const;
+
+export const digitalEmployeeRoster = [
+  { title: "CEO", emoji: "👨‍💼", expertise: "Priorities, strategy, overnight briefings, decision queues" },
+  { title: "CFO", emoji: "💰", expertise: "Cashflow, invoices, payroll cues, expense patterns" },
+  { title: "Marketing Director", emoji: "📈", expertise: "Campaigns, social, offers, brand-consistent messaging" },
+  { title: "Sales Manager", emoji: "🤝", expertise: "Quotes, follow-ups, pipeline, close rates" },
+  { title: "Customer Support", emoji: "🎧", expertise: "Tickets, complaints, retention, review recovery" },
+  { title: "Operations Manager", emoji: "⚙️", expertise: "Jobs, routes, technicians, on-time performance" },
+  { title: "HR Manager", emoji: "👷", expertise: "Hiring, training, handbook, performance notes" },
+  { title: "IT Manager", emoji: "💻", expertise: "Integrations, access, system health, tooling" },
+  { title: "Compliance Officer", emoji: "⚖️", expertise: "Policies, audit trails, escalation rules" },
+  { title: "Supply Chain Manager", emoji: "📦", expertise: "Inventory, vendors, reorder alerts, parts" },
+] as const;
+
+export const businessDnaTraits = [
+  { trait: "Writing style", value: "Clear, warm, short sentences. No corporate filler." },
+  { trait: "Brand voice", value: "Neighborly expert — helpful first, sales second." },
+  { trait: "Preferred discounts", value: "Up to 10% for repeat customers; never on emergency calls." },
+  { trait: "Customer service philosophy", value: "Own the problem, offer two options, confirm next step." },
+  { trait: "Escalation rules", value: "Transfer anything safety-related or over $2,500 immediately." },
+  { trait: "Tone", value: "Calm under pressure. Never blame the customer." },
+  { trait: "Pricing strategy", value: "Transparent ranges on chat; firm quotes after photos." },
+] as const;
+
+export const businessDnaSamples = [
+  {
+    prompt: "Customer asks if you can do better on price.",
+    generic: "We may be able to offer a discount depending on availability.",
+    dna: "I can honor 10% for returning customers on maintenance visits — emergency calls stay at the listed rate so we can keep crews ready.",
+  },
+  {
+    prompt: "Customer is upset about a late tech.",
+    generic: "Sorry for the inconvenience. We’ll be there soon.",
+    dna: "You’re right to expect better. Alex is 15 minutes out — I’ve already texted an updated ETA and a $25 courtesy credit for the wait.",
+  },
+] as const;
+
+export const autonomousLoops = [
+  {
+    id: "missed-call",
+    title: "Missed-call recovery",
+    trigger: "Missed call detected · 2:14 AM",
+    steps: [
+      "Detected missed call from Marcus Nguyen",
+      "Sent recovery text with booking link",
+      "Booked Thursday 10:00 AM appointment",
+      "Updated CRM profile + photos",
+      "Alerted technician Sam on route board",
+      "Queued day-before reminder",
+      "Scheduled review request after job",
+    ],
+    ownerSees: "New overnight customer booked — confirm if you want Sam auto-assigned.",
+    needsConfirm: true,
+  },
+  {
+    id: "invoice-chase",
+    title: "Overdue invoice chase",
+    trigger: "Invoice #1840 past due · 7:05 AM",
+    steps: [
+      "Detected overdue balance $890",
+      "Sent polite payment reminder (Business DNA tone)",
+      "Logged CRM note",
+      "Flagged Finance digital employee",
+    ],
+    ownerSees: "Reminder sent to Nina Alvarez. No further action needed unless she disputes.",
+    needsConfirm: false,
+  },
+  {
+    id: "review-ask",
+    title: "Post-job review loop",
+    trigger: "Job #1842 marked complete · 4:40 PM",
+    steps: [
+      "Confirmed job completion",
+      "Sent thank-you + review request",
+      "Tracked open rate",
+      "Posted owner alert when 5-star review landed",
+    ],
+    ownerSees: "Sarah left a 5-star review. Atlas already replied in your voice.",
+    needsConfirm: false,
+  },
+] as const;
+
+export const simulatorScenarios = [
+  {
+    id: "min-wage",
+    prompt: "What happens if minimum wage increases?",
+    summary:
+      "Payroll rises first. With a 4% service-rate adjustment and slightly slower hiring, profit holds within 1.2 points while cash dips for one quarter.",
+    impacts: [
+      { label: "Payroll impact", value: "+$6,400/mo", tone: "warn" as const },
+      { label: "Pricing adjustments", value: "+4% rates", tone: "ok" as const },
+      { label: "Profit changes", value: "-1.2 pts", tone: "warn" as const },
+      { label: "Hiring impact", value: "Defer 1 role", tone: "warn" as const },
+      { label: "Customer demand", value: "-2% short-term", tone: "warn" as const },
+      { label: "Cash flow", value: "-$11k Q1", tone: "warn" as const },
+    ],
+  },
+  {
+    id: "fuel",
+    prompt: "What if fuel costs rise 20%?",
+    summary:
+      "Route density becomes the lever. Consolidating afternoon stops and a $9 trip fee protect margin without cutting volume.",
+    impacts: [
+      { label: "Payroll impact", value: "Flat", tone: "ok" as const },
+      { label: "Pricing adjustments", value: "+$9 trip fee", tone: "ok" as const },
+      { label: "Profit changes", value: "-0.4 pts", tone: "warn" as const },
+      { label: "Hiring impact", value: "None", tone: "ok" as const },
+      { label: "Customer demand", value: "Stable", tone: "ok" as const },
+      { label: "Cash flow", value: "-$2.1k/mo", tone: "warn" as const },
+    ],
+  },
+  {
+    id: "ads",
+    prompt: "What if we raise Google Ads 15%?",
+    summary:
+      "Leads climb if response stays under five minutes. Without Receptionist coverage, CAC rises and close rate slips.",
+    impacts: [
+      { label: "Payroll impact", value: "+overtime risk", tone: "warn" as const },
+      { label: "Pricing adjustments", value: "None", tone: "ok" as const },
+      { label: "Profit changes", value: "+2.4 pts", tone: "ok" as const },
+      { label: "Hiring impact", value: "Need capacity", tone: "warn" as const },
+      { label: "Customer demand", value: "+11% leads", tone: "ok" as const },
+      { label: "Cash flow", value: "+$4.8k/mo", tone: "ok" as const },
+    ],
+  },
+] as const;
+
+export const operatingSystemApps = [
+  { name: "Email", href: "/app/documents", detail: "Inbox drafts + follow-ups" },
+  { name: "Phone", href: "/app/phone", detail: "Live lines + missed-call recovery" },
+  { name: "Calendar", href: "/app/scheduling", detail: "Jobs, routes, availability" },
+  { name: "CRM", href: "/app/customers", detail: "Profiles, timelines, notes" },
+  { name: "Inventory", href: "/app/inventory", detail: "Parts, reorder, equipment" },
+  { name: "Invoices", href: "/app/payments", detail: "Billing, deposits, reminders" },
+  { name: "Payroll", href: "/app/accountant", detail: "Integrations + cost signals" },
+  { name: "Marketing", href: "/app/marketing", detail: "Campaigns, posts, promos" },
+  { name: "Projects", href: "/app/projects", detail: "Jobs and milestones" },
+  { name: "Documents", href: "/app/documents", detail: "Contracts, quotes, files" },
+  { name: "Analytics", href: "/app/analytics", detail: "Revenue and performance" },
+  { name: "Autonomous", href: "/app/autonomous", detail: "Continuous AI loops" },
+] as const;
+
+export const businessBuilderSteps = [
+  { id: "name", title: "Choose a name", detail: "Summit Air Care · available as domain + socials" },
+  { id: "brand", title: "Create branding", detail: "Logo mark, teal/brass palette, neighborly voice" },
+  { id: "website", title: "Build a website", detail: "Services, prices, FAQ, booking, chatbot" },
+  { id: "pricing", title: "Set pricing", detail: "Diagnostic $89 · maintenance plans · emergency rates" },
+  { id: "domain", title: "Register domains", detail: "summitaircare.com + .net redirect" },
+  { id: "contracts", title: "Generate contracts", detail: "Service agreement + maintenance plan PDF" },
+  { id: "workflows", title: "Set up workflows", detail: "Missed-call recovery · review asks · invoicing" },
+  { id: "marketing", title: "Launch marketing", detail: "Google Business · launch offer · first 3 posts" },
+  { id: "customers", title: "Acquire first customers", detail: "Neighborhood outreach list · referral script" },
+] as const;
+
+export const riskCenterAlerts = [
+  {
+    id: "csat",
+    category: "Customer satisfaction",
+    severity: "High",
+    title: "Declining customer satisfaction",
+    detail: "CSAT slipped from 4.9 → 4.6 over 21 days. Long-wait jobs are the top complaint theme.",
+    action: "Auto-send apology + morning make-good windows to affected customers.",
+  },
+  {
+    id: "burnout",
+    category: "Employee burnout",
+    severity: "Medium",
+    title: "Employee burnout risk",
+    detail: "Alex overtime 14 hrs/week; after-hours texts up 40%. Burnout score rising.",
+    action: "Cap overtime next week and shift two north jobs to Sam.",
+  },
+  {
+    id: "compliance",
+    category: "Compliance deadlines",
+    severity: "High",
+    title: "Compliance deadline in 9 days",
+    detail: "Contractor license renewal packet incomplete — insurance cert missing.",
+    action: "Draft renewal checklist and ping Compliance Officer.",
+  },
+  {
+    id: "equipment",
+    category: "Equipment failure risk",
+    severity: "Medium",
+    title: "Equipment failure risk",
+    detail: "Van #2 compressor clutch hours exceed predicted failure window.",
+    action: "Schedule preventive service before Saturday peak.",
+  },
+  {
+    id: "cash",
+    category: "Cash-flow concerns",
+    severity: "High",
+    title: "Cash-flow concern",
+    detail: "Overdue AR $2,310 + payroll Friday creates a 6-day tight window.",
+    action: "Chase top 3 invoices and delay noncritical PO.",
+  },
+  {
+    id: "account",
+    category: "Unusual account activity",
+    severity: "Medium",
+    title: "Unusual account activity",
+    detail: "Three refunds same day + export permission change requested.",
+    action: "Hold refunds over $200 for owner confirm; review role change.",
+  },
+] as const;

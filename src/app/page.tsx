@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { audiences, industryPacks, marketplaceAssistants, phases, teamAi } from "@/lib/data";
+import { digitalEmployeeRoster, intelligenceNetworkInsights } from "@/lib/atlas-platform";
+import { audiences, industryPacks, marketplaceAssistants, phases } from "@/lib/data";
 
 export default function HomePage() {
   return (
@@ -10,9 +11,9 @@ export default function HomePage() {
           Atlas <span>AI</span>
         </Link>
         <div className="site-nav-links">
-          <a href="#everyone">Everyone</a>
-          <a href="#workforce">Workforce</a>
-          <a href="#beachhead">Beachhead</a>
+          <a href="#academy">Academy</a>
+          <a href="#builder">Business Builder</a>
+          <a href="#risk">Risk Center</a>
           <Link className="btn btn-primary" href="/onboarding">
             Create your AI workforce
           </Link>
@@ -85,12 +86,12 @@ export default function HomePage() {
                 <h2>Your AI Workforce</h2>
                 <p>
                   Personal AI for life admin. Event AI for celebrations. Business AI for the front
-                  desk. Team AI so Atlas delegates to Sarah, Mike, Emma, David, and Alex. Plus a
-                  marketplace and industry packs.
+                  desk. Digital employees share one business memory — plus a marketplace and industry
+                  packs.
                 </p>
                 <div className="cta-row">
-                  <Link className="btn btn-primary" href="/app/workforce">
-                    Explore the workforce
+                  <Link className="btn btn-primary" href="/app/digital-employees">
+                    Meet digital employees
                   </Link>
                   <Link className="btn btn-ghost" href="/app/marketplace" style={{ color: "var(--foam)", borderColor: "rgba(244,248,247,0.28)" }}>
                     Browse marketplace
@@ -98,15 +99,194 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="sarah-card">
-                <h3>Jeff’s Plumbing · Team AI</h3>
+                <h3>Digital staff</h3>
                 <ul>
-                  {teamAi.map((member) => (
-                    <li key={member.name}>
-                      {member.name} → {member.role}
+                  {digitalEmployeeRoster.slice(0, 6).map((employee) => (
+                    <li key={employee.title}>
+                      {employee.emoji} {employee.title}
                     </li>
                   ))}
                 </ul>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="academy" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Atlas Academy</h2>
+              <p>
+                Teach employees with interactive lessons, role-playing, certifications, knowledge
+                tests, and voice practice — managers see progress.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/training">
+                Open Atlas Academy
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="builder" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Business Builder</h2>
+              <p>
+                Expand Atlas from running a business to helping create one — name, branding,
+                website, pricing, domains, contracts, workflows, marketing, first customers.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/builder">
+                Start building
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="memory-exec" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Executive Memory</h2>
+              <p>Ask why you increased prices in 2025 — Atlas answers with context, data, and meeting notes.</p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">Why did we increase prices in 2025?</div>
+              <div className="bubble bubble-ai">
+                On September 18, 2025 you approved a 6% increase after parts inflation hit 11%. Meeting
+                notes and Finance’s 4–8% model are attached.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/ceo-memory">
+                Open Executive Memory
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="risk" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Risk Center</h2>
+              <p>
+                Warns before problems become expensive — satisfaction, burnout, compliance,
+                equipment, cash flow, unusual activity.
+              </p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/risk">
+                Open Risk Center
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="autonomous" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Autonomous Mode</h2>
+              <p>
+                Instead of waiting for commands, Atlas works continuously — then confirms with the
+                owner when it matters.
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-ai">
+                Missed call → text sent → appointment booked → CRM updated → technician alerted →
+                reminder queued → review requested.
+              </div>
+              <div className="bubble bubble-user">Owner only receives confirmation.</div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/autonomous">
+                Open Autonomous Mode
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="simulator" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Business Simulator</h2>
+              <p>Like SimCity — but for a real company. Ask what happens before you decide.</p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">What happens if minimum wage increases?</div>
+              <div className="bubble bubble-ai">
+                Payroll +$6,400/mo. Recommend +4% rates. Profit -1.2 pts. Defer one hire. Demand -2%
+                short-term. Cash -$11k in Q1.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/simulator">
+                Run a simulation
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="os" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Operating System</h2>
+              <p>Email, phone, calendar, CRM, inventory, invoices, payroll, marketing, projects, documents, analytics — one login, one memory, one AI.</p>
+            </div>
+            <div style={{ marginTop: "0.25rem" }}>
+              <Link className="btn btn-dark" href="/app/os">
+                Enter the workspace
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="network" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>Atlas Intelligence Network</h2>
+              <p>
+                Thousands of businesses. Shared industry trends. Nobody’s private data exposed.
+              </p>
+            </div>
+            <div className="module-grid">
+              {intelligenceNetworkInsights.slice(0, 3).map((item) => (
+                <article className="module" key={item.insight}>
+                  <h3>{item.industry}</h3>
+                  <p>{item.insight}</p>
+                </article>
+              ))}
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/network">
+                Open Intelligence Network
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="dna" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <h2>AI Business DNA</h2>
+              <p>
+                Atlas learns your writing style, brand voice, discounts, service philosophy, and
+                escalation rules — then behaves like your company.
+              </p>
+            </div>
+            <div className="vision-chat">
+              <div className="bubble bubble-user">Can you do better on price?</div>
+              <div className="bubble bubble-ai">
+                I can honor 10% for returning customers on maintenance visits — emergency calls stay
+                at the listed rate so we can keep crews ready.
+              </div>
+            </div>
+            <div style={{ marginTop: "1.25rem" }}>
+              <Link className="btn btn-dark" href="/app/dna">
+                View Business DNA
+              </Link>
             </div>
           </div>
         </section>

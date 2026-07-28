@@ -13,6 +13,19 @@ Atlas is an ecosystem of AI helpers for:
 
 Start with small service businesses that need an AI receptionist and scheduling. Expand into personal assistants and celebration/event planning on the same platform.
 
+## Platform pillars
+
+- **Intelligence Network** (`/app/network`) — anonymized industry trends across thousands of businesses
+- **AI Digital Employees** (`/app/digital-employees`) — CEO through Supply Chain specialists
+- **Business DNA** (`/app/dna`) — company voice, discounts, escalation rules, pricing philosophy
+- **Autonomous Mode** (`/app/autonomous`) — continuous loops; owner gets confirmations
+- **Business Simulator** (`/app/simulator`) — what-if modeling for wages, costs, demand, cash
+- **AI Operating System** (`/app/os`) — one workspace for email, phone, CRM, money, marketing, and more
+- **Atlas Academy** (`/app/training`) — lessons, role-play, certifications, tests, voice practice
+- **Business Builder** (`/app/builder`) — help create a company from name to first customers
+- **Executive Memory** (`/app/ceo-memory`) — years of decisions with context and meeting notes
+- **AI Risk Center** (`/app/risk`) — warn before satisfaction, burnout, cash, and compliance problems get expensive
+
 ## Atlas Brain
 
 The central AI that remembers customers, employees, hours, services, inventory, appointments, conversations, policies, pricing, documents, past jobs, equipment, and suppliers — so every AI doesn’t start over.
@@ -26,23 +39,18 @@ npm run dev
 
 - Marketing: `/`
 - Choose audience: `/onboarding`
-<<<<<<< HEAD
 - Command center: `/app`
-- Atlas Brain: `/app/brain`
-- AI Memory: `/app/memory`
-- Knowledge Base: `/app/knowledge`
-- Phone System: `/app/phone`
-- Intelligence Score: `/app/score`
-- Workflow Builder: `/app/workflows`
+- Intelligence Network: `/app/network`
+- Business DNA: `/app/dna`
+- Digital Employees: `/app/digital-employees`
+- Autonomous Mode: `/app/autonomous`
+- Business Simulator: `/app/simulator`
+- AI Operating System: `/app/os`
+- Atlas Academy: `/app/training`
+- Business Builder: `/app/builder`
+- Executive Memory: `/app/ceo-memory`
+- AI Risk Center: `/app/risk`
 - Marketplace / App Store / API: `/app/marketplace`, `/app/app-store`, `/app/developers`
-=======
-- Business Atlas: `/app`
-- Workforce overview: `/app/workforce`
-- Personal AI: `/app/personal`
-- Event AI: `/app/events`
-- Team AI: `/app/employees`
-- Marketplace: `/app/marketplace`
-- Industry Packs: `/app/industries`
 
 ## Runtime security
 
@@ -61,4 +69,3 @@ For a machine-local demo only, bind the host so the server is not reachable from
 ```bash
 npm run start -- -H 127.0.0.1
 ```
->>>>>>> origin/main

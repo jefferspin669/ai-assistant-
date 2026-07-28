@@ -134,6 +134,8 @@ export const aiEmployees = [
 export const commandSuggestions = [
   "How is business?",
   "What’s the most important thing I should focus on today?",
+  "What are network trends for my industry?",
+  "What happens if minimum wage increases?",
   "Who canceled?",
   "Fill his spot.",
   "How much money did we make today?",

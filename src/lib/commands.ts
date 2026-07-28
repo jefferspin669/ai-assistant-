@@ -107,6 +107,96 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["academy", "train employees", "certification", "role-play", "roleplay"])) {
+    return {
+      agent: "hr",
+      agentLabel: "Atlas Academy",
+      needsConfirm: false,
+      reply:
+        "Atlas Academy is live for your team — interactive lessons, role-play, certifications, knowledge tests, and voice practice. Managers can see Alex at 81%, Sam at 94%, and Jordan at 36%.",
+    };
+  }
+
+  if (includesAny(q, ["start a company", "business builder", "choose a name", "register domain"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Business Builder",
+      needsConfirm: false,
+      reply:
+        "I can help create the company end-to-end: name, branding, website, pricing, domains, contracts, workflows, launch marketing, and first-customer outreach. Open Business Builder to continue.",
+    };
+  }
+
+  if (includesAny(q, ["increase prices in 2025", "why did we increase", "prices in 2025"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Executive Memory",
+      needsConfirm: false,
+      reply:
+        "On September 18, 2025 you approved a 6% service-rate increase after parts inflation hit 11% and overtime climbed. Supporting data and the Sep 16 leadership meeting notes are in Executive Memory.",
+    };
+  }
+
+  if (includesAny(q, ["risk center", "burnout", "cash-flow concern", "compliance deadline"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Risk Center",
+      needsConfirm: false,
+      reply:
+        "Risk Center is flagging declining CSAT (4.9→4.6), Alex burnout from overtime, a license renewal in 9 days, and a tight cash window before Friday payroll. Open Risk Center to act.",
+    };
+  }
+
+  if (includesAny(q, ["autonomous", "work continuously", "without me", "on its own"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Autonomous Mode",
+      needsConfirm: false,
+      reply:
+        "Autonomous Mode is on. Overnight I recovered a missed call, booked the job, updated CRM, alerted Sam, queued reminders, and staged a review request. You only need to confirm Sam’s auto-assignment.",
+    };
+  }
+
+  if (includesAny(q, ["minimum wage", "what happens if", "simulate", "simulator"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Business Simulator",
+      needsConfirm: false,
+      reply:
+        "If minimum wage rises: payroll +$6,400/mo, recommend +4% rates, profit -1.2 pts, defer one hire, demand -2% short-term, cash -$11k in Q1. Open Simulator for the full model.",
+    };
+  }
+
+  if (includesAny(q, ["operating system", "one workspace", "one login"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "AI Operating System",
+      needsConfirm: false,
+      reply:
+        "Everything is already in one Atlas workspace — email, phone, calendar, CRM, inventory, invoices, payroll, marketing, projects, documents, and analytics — one login, one memory, one AI.",
+    };
+  }
+
+  if (includesAny(q, ["network", "industry trend", "trends for my industry", "benchmark"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Intelligence Network",
+      needsConfirm: false,
+      reply:
+        "Across the Atlas network (private data never shared): HVAC companies that respond within five minutes close 37% more leads. In your region, same-day photo capture on missed calls lifts bookings 22%. Want me to tighten your response SLA?",
+    };
+  }
+
+  if (includesAny(q, ["business dna", "brand voice", "our tone", "sound like us"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Business DNA",
+      needsConfirm: false,
+      reply:
+        "Your DNA is locked in: neighborly expert voice, 10% max loyalty discount (never on emergencies), escalate safety or anything over $2,500, and transparent chat ranges with firm quotes after photos.",
+    };
+  }
+
   if (includesAny(q, ["opportunities", "increase revenue"])) {
     return {
       agent: "ceo",

@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import {
+  academyCertifications,
   trainingLearners,
   trainingLesson,
   trainingModules,
@@ -10,16 +11,17 @@ import {
   trainingVoiceScenario,
 } from "@/lib/atlas-platform";
 
-type Mode = "progress" | "lesson" | "quiz" | "voice" | "roleplay";
+type Mode = "progress" | "certs" | "lesson" | "quiz" | "voice" | "roleplay";
 
 type ChatMsg = { role: "ai" | "user"; text: string };
 
 const modes: { id: Mode; label: string }[] = [
-  { id: "progress", label: "Progress" },
-  { id: "lesson", label: "Lesson" },
-  { id: "quiz", label: "Quiz" },
+  { id: "progress", label: "Manager progress" },
+  { id: "certs", label: "Certifications" },
+  { id: "lesson", label: "Interactive lesson" },
+  { id: "quiz", label: "Knowledge test" },
   { id: "voice", label: "Voice practice" },
-  { id: "roleplay", label: "Roleplay" },
+  { id: "roleplay", label: "Role-playing" },
 ];
 
 function scoreVoice(text: string) {
@@ -125,8 +127,8 @@ export function TrainingStudio() {
           <section className="panel">
             <h2>New employee path</h2>
             <p className="panel-lead">
-              Atlas teaches them — interactive lessons, quizzes, voice practice, roleplay, and live
-              progress.
+              Atlas Academy teaches your team — interactive lessons, role-playing, certifications,
+              knowledge tests, and voice practice. Managers see progress live.
             </p>
             <div className="list">
               {trainingModules.map((mod) => (
@@ -161,7 +163,8 @@ export function TrainingStudio() {
                       <strong>{learner.name}</strong>
                     </p>
                     <small className="muted-line">
-                      {learner.role} · {learner.modulesDone}/{learner.modulesTotal} modules
+                      {learner.role} · {learner.modulesDone}/{learner.modulesTotal} modules ·{" "}
+                      {learner.certs} certs
                     </small>
                     <div className="train-track" aria-hidden>
                       <div className="train-fill" style={{ width: `${learner.overall}%` }} />
@@ -175,6 +178,37 @@ export function TrainingStudio() {
             </button>
           </section>
         </div>
+      ) : null}
+
+      {mode === "certs" ? (
+        <section className="panel">
+          <h2>Certification tracking</h2>
+          <p className="panel-lead">Managers can see who is certified, in progress, or expiring.</p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Certification</th>
+                <th>Employee</th>
+                <th>Status</th>
+                <th>Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {academyCertifications.map((cert) => (
+                <tr key={cert.id}>
+                  <td>
+                    <strong>{cert.title}</strong>
+                  </td>
+                  <td>{cert.holder}</td>
+                  <td>
+                    <span className={`badge${cert.status === "Active" ? " ok" : " warn"}`}>{cert.status}</span>
+                  </td>
+                  <td>{cert.expires}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       ) : null}
 
       {mode === "lesson" ? (

@@ -12,6 +12,7 @@ const modes: { id: Mode; label: string }[] = [
 ];
 
 const prompts = [
+  "Why did we increase prices in 2025?",
   "Why did we switch suppliers?",
   "Why did we lease a second van?",
   "Why did we raise the diagnostic fee?",
@@ -20,7 +21,7 @@ const prompts = [
 
 export function CeoMemoryStudio() {
   const [mode, setMode] = useState<Mode>("ask");
-  const [input, setInput] = useState("Why did we switch suppliers?");
+  const [input, setInput] = useState("Why did we increase prices in 2025?");
   const [memoryId, setMemoryId] = useState<string>(ceoMemories[0].id);
   const [custom, setCustom] = useState<ReturnType<typeof ceoMemoryForQuestion> | null>(null);
   const [recalling, setRecalling] = useState(false);
@@ -75,7 +76,7 @@ export function CeoMemoryStudio() {
         </div>
       </div>
 
-      <div className="training-tabs" role="tablist" aria-label="CEO Memory modes">
+      <div className="training-tabs" role="tablist" aria-label="Executive Memory modes">
         {modes.map((item) => (
           <button
             key={item.id}
@@ -93,8 +94,10 @@ export function CeoMemoryStudio() {
       {mode === "ask" ? (
         <div className="split">
           <section className="panel">
-            <h2>CEO Memory</h2>
-            <p className="panel-lead">Atlas remembers every decision — ask why, months later.</p>
+            <h2>Executive Memory</h2>
+            <p className="panel-lead">
+              Atlas remembers years of decisions — with context, supporting data, and meeting notes.
+            </p>
             <form className="train-form" onSubmit={onAsk}>
               <input
                 value={input}
@@ -155,6 +158,26 @@ export function CeoMemoryStudio() {
                     <ul className="plain-list">
                       {active.alternativesReviewed.map((alt) => (
                         <li key={alt}>{alt}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {"supportingData" in active && active.supportingData.length > 0 ? (
+                  <>
+                    <h3 style={{ marginTop: "1rem" }}>Supporting data</h3>
+                    <ul className="plain-list">
+                      {active.supportingData.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {"meetingNotes" in active && active.meetingNotes.length > 0 ? (
+                  <>
+                    <h3 style={{ marginTop: "1rem" }}>Meeting notes</h3>
+                    <ul className="plain-list">
+                      {active.meetingNotes.map((item) => (
+                        <li key={item}>{item}</li>
                       ))}
                     </ul>
                   </>
