@@ -4,8 +4,8 @@ import { MeetingStudio } from "@/components/MeetingStudio";
 export default function MeetingsPage() {
   return (
     <AppShell
-      title="AI Meeting Assistant"
-      subtitle="Records meetings and creates notes, decisions, tasks, deadlines, and summaries."
+      title="Meeting Intelligence"
+      subtitle="Join online meetings, take notes, record action items, generate summaries, assign follow-ups, and email recaps automatically."
       action={<button className="btn btn-dark">New meeting</button>}
     >
       <MeetingStudio />

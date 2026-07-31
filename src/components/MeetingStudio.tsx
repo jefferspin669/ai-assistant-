@@ -17,6 +17,8 @@ export function MeetingStudio() {
   const [meetingId, setMeetingId] = useState<string>(meetingLibrary[0].id);
   const [mode, setMode] = useState<Mode>("summary");
   const [recording, setRecording] = useState(false);
+  const [joined, setJoined] = useState(false);
+  const [recapSent, setRecapSent] = useState<Record<string, boolean>>({});
   const [doneTasks, setDoneTasks] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState<string | null>(null);
 
@@ -24,6 +26,8 @@ export function MeetingStudio() {
     () => meetingLibrary.find((item) => item.id === meetingId) ?? meetingLibrary[0],
     [meetingId],
   );
+
+  const recapDone = recapSent[meeting.id] ?? meeting.recapSent;
 
   function toggleRecord() {
     if (recording) {
@@ -33,7 +37,8 @@ export function MeetingStudio() {
       return;
     }
     setRecording(true);
-    setNote("Recording… Atlas is capturing the conversation live.");
+    setJoined(true);
+    setNote(`Joined ${meeting.platform}. Recording… Atlas is capturing the conversation live.`);
   }
 
   return (
@@ -81,11 +86,33 @@ export function MeetingStudio() {
 
       <div className="train-actions" style={{ marginTop: 0 }}>
         <button
+          className="btn btn-outline"
+          type="button"
+          onClick={() => {
+            setJoined(true);
+            setNote(`Atlas joined ${meeting.platform} · ${meeting.joinUrl}`);
+          }}
+        >
+          {joined ? `In ${meeting.platform}` : `Join ${meeting.platform}`}
+        </button>
+        <button
           className={`btn ${recording ? "btn-outline" : "btn-dark"}`}
           type="button"
           onClick={toggleRecord}
         >
           {recording ? "Stop recording" : "Start recording"}
+        </button>
+        <button
+          className="btn btn-outline"
+          type="button"
+          onClick={() => {
+            setRecapSent((prev) => ({ ...prev, [meeting.id]: true }));
+            setNote(
+              `Recap emailed to ${meeting.attendees.join(", ")} with summary, decisions, and assigned tasks.`,
+            );
+          }}
+        >
+          {recapDone ? "Recap sent" : "Email meeting recap"}
         </button>
         {recording ? <span className="badge warn">Live</span> : null}
       </div>

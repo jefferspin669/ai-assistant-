@@ -15,7 +15,12 @@ export function MarketplaceStudio() {
   const [mode, setMode] = useState<Mode>("browse");
   const [typeFilter, setTypeFilter] = useState<(typeof marketplaceShareTypes)[number]>("All");
   const [selectedId, setSelectedId] = useState<string>(marketplaceShares[0].id);
-  const [owned, setOwned] = useState<Record<string, boolean>>({ "missed-call": true, "hvac-agent": true });
+  const [owned, setOwned] = useState<Record<string, boolean>>({
+    "missed-call": true,
+    "hvac-agent": true,
+    "sales-agent": true,
+    "support-agent": true,
+  });
   const [note, setNote] = useState<string | null>(null);
   const [publishName, setPublishName] = useState("");
   const [publishType, setPublishType] = useState("Industry agents");
