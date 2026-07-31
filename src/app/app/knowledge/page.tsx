@@ -1,57 +1,78 @@
-import { FeatureView } from "@/components/FeatureView";
-import { knowledgeUploads } from "@/lib/atlas-platform";
+"use client";
+
+import { useState } from "react";
+import { AppShell } from "@/components/AppShell";
+import { knowledgeQa, knowledgeUploads } from "@/lib/atlas-platform";
 
 export default function KnowledgePage() {
+  const [query, setQuery] = useState("What’s our return policy?");
+  const [answer, setAnswer] = useState(knowledgeQa[0]);
+
+  function ask(q: string) {
+    setQuery(q);
+    const match =
+      knowledgeQa.find((item) => item.q.toLowerCase() === q.toLowerCase()) ??
+      knowledgeQa.find((item) => q.toLowerCase().includes("return")) ??
+      knowledgeQa[0];
+    setAnswer(match);
+  }
+
   return (
-    <FeatureView
-      title="Business Knowledge Base"
-      subtitle="Upload the business. Atlas learns handbooks, price sheets, contracts, manuals, videos, images, and floor plans."
+    <AppShell
+      title="Knowledge Brain"
+      subtitle="Atlas learns from PDFs, manuals, emails, policies, videos, meeting notes, and websites — then answers from your documentation."
       action={<button className="btn btn-dark">Upload documents</button>}
-      sections={[
-        {
-          type: "table",
-          title: "Library",
-          headers: ["File", "Type", "Status", "Size"],
-          rows: knowledgeUploads.map((item) => [
-            item.name,
-            item.type,
-            item.status,
-            item.pages === 1 ? "1 item" : `${item.pages} pages`,
-          ]),
-        },
-        {
-          type: "split",
-          left: {
-            title: "Accepted uploads",
-            list: [
-              { badge: "PDF", text: "Employee handbook, manuals, policies" },
-              { badge: "Sheets", text: "Price lists and rate cards" },
-              { badge: "Docs", text: "Contracts, SOPs, training docs" },
-              { badge: "Media", text: "Videos, images, floor plans" },
-            ],
-          },
-          right: {
-            title: "Ask the business",
-            list: [
-              {
-                badge: "Ready",
-                badgeTone: "ok",
-                text: "What’s our refund window on water heaters?",
-              },
-              {
-                badge: "Ready",
-                badgeTone: "ok",
-                text: "Summarize the safety section for new hires.",
-              },
-              {
-                badge: "Ready",
-                badgeTone: "ok",
-                text: "What’s the after-hours emergency rate?",
-              },
-            ],
-          },
-        },
-      ]}
-    />
+    >
+      <div className="split">
+        <section className="panel">
+          <h2>Library</h2>
+          <div className="list">
+            {knowledgeUploads.map((item) => (
+              <div className="list-row" key={item.name}>
+                <span className={`badge${item.status === "Learned" ? " ok" : ""}`}>
+                  {item.status}
+                </span>
+                <p>
+                  <strong>{item.name}</strong>
+                  <span className="muted-line">
+                    {item.type} · {item.pages === 1 ? "1 item" : `${item.pages} pages`}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <h2>Ask the business</h2>
+          <p className="panel-lead">Employees ask in plain English. Atlas cites your docs.</p>
+          <div className="quality-filter-row">
+            {knowledgeQa.map((item) => (
+              <button
+                key={item.q}
+                type="button"
+                className={query === item.q ? "training-tab active" : "training-tab"}
+                onClick={() => ask(item.q)}
+              >
+                {item.q}
+              </button>
+            ))}
+          </div>
+          <div className="chat-mock" style={{ marginTop: "1rem" }}>
+            <div className="bubble bubble-user">
+              <div className="agent-tag">Employee</div>
+              {query}
+            </div>
+            <div className="bubble bubble-ai">
+              <div className="agent-tag">Atlas</div>
+              {answer.a}
+              <span className="muted-line" style={{ display: "block", marginTop: "0.5rem" }}>
+                Source · {answer.source}
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </AppShell>
   );
 }

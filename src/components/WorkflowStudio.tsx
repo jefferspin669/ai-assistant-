@@ -122,8 +122,8 @@ export function WorkflowStudio() {
             <div>
               <h2>{template.name}</h2>
               <p className="panel-lead">
-                Trigger → actions. Example: Missed call → Send text → Create customer → Schedule
-                callback → Notify owner.
+                Trigger → actions. Example: If a customer misses a call → send a text → create a
+                lead → schedule a follow-up.
               </p>
             </div>
             <button

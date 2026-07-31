@@ -8,7 +8,12 @@ export default function DashboardPage() {
   return (
     <AppShell
       title="Atlas"
-      subtitle="The central AI that remembers your business — talk to it, or open Atlas Brain."
+      subtitle="Don’t ask how — tell Atlas what to do. Atlas Actions runs the outcome across every device."
+      action={
+        <Link className="btn btn-dark" href="/app/actions">
+          Open Atlas Actions
+        </Link>
+      }
     >
       <CommandCenter />
 
@@ -44,14 +49,14 @@ export default function DashboardPage() {
           <h2>Atlas platform</h2>
           <div className="list">
             {[
+              { href: "/app/actions", label: "Atlas Actions", text: "Say the outcome — invoice, email, remind, books" },
+              { href: "/app/executive", label: "Executive Dashboard", text: "Schedule, tasks, emails, bills, cash, weather" },
               { href: "/app/mission-control", label: "Mission Control", text: "CEO command bridge — already briefed" },
-              { href: "/app/brain", label: "Atlas Brain", text: "The memory of the whole business" },
-              { href: "/app/decisions", label: "Decision Engine", text: "Eight lenses before every major call" },
-              { href: "/app/executive-timeline", label: "Executive Timeline", text: "Everything important on one spine" },
-              { href: "/app/ceo-memory", label: "CEO Memory", text: "Ask why — months later, Atlas still knows" },
-              { href: "/app/board", label: "Board Advisor", text: "Balanced AI expert debate on decisions" },
-              { href: "/app/phone", label: "Phone System", text: "Answers, routes, books, pays" },
-              { href: "/app/score", label: "Intelligence Score", text: "Health from 0–100 with next actions" },
+              { href: "/app/marketplace", label: "AI Agent Marketplace", text: "Install Sales, HR, Marketing, and more" },
+              { href: "/app/workflows", label: "Automation Builder", text: "No-code if-this-then-that for the business" },
+              { href: "/app/knowledge", label: "Knowledge Brain", text: "Ask your manuals, policies, and emails" },
+              { href: "/app/finance", label: "Financial Command", text: "Cash, budgets, invoices, payroll, tax plan" },
+              { href: "/app/voice", label: "Voice Everywhere", text: "Same conversation on every device" },
             ].map((item) => (
               <div className="list-row" key={item.href}>
                 <span className="badge ok">Open</span>

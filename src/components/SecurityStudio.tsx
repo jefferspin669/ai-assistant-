@@ -2,21 +2,37 @@
 
 import { useMemo, useState } from "react";
 import {
+  securityAuditLog,
   securityCategories,
   securityEvents,
   securityStats,
 } from "@/lib/atlas-platform";
 
-type Mode = "overview" | "queue" | "logins" | "fraud" | "leaks" | "spending" | "accounts";
+type Mode =
+  | "overview"
+  | "queue"
+  | "logins"
+  | "fraud"
+  | "leaks"
+  | "spending"
+  | "accounts"
+  | "devices"
+  | "passwords"
+  | "backups"
+  | "audit";
 
 const modes: { id: Mode; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "queue", label: "Approvals" },
   { id: "logins", label: "Logins" },
+  { id: "devices", label: "Devices" },
+  { id: "passwords", label: "Password health" },
+  { id: "backups", label: "Backups" },
   { id: "fraud", label: "Fraud" },
   { id: "leaks", label: "Data leaks" },
   { id: "spending", label: "Spending" },
   { id: "accounts", label: "Account changes" },
+  { id: "audit", label: "Audit log" },
 ];
 
 function statusTone(status: string) {
@@ -38,6 +54,12 @@ function categoryForMode(mode: Mode) {
       return "Spending";
     case "accounts":
       return "Account changes";
+    case "devices":
+      return "Devices";
+    case "passwords":
+      return "Passwords";
+    case "backups":
+      return "Backups";
     default:
       return "All";
   }
@@ -51,7 +73,9 @@ export function SecurityStudio() {
   const [note, setNote] = useState<string | null>(null);
 
   const effectiveCategory =
-    mode === "overview" || mode === "queue" ? category : categoryForMode(mode);
+    mode === "overview" || mode === "queue" || mode === "audit"
+      ? category
+      : categoryForMode(mode);
 
   const filtered = useMemo(() => {
     const base =
@@ -60,7 +84,7 @@ export function SecurityStudio() {
             (event) => (resolutions[event.id] ?? event.status) === "Needs approval",
           )
         : securityEvents;
-    if (effectiveCategory === "All") return base;
+    if (mode === "audit" || effectiveCategory === "All") return base;
     return base.filter((event) => event.category === effectiveCategory);
   }, [effectiveCategory, mode, resolutions]);
 
@@ -116,8 +140,8 @@ export function SecurityStudio() {
           <section className="panel">
             <h2>Detection coverage</h2>
             <p className="panel-lead">
-              Atlas watches suspicious logins, fraud, data leaks, unusual spending, and account
-              changes.
+              Threat detection, login monitoring, devices, password health, 2FA checks, audit logs,
+              and backup monitoring.
             </p>
             <div className="quality-filter-row">
               {securityCategories.map((cat) => (
@@ -205,25 +229,51 @@ export function SecurityStudio() {
         </div>
       ) : null}
 
-      {mode !== "overview" ? (
+      {mode === "audit" ? (
+        <section className="panel">
+          <h2>Audit log</h2>
+          <p className="panel-lead">Immutable trail of security actions across the business.</p>
+          <div className="list">
+            {securityAuditLog.map((entry) => (
+              <div className="list-row" key={entry.when + entry.action}>
+                <span className="time">{entry.when}</span>
+                <p>
+                  <strong>{entry.actor}</strong>
+                  <span className="muted-line">{entry.action}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {mode !== "overview" && mode !== "audit" ? (
         <section className="panel">
           <h2>
             {mode === "queue"
               ? "Pending approvals"
               : mode === "logins"
-                ? "Suspicious logins"
-                : mode === "fraud"
-                  ? "Fraud detection"
-                  : mode === "leaks"
-                    ? "Data leak watch"
-                    : mode === "spending"
-                      ? "Unusual spending"
-                      : "Account changes"}
+                ? "Login monitoring"
+                : mode === "devices"
+                  ? "Device management"
+                  : mode === "passwords"
+                    ? "Password health & 2FA"
+                    : mode === "backups"
+                      ? "Backup monitoring"
+                      : mode === "fraud"
+                        ? "Fraud detection"
+                        : mode === "leaks"
+                          ? "Data leak watch"
+                          : mode === "spending"
+                            ? "Unusual spending"
+                            : "Account changes"}
           </h2>
           <p className="panel-lead">
             {mode === "queue"
               ? "Owner decisions required before Atlas releases the action."
-              : "Live detections in this category — approve, deny, or review Atlas notes."}
+              : mode === "passwords"
+                ? "Weak passwords and two-factor authentication coverage checks."
+                : "Live detections in this category — approve, deny, or review Atlas notes."}
           </p>
           <div className="list">
             {filtered.length === 0 ? (

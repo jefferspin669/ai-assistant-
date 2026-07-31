@@ -8,6 +8,7 @@ export function BusinessBuilderStudio() {
   const [completed, setCompleted] = useState<Record<string, boolean>>({
     name: true,
     brand: true,
+    website: true,
   });
 
   const step = businessBuilderSteps[stepIndex];
@@ -25,8 +26,8 @@ export function BusinessBuilderStudio() {
           <p className="briefing-kicker">AI Business Builder</p>
           <h2>From idea to first customers.</h2>
           <p style={{ color: "rgba(244,248,247,0.8)" }}>
-            Atlas expands from running a business to helping create one — name, brand, website,
-            pricing, domains, contracts, workflows, marketing, and acquisition.
+            Atlas helps new entrepreneurs generate plans, logos, websites, domains, contracts,
+            marketing, accounting, and online stores — then launch.
           </p>
         </div>
         <div className="stat" style={{ background: "rgba(244,248,247,0.08)", border: "none" }}>

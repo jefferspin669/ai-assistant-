@@ -6,14 +6,17 @@ export const navGroups: NavGroup[] = [
     label: "Command",
     items: [
       { href: "/app", label: "Atlas", exact: true },
+      { href: "/app/actions", label: "Atlas Actions" },
+      { href: "/app/executive", label: "Executive Dashboard" },
       { href: "/app/mission", label: "Atlas Mission" },
       { href: "/app/mission-control", label: "Mission Control" },
       { href: "/app/autonomous", label: "Autonomous Mode" },
       { href: "/app/os", label: "AI Operating System" },
+      { href: "/app/computer", label: "AI Computer Control" },
       { href: "/app/brain", label: "Atlas Brain" },
       { href: "/app/memory", label: "AI Memory" },
-      { href: "/app/knowledge", label: "Knowledge Base" },
-      { href: "/app/voice", label: "Voice" },
+      { href: "/app/knowledge", label: "Knowledge Brain" },
+      { href: "/app/voice", label: "Voice Everywhere" },
     ],
   },
   {
@@ -24,6 +27,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/call-summaries", label: "Call Summaries" },
       { href: "/app/missed-calls", label: "Missed Calls" },
       { href: "/app/chatbot", label: "Website Chat" },
+      { href: "/app/portal", label: "Customer Portal" },
     ],
   },
   {
@@ -38,9 +42,11 @@ export const navGroups: NavGroup[] = [
     label: "Revenue",
     items: [
       { href: "/app/quotes", label: "Sales AI" },
+      { href: "/app/sales-coach", label: "AI Sales Coach" },
       { href: "/app/marketing", label: "Marketing AI" },
       { href: "/app/payments", label: "Payments" },
       { href: "/app/accountant", label: "Accountant Helper" },
+      { href: "/app/finance", label: "Financial Command" },
       { href: "/app/tax", label: "Tax Center" },
     ],
   },
@@ -65,7 +71,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/analytics", label: "AI Dashboard" },
       { href: "/app/insights", label: "Predictive Analytics" },
       { href: "/app/network", label: "Intelligence Network" },
-      { href: "/app/score", label: "Intelligence Score" },
+      { href: "/app/score", label: "Business Health Score" },
       { href: "/app/board", label: "Board Advisor" },
       { href: "/app/decisions", label: "Decision Engine" },
       { href: "/app/executive-timeline", label: "Executive Timeline" },
@@ -85,10 +91,10 @@ export const navGroups: NavGroup[] = [
       { href: "/app/documents", label: "Document Builder" },
       { href: "/app/builder", label: "Business Builder" },
       { href: "/app/vision", label: "Atlas Vision" },
-      { href: "/app/meetings", label: "Meeting Assistant" },
+      { href: "/app/meetings", label: "Meeting Intelligence" },
       { href: "/app/projects", label: "Project Manager" },
       { href: "/app/command-language", label: "Command Language" },
-      { href: "/app/workflows", label: "Workflow Builder" },
+      { href: "/app/workflows", label: "Automation Builder" },
       { href: "/app/coach", label: "Live AI Coach" },
     ],
   },
@@ -98,7 +104,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/employees", label: "AI Agents" },
       { href: "/app/digital-employees", label: "Digital Employees" },
       { href: "/app/dna", label: "Business DNA" },
-      { href: "/app/marketplace", label: "AI Marketplace" },
+      { href: "/app/marketplace", label: "AI Agent Marketplace" },
       { href: "/app/app-store", label: "App Store" },
       { href: "/app/developers", label: "Atlas API" },
       { href: "/app/industries", label: "Industry Packs" },
@@ -145,6 +151,28 @@ export const knowledgeUploads = [
   { name: "Truck loadout floor plan.png", type: "Floor plan", status: "Learned", pages: 1 },
   { name: "New hire orientation.mp4", type: "Video", status: "Queued", pages: 1 },
   { name: "Job site photos", type: "Images", status: "Learned", pages: 128 },
+  { name: "Return & warranty policy.pdf", type: "Policies", status: "Learned", pages: 4 },
+  { name: "Customer email archive · Q1", type: "Emails", status: "Learned", pages: 842 },
+  { name: "Ops standup notes · Mar", type: "Meeting notes", status: "Learned", pages: 12 },
+  { name: "atlas-hvac.com/support", type: "Website", status: "Learning", pages: 28 },
+];
+
+export const knowledgeQa = [
+  {
+    q: "What’s our return policy?",
+    a: "Parts unused and in original packaging may be returned within 30 days with receipt. Installed equipment follows the manufacturer warranty; labor is covered for 90 days on the original job.",
+    source: "Return & warranty policy.pdf · p. 1–2",
+  },
+  {
+    q: "What’s our refund window on water heaters?",
+    a: "Full refund within 14 days if unused; after install, manufacturer warranty applies and Atlas drafts the claim packet.",
+    source: "Employee handbook.pdf · Refunds",
+  },
+  {
+    q: "What’s the after-hours emergency rate?",
+    a: "$189 trip fee plus standard labor after 6pm and weekends. Commercial contracts may waive the trip fee.",
+    source: "2026 price sheet.xlsx · After-hours",
+  },
 ];
 
 export const phoneCapabilities = [
@@ -1765,6 +1793,9 @@ export const securityCategories = [
   "Data leaks",
   "Spending",
   "Account changes",
+  "Devices",
+  "Passwords",
+  "Backups",
 ] as const;
 
 export const securityEvents = [
@@ -1868,13 +1899,81 @@ export const securityEvents = [
     risk: "Low",
     note: "Scheduled rotation completed successfully.",
   },
+  {
+    id: "device-van",
+    category: "Devices",
+    event: "Tablet enrolled",
+    detail: "Van 3 · Android",
+    status: "Healthy",
+    when: "Wed · 6:12 AM",
+    risk: "Low",
+    note: "MDM profile applied · disk encryption on.",
+  },
+  {
+    id: "device-lost",
+    category: "Devices",
+    event: "Device marked missing",
+    detail: "Spare iPad · warehouse",
+    status: "Needs approval",
+    when: "Today · 9:05 AM",
+    risk: "Medium",
+    note: "Awaiting remote wipe approval from Jeff.",
+  },
+  {
+    id: "pwd-weak",
+    category: "Passwords",
+    event: "Weak password detected",
+    detail: "Alex · shared inbox",
+    status: "Needs approval",
+    when: "Today · 7:30 AM",
+    risk: "Medium",
+    note: "Atlas drafted a reset + required 2FA enrollment.",
+  },
+  {
+    id: "pwd-2fa",
+    category: "Passwords",
+    event: "2FA check passed",
+    detail: "Owner + managers",
+    status: "Healthy",
+    when: "Mon · 1:00 AM",
+    risk: "Low",
+    note: "All privileged accounts have authenticator apps.",
+  },
+  {
+    id: "backup-nightly",
+    category: "Backups",
+    event: "Nightly backup verified",
+    detail: "CRM · files · configs",
+    status: "Healthy",
+    when: "Today · 2:10 AM",
+    risk: "Low",
+    note: "Restore test succeeded in 4m 12s.",
+  },
+  {
+    id: "backup-gap",
+    category: "Backups",
+    event: "Backup lag warning",
+    detail: "Photo archive · 26h",
+    status: "Monitoring",
+    when: "Yesterday · 4:00 PM",
+    risk: "Low",
+    note: "Retry queued; primary customer data still current.",
+  },
 ] as const;
 
 export const securityStats = [
   { label: "Threats blocked", value: "3", detail: "Last 7 days" },
-  { label: "Pending approvals", value: "3", detail: "Export · spend · role" },
-  { label: "Healthy connectors", value: "12", detail: "Keys rotated" },
-  { label: "Risk level", value: "Low", detail: "Monitoring on" },
+  { label: "Pending approvals", value: "5", detail: "Export · spend · role · device · password" },
+  { label: "2FA coverage", value: "98%", detail: "Privileged accounts" },
+  { label: "Backup health", value: "Green", detail: "Restore tested" },
+];
+
+export const securityAuditLog = [
+  { when: "Today · 9:05 AM", actor: "Atlas", action: "Flagged missing iPad for wipe approval" },
+  { when: "Today · 8:40 AM", actor: "Alex", action: "Requested customer list export" },
+  { when: "Today · 7:30 AM", actor: "Atlas", action: "Opened password health ticket for shared inbox" },
+  { when: "Yesterday · 11:48 PM", actor: "Atlas", action: "Blocked Frankfurt VPN login" },
+  { when: "Thu · 1:00 AM", actor: "System", action: "Rotated payments API key" },
 ];
 
 export const documentTypes = [
@@ -2039,7 +2138,13 @@ export const meetingNotes = {
 };
 
 export const meetingLibrary = [
-  meetingNotes,
+  {
+    ...meetingNotes,
+    platform: "Zoom",
+    joinUrl: "zoom.us/j/atlas-ops",
+    attendees: ["Jeff", "Sam", "Emma", "Alex"],
+    recapSent: false,
+  },
   {
     id: "owner-brief",
     title: "Owner Friday brief",
@@ -2052,6 +2157,10 @@ export const meetingLibrary = [
       { owner: "Jeff", task: "Call permit office", due: "Mon" },
     ],
     deadlines: [{ label: "Permit check-in", due: "Mon" }],
+    platform: "Google Meet",
+    joinUrl: "meet.google.com/atlas-brief",
+    attendees: ["Jeff", "Atlas"],
+    recapSent: true,
   },
 ] as const;
 
@@ -2108,9 +2217,14 @@ export const projects = [
 export const workflowPalette = [
   { kind: "Trigger", label: "Missed call" },
   { kind: "Trigger", label: "Payment received" },
+  { kind: "Trigger", label: "Invoice overdue" },
+  { kind: "Trigger", label: "Inventory low" },
   { kind: "Trigger", label: "New review" },
   { kind: "Action", label: "Send text" },
+  { kind: "Action", label: "Send reminder" },
+  { kind: "Action", label: "Create lead" },
   { kind: "Action", label: "Create customer" },
+  { kind: "Action", label: "Schedule follow-up" },
   { kind: "Action", label: "Schedule callback" },
   { kind: "Action", label: "Notify owner" },
   { kind: "Action", label: "Request review" },
@@ -2127,9 +2241,36 @@ export const workflowSteps = [
 export const workflowTemplates = [
   {
     id: "missed-call",
-    name: "Missed-call recovery",
-    steps: workflowSteps,
-    blurb: "Text the caller, create the customer, book a callback, notify Jeff.",
+    name: "Missed call → text → lead → follow-up",
+    steps: [
+      { id: "t1", kind: "Trigger", label: "Missed call" },
+      { id: "a1", kind: "Action", label: "Send text" },
+      { id: "a2", kind: "Action", label: "Create lead" },
+      { id: "a3", kind: "Action", label: "Schedule follow-up" },
+      { id: "a4", kind: "Action", label: "Notify owner" },
+    ],
+    blurb: "If a customer misses a call → send a text → create a lead → schedule a follow-up.",
+  },
+  {
+    id: "overdue-invoice",
+    name: "Overdue invoice reminders",
+    steps: [
+      { id: "t4", kind: "Trigger", label: "Invoice overdue" },
+      { id: "a9", kind: "Action", label: "Send reminder" },
+      { id: "a10", kind: "Action", label: "Schedule follow-up" },
+      { id: "a11", kind: "Action", label: "Notify owner" },
+    ],
+    blurb: "If an invoice is overdue → send reminders every 7 days.",
+  },
+  {
+    id: "inventory-alert",
+    name: "Low inventory notify",
+    steps: [
+      { id: "t5", kind: "Trigger", label: "Inventory low" },
+      { id: "a12", kind: "Action", label: "Notify owner" },
+      { id: "a13", kind: "Action", label: "Create lead" },
+    ],
+    blurb: "If inventory drops below 20 → notify the owner.",
   },
   {
     id: "review-ask",
@@ -2140,16 +2281,6 @@ export const workflowTemplates = [
       { id: "a6", kind: "Action", label: "Notify owner" },
     ],
     blurb: "Ask for a Google review once the invoice is paid.",
-  },
-  {
-    id: "lead-ping",
-    name: "New lead → CRM → owner ping",
-    steps: [
-      { id: "t3", kind: "Trigger", label: "Missed call" },
-      { id: "a7", kind: "Action", label: "Create customer" },
-      { id: "a8", kind: "Action", label: "Notify owner" },
-    ],
-    blurb: "Capture the lead instantly and alert the owner.",
   },
 ] as const;
 
@@ -2384,6 +2515,86 @@ export const marketplaceShareTypes = [
 ] as const;
 
 export const marketplaceShares = [
+  {
+    id: "sales-agent",
+    name: "Sales Agent",
+    type: "Industry agents",
+    rating: "4.9",
+    price: "Free",
+    seller: "Atlas Labs",
+    developer: "dev@atlas",
+    blurb: "Qualifies leads, drafts quotes, and coaches closings in real time.",
+  },
+  {
+    id: "hr-manager",
+    name: "HR Manager",
+    type: "Industry agents",
+    rating: "4.8",
+    price: "$29",
+    seller: "PeopleStack",
+    developer: "peoplestack",
+    blurb: "Onboarding, PTO, certifications, and handbook answers for the team.",
+  },
+  {
+    id: "marketing-director",
+    name: "Marketing Director",
+    type: "Industry agents",
+    rating: "4.8",
+    price: "$39",
+    seller: "Atlas Labs",
+    developer: "dev@atlas",
+    blurb: "Campaigns, reviews, social posts, and local SEO in one specialist.",
+  },
+  {
+    id: "accountant-agent",
+    name: "Accountant",
+    type: "Industry agents",
+    rating: "4.9",
+    price: "$49",
+    seller: "LedgerLink",
+    developer: "ledgerlink",
+    blurb: "Categorize expenses, chase invoices, and prep books for tax season.",
+  },
+  {
+    id: "support-agent",
+    name: "Customer Support Agent",
+    type: "Industry agents",
+    rating: "4.9",
+    price: "Free",
+    seller: "Atlas Labs",
+    developer: "dev@atlas",
+    blurb: "Answers FAQs from the Knowledge Brain and opens tickets when needed.",
+  },
+  {
+    id: "legal-assistant",
+    name: "Legal Document Assistant",
+    type: "Industry agents",
+    rating: "4.7",
+    price: "$59",
+    seller: "ClauseWorks",
+    developer: "clauseworks",
+    blurb: "Drafts contracts, NDAs, and policy language from your templates.",
+  },
+  {
+    id: "real-estate-assistant",
+    name: "Real Estate Assistant",
+    type: "Industry agents",
+    rating: "4.8",
+    price: "$45",
+    seller: "PropKits",
+    developer: "propkits",
+    blurb: "Listings, showings, buyer follow-ups, and document packets.",
+  },
+  {
+    id: "fitness-coach",
+    name: "Personal Fitness Coach",
+    type: "Industry agents",
+    rating: "4.6",
+    price: "$19",
+    seller: "Wellness Labs",
+    developer: "wellness-labs",
+    blurb: "Plans, check-ins, and habit reminders for owner wellness programs.",
+  },
   {
     id: "hvac-agent",
     name: "HVAC Overnight Receptionist",
@@ -3522,14 +3733,15 @@ export const operatingSystemApps = [
 ] as const;
 
 export const businessBuilderSteps = [
-  { id: "name", title: "Choose a name", detail: "Summit Air Care · available as domain + socials" },
-  { id: "brand", title: "Create branding", detail: "Logo mark, teal/brass palette, neighborly voice" },
+  { id: "name", title: "Generate a business plan", detail: "One-pager: market, offer, pricing, first 90 days" },
+  { id: "brand", title: "Create logos & branding", detail: "Logo mark, teal/brass palette, neighborly voice" },
   { id: "website", title: "Build a website", detail: "Services, prices, FAQ, booking, chatbot" },
-  { id: "pricing", title: "Set pricing", detail: "Diagnostic $89 · maintenance plans · emergency rates" },
   { id: "domain", title: "Register domains", detail: "summitaircare.com + .net redirect" },
-  { id: "contracts", title: "Generate contracts", detail: "Service agreement + maintenance plan PDF" },
+  { id: "contracts", title: "Draft contracts", detail: "Service agreement + maintenance plan PDF" },
+  { id: "marketing", title: "Create marketing campaigns", detail: "Google Business · launch offer · first 3 posts" },
+  { id: "accounting", title: "Set up accounting", detail: "Chart of accounts · invoice templates · tax set-aside" },
+  { id: "store", title: "Launch online store", detail: "Maintenance plans + filter kits for checkout" },
   { id: "workflows", title: "Set up workflows", detail: "Missed-call recovery · review asks · invoicing" },
-  { id: "marketing", title: "Launch marketing", detail: "Google Business · launch offer · first 3 posts" },
   { id: "customers", title: "Acquire first customers", detail: "Neighborhood outreach list · referral script" },
 ] as const;
 
@@ -3839,3 +4051,223 @@ export const customerDigitalTwins = [
       "Hi Nina — checking in on the repair we quoted in February. I can hold last month’s rate through Friday.",
   },
 ] as const;
+
+export const executiveSchedule = [
+  { time: "8:30 AM", title: "Standup with Sam & Alex", place: "Shop · 20 min" },
+  { time: "10:00 AM", title: "Elena Brooks · AC diagnostic", place: "Oak Ave · Van 2" },
+  { time: "1:00 PM", title: "Johnson Construction estimate call", place: "Phone · Atlas joining" },
+  { time: "3:30 PM", title: "Supplier check-in · recovery machine", place: "Zoom" },
+  { time: "5:00 PM", title: "Owner wrap · cash & tomorrow routes", place: "Voice mode" },
+];
+
+export const executiveTasks = [
+  { title: "Approve Johnson Construction estimate", due: "Today", priority: "High" },
+  { title: "Review overdue invoices (3)", due: "Today", priority: "High" },
+  { title: "Confirm apprentice job post", due: "Mon", priority: "Medium" },
+  { title: "Sign spring promo creative", due: "Wed", priority: "Medium" },
+];
+
+export const executiveEmails = [
+  {
+    from: "Harbor Dental",
+    subject: "Q2 PM window + portal access",
+    why: "Contract customer awaiting schedule",
+  },
+  {
+    from: "City Permit Office",
+    subject: "Inspection reschedule request",
+    why: "Blocks second-location timeline",
+  },
+  {
+    from: "Nina Alvarez",
+    subject: "Can we revisit the repair quote?",
+    why: "At-risk customer · sentiment soft",
+  },
+];
+
+export const executiveBills = [
+  { name: "Fleet insurance", amount: "$1,240", due: "Aug 3" },
+  { name: "Parts vendor · CoolTech", amount: "$860", due: "Aug 5" },
+  { name: "Google Ads", amount: "$420", due: "Aug 7" },
+  { name: "QuickBooks + Twilio", amount: "$96", due: "Aug 10" },
+];
+
+export const executiveCashFlow = [
+  { label: "In today", value: "$3,482" },
+  { label: "Out today", value: "$1,105" },
+  { label: "7-day forecast", value: "+$18.4k" },
+  { label: "Cash on hand", value: "$64.2k" },
+];
+
+export const executiveMetrics = [
+  { label: "Revenue MTD", value: "$86.4k", detail: "+12% vs last month" },
+  { label: "Jobs booked", value: "38", detail: "4 open slots tomorrow" },
+  { label: "CSAT", value: "4.8", detail: "Last 30 days" },
+  { label: "Response time", value: "42s", detail: "Phone + chat" },
+];
+
+export const executiveWeatherTraffic = {
+  weather: "82° · Clear · Good outdoor job day",
+  traffic: "Main St slow until 9:15 · add 12 min to Van 2",
+  airQuality: "Moderate · remind techs on long roof jobs",
+};
+
+export const executiveRecommendations = [
+  {
+    title: "Approve the Johnson estimate before lunch",
+    detail: "Closing probability 78% if sent today with same-day install option.",
+  },
+  {
+    title: "Text Nina a revised payment plan",
+    detail: "Customer Twin flags churn risk; hold February rate through Friday.",
+  },
+  {
+    title: "Reorder capacitors — below 20",
+    detail: "Automation Builder can notify you automatically next time.",
+  },
+];
+
+export const computerCapabilities = [
+  { label: "Open applications", detail: "QuickBooks, Sheets, CRM, email" },
+  { label: "Fill forms", detail: "Permits, vendor portals, insurance" },
+  { label: "Create spreadsheets", detail: "Job costs, payroll drafts, forecasts" },
+  { label: "Send emails", detail: "Recaps, invoices, follow-ups" },
+  { label: "Generate reports", detail: "Ops, margins, tax packets" },
+  { label: "Navigate websites", detail: "Supplier sites, city portals" },
+  { label: "Download files", detail: "PDFs, CSVs, statements" },
+  { label: "Organize folders", detail: "Jobs, customers, compliance" },
+];
+
+export const computerTasks = [
+  {
+    id: "qb-invoice",
+    title: "Create overdue invoice chase sheet",
+    status: "Ready",
+    steps: ["Open Sheets", "Pull unpaid invoices", "Sort by age", "Email summary to Jeff"],
+  },
+  {
+    id: "permit-form",
+    title: "Fill city permit follow-up form",
+    status: "Needs permission",
+    steps: ["Open city portal", "Fill inspection fields", "Attach plans", "Submit for review"],
+  },
+  {
+    id: "folder-tidy",
+    title: "Organize Johnson Construction folder",
+    status: "Ready",
+    steps: ["Create job folder", "Move estimate PDF", "Attach photos", "Share link with Alex"],
+  },
+];
+
+export const portalFeatures = [
+  "Schedule appointments",
+  "Pay invoices",
+  "Chat with AI",
+  "Upload documents",
+  "Track orders",
+  "Open support tickets",
+];
+
+export const portalThemes = [
+  { id: "teal", name: "Harbor Teal", accent: "#2f8f8a" },
+  { id: "ink", name: "Owner Ink", accent: "#0f2a32" },
+  { id: "sand", name: "Trade Sand", accent: "#d9a441" },
+];
+
+export const portalPreview = {
+  business: "Atlas HVAC",
+  headline: "Your service portal",
+  nextAppointment: "Tue · 10–12 · Filter swap",
+  openInvoice: "$289 · due Aug 12",
+  ticket: "Parts delay · In progress",
+};
+
+export const financeBudgets = [
+  { category: "Parts & inventory", planned: "$12k", actual: "$9.4k", status: "On track" },
+  { category: "Marketing", planned: "$4.2k", actual: "$3.1k", status: "Under" },
+  { category: "Payroll", planned: "$28k", actual: "$27.2k", status: "On track" },
+  { category: "Fleet", planned: "$3.5k", actual: "$4.1k", status: "Over" },
+];
+
+export const financeForecast = [
+  { period: "This week", cashIn: "$22.4k", cashOut: "$14.1k", net: "+$8.3k" },
+  { period: "Next week", cashIn: "$19.8k", cashOut: "$16.0k", net: "+$3.8k" },
+  { period: "This month", cashIn: "$96k", cashOut: "$71k", net: "+$25k" },
+];
+
+export const financeSubscriptions = [
+  { name: "QuickBooks", amount: "$65/mo", status: "Keep", note: "Core ledger" },
+  { name: "Twilio SMS", amount: "$31/mo", status: "Keep", note: "Missed-call recovery" },
+  { name: "Unused design SaaS", amount: "$29/mo", status: "Cancel", note: "No logins in 90 days" },
+  { name: "Route planner legacy", amount: "$49/mo", status: "Review", note: "Replaced by Atlas Routes" },
+];
+
+export const financeInvoices = [
+  { customer: "Johnson Construction", amount: "$18,400", status: "Pending approval", age: "2d" },
+  { customer: "Harbor Dental", amount: "$1,120", status: "Sent", age: "5d" },
+  { customer: "Nina Alvarez", amount: "$640", status: "Overdue", age: "18d" },
+];
+
+export const financePayroll = {
+  nextRun: "Fri · $27,200",
+  overtimeRisk: "Sam +4h this week",
+  tip: "Shift one non-urgent job to Monday to avoid OT.",
+};
+
+export const financeTaxPlan = [
+  "Set aside 22% of net for quarterly estimate",
+  "Expense optimization found $780/yr in unused subscriptions",
+  "Section 179 candidate: second recovery machine",
+];
+
+export const salesCoachCalls = [
+  {
+    id: "johnson",
+    title: "Johnson Construction · remodel estimate",
+    duration: "18:42",
+    talkListen: "46% / 54%",
+    closingProbability: "78%",
+    objections: ["Price vs. prior GC", "Timeline for start"],
+    missed: ["Didn’t offer phased payment", "No referral ask"],
+    suggestions: [
+      "Mirror their timeline concern before price",
+      "Offer 40/40/20 milestone billing",
+      "Ask who else on site needs HVAC next quarter",
+    ],
+    transcript: [
+      { speaker: "Rep", text: "We can start the week of the 18th if permits clear." },
+      { speaker: "Buyer", text: "That’s steeper than our last GC quote." },
+      { speaker: "Rep", text: "This includes recovery equipment and after-hours contingency." },
+    ],
+  },
+  {
+    id: "nina",
+    title: "Nina Alvarez · deferred repair",
+    duration: "09:15",
+    talkListen: "61% / 39%",
+    closingProbability: "41%",
+    objections: ["Cash this month"],
+    missed: ["Talked over her budget concern", "No payment-plan bridge"],
+    suggestions: [
+      "Drop talk ratio below 50%",
+      "Lead with payment plan before features",
+      "Confirm evening phone preference",
+    ],
+    transcript: [
+      { speaker: "Rep", text: "The compressor path is the lasting fix." },
+      { speaker: "Buyer", text: "I just can’t put that much on the card right now." },
+      { speaker: "Rep", text: "It’s the better long-term value though." },
+    ],
+  },
+];
+
+export const voiceEndpoints = [
+  { id: "mobile", name: "Mobile app", status: "Connected", detail: "Push + wake word" },
+  { id: "desktop", name: "Desktop app", status: "Connected", detail: "Hands-free on shop PC" },
+  { id: "watch", name: "Smartwatch", status: "Paired", detail: "Glance metrics · approve" },
+  { id: "car", name: "Car integration", status: "Ready", detail: "Android Auto / CarPlay" },
+  { id: "speaker", name: "Smart speakers", status: "Optional", detail: "Shop & home" },
+  { id: "web", name: "Web browser", status: "Live", detail: "This session" },
+  { id: "phone", name: "Phone calls", status: "Live", detail: "Receptionist + owner line" },
+];
+

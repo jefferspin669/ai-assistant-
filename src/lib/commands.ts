@@ -35,6 +35,33 @@ export function runOwnerCommand(input: string): CommandResult {
     };
   }
 
+  if (includesAny(q, ["how do i create an invoice", "how do i invoice", "how to create an invoice"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas Actions",
+      needsConfirm: false,
+      reply:
+        "You don’t need a tutorial. Tell me the outcome — “Create an invoice for Acme Corp for $1,250, email it, remind them in 7 days if unpaid, and update my books.” Open Atlas Actions to run it.",
+    };
+  }
+
+  if (
+    includesAny(q, ["invoice for", "update my books", "remind them in"]) ||
+    (includesAny(q, ["create an invoice"]) && !includesAny(q, ["how do i", "how to"])) ||
+    (includesAny(q, ["atlas,"]) && includesAny(q, ["invoice"]))
+  ) {
+    return {
+      agent: "finance",
+      agentLabel: "Atlas Actions",
+      needsConfirm: true,
+      reply:
+        "That’s an Atlas Action — not a how-to. I’ll create the invoice, email it, arm a 7-day unpaid reminder, and update your books.",
+      confirmPrompt: "Open Atlas Actions and run this end-to-end?",
+      doneLabel:
+        "Action queued in Atlas Actions. Create → email → remind in 7 days → update books. Same thread on every device.",
+    };
+  }
+
   if (includesAny(q, ["how is business", "how's business", "how’s business", "business doing"])) {
     return {
       agent: "ceo",
