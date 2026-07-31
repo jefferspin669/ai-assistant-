@@ -80,7 +80,7 @@ export function ActionsStudio() {
     pushTurn({ role: "user", text: command, device: deviceId });
     pushTurn({
       role: "atlas",
-      text: `Got it — I’ll ${next.summary.toLowerCase().replace(/\.$/, "")}. Here’s the plan across ${next.steps.length} systems.`,
+      text: `Got it — I’ll ${next.summary.replace(/\.$/, "")}. Here’s the plan across ${next.steps.length} systems.`,
       device: deviceId,
       planId: next.id,
     });

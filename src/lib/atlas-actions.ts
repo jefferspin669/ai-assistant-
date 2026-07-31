@@ -90,11 +90,11 @@ export function parseAtlasAction(input: string): AtlasActionPlan {
     return {
       id: "invoice-acme",
       title: `Invoice · ${customer}`,
-      summary: `Create ${amount} invoice, send it, remind in 7 days if unpaid, update the books.`,
+      summary: `create a ${amount} invoice for ${customer}, email it, remind them in 7 days if unpaid, and update the books`,
       customer,
       amount,
       confirmPrompt: `Create and send a ${amount} invoice to ${customer}, schedule a 7-day unpaid reminder, and post it to your books?`,
-      doneSummary: `Invoice ${amount} sent to ${customer}. Reminder armed for day 7. Ledger updated.`,
+      doneSummary: `${amount} invoice sent to ${customer}. Reminder armed for day 7. Ledger updated.`,
       steps: [
         step("draft", "Create invoice", `${amount} · net 15 · ${customer}`, "Invoices"),
         step("email", "Email invoice", `Send PDF + pay link to accounts@${customer.toLowerCase().replace(/\s+/g, "")}.com`, "Email"),
