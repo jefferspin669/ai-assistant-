@@ -132,14 +132,13 @@ export const aiEmployees = [
 ] as const;
 
 export const commandSuggestions = [
+  "Atlas, create an invoice for Acme Corp for $1,250, email it, remind them in 7 days if it’s unpaid, and update my books.",
+  "How do I create an invoice?",
   "How is business?",
   "What’s the most important thing I should focus on today?",
-  "What are network trends for my industry?",
-  "What happens if minimum wage increases?",
   "Who canceled?",
   "Fill his spot.",
   "How much money did we make today?",
-  "Find the AC install from April.",
   "Approve the Johnson Construction estimate.",
   "Show overdue invoices.",
 ];

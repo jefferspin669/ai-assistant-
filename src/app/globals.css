@@ -2133,3 +2133,87 @@ button.linkish:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.actions-hero {
+  background:
+    radial-gradient(circle at 12% 20%, rgba(217, 164, 65, 0.22), transparent 42%),
+    radial-gradient(circle at 88% 0%, rgba(47, 143, 138, 0.2), transparent 45%),
+    linear-gradient(135deg, #0f2a32 0%, #1a4550 55%, #245a58 100%);
+  color: var(--foam);
+  overflow: hidden;
+  position: relative;
+}
+
+.actions-hero .briefing-kicker {
+  color: rgba(244, 248, 247, 0.72);
+}
+
+.actions-hero h2 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.15;
+  margin: 0.35rem 0 0.65rem;
+  max-width: 18ch;
+}
+
+.actions-hero p {
+  color: rgba(244, 248, 247, 0.82);
+  max-width: 52ch;
+}
+
+.actions-device-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
+.actions-device {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--foam);
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.actions-device strong {
+  font-size: 0.92rem;
+}
+
+.actions-device span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.actions-device:hover,
+.actions-device.active {
+  border-color: var(--teal);
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(232, 241, 240, 0.9), var(--foam));
+}
+
+.actions-thread {
+  display: grid;
+  gap: 0.7rem;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 0.25rem;
+  margin-bottom: 0.85rem;
+}
+
+.actions-studio .command-form {
+  margin-top: 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .actions-split {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-hero h2 {
+    max-width: none;
+  }
+}

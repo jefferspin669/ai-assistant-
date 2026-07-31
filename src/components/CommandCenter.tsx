@@ -165,7 +165,10 @@ export function CommandCenter() {
         <div className="command-head">
           <div>
             <h2>Talk to Atlas</h2>
-            <p>Type, speak, upload later — one AI brain that actually runs the business.</p>
+            <p>
+              Prefer outcomes over how-tos — try Atlas Actions for multi-step work that continues on
+              every device.
+            </p>
           </div>
           <button className={`btn ${listening ? "btn-primary" : "btn-outline"}`} type="button" onClick={onSpeakToggle}>
             {listening ? "Listening…" : "Speak"}
@@ -225,7 +228,7 @@ export function CommandCenter() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder='Ask Atlas: “How is business?” or “What’s the most important thing today?”'
+            placeholder='Try: “Create an invoice for Acme Corp for $1,250…” or “How is business?”'
             aria-label="Talk to Atlas"
           />
           <button className="btn btn-dark" type="submit">

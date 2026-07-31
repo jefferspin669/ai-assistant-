@@ -1,18 +1,29 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { voiceEndpoints } from "@/lib/atlas-platform";
 
 const script = [
-  { role: "owner" as const, text: "Atlas." },
-  { role: "atlas" as const, text: "Yes?" },
-  { role: "owner" as const, text: "How much money did we make today?" },
-  { role: "atlas" as const, text: "$3,482." },
-  { role: "owner" as const, text: "Who canceled?" },
-  { role: "atlas" as const, text: "John Smith." },
-  { role: "owner" as const, text: "Fill his spot." },
-  { role: "atlas" as const, text: "I’m contacting customers now." },
+  {
+    role: "owner" as const,
+    text: "Atlas, create an invoice for Acme Corp for $1,250, email it, remind them in 7 days if it’s unpaid, and update my books.",
+  },
+  {
+    role: "atlas" as const,
+    text: "On it — invoice drafted, email queued, 7-day reminder armed, books updating.",
+  },
+  { role: "owner" as const, text: "I’m getting in the car — continue there." },
+  {
+    role: "atlas" as const,
+    text: "Same conversation on CarPlay. Invoice sent. Want a spoken summary when it posts?",
+  },
+  { role: "owner" as const, text: "Yes. And ping my watch if they pay." },
+  {
+    role: "atlas" as const,
+    text: "Watch alert set. Thread stays open across phone, desktop, watch, car, speakers, and web.",
+  },
 ];
 
 export default function VoicePage() {
@@ -25,15 +36,20 @@ export default function VoicePage() {
   return (
     <AppShell
       title="Voice Everywhere"
-      subtitle="Atlas works on mobile, desktop, watch, car, speakers, web, and phone calls."
+      subtitle="The conversation continues seamlessly across every device — mobile, desktop, watch, car, speakers, web, and phone."
       action={
-        <button
-          className="btn btn-dark"
-          type="button"
-          onClick={() => setStep((s) => Math.min(s + 1, script.length - 1))}
-        >
-          {step >= script.length - 1 ? "Conversation complete" : "Next line"}
-        </button>
+        <div className="cta-row">
+          <Link className="btn btn-outline" href="/app/actions">
+            Atlas Actions
+          </Link>
+          <button
+            className="btn btn-dark"
+            type="button"
+            onClick={() => setStep((s) => Math.min(s + 1, script.length - 1))}
+          >
+            {step >= script.length - 1 ? "Conversation complete" : "Next line"}
+          </button>
+        </div>
       }
     >
       <div className="stat-grid metrics-dense">
@@ -41,7 +57,9 @@ export default function VoicePage() {
           <button
             key={item.id}
             type="button"
-            className={activeEndpoint === item.id ? "stat voice-endpoint active" : "stat voice-endpoint"}
+            className={
+              activeEndpoint === item.id ? "stat voice-endpoint active" : "stat voice-endpoint"
+            }
             onClick={() => setActiveEndpoint(item.id)}
           >
             <span>{item.name}</span>
@@ -54,7 +72,9 @@ export default function VoicePage() {
       <section className="panel voice-stage">
         <div className="voice-orb" aria-hidden="true" />
         <h2>Listening on {endpoint.name}</h2>
-        <p className="panel-lead">{endpoint.detail}</p>
+        <p className="panel-lead">
+          {endpoint.detail}. Switch devices anytime — Atlas keeps the Action and the thread.
+        </p>
         <div className="chat-mock" style={{ marginTop: "1rem" }}>
           {visible.map((line, index) => (
             <div

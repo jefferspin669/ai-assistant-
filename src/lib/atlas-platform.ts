@@ -6,6 +6,7 @@ export const navGroups: NavGroup[] = [
     label: "Command",
     items: [
       { href: "/app", label: "Atlas", exact: true },
+      { href: "/app/actions", label: "Atlas Actions" },
       { href: "/app/executive", label: "Executive Dashboard" },
       { href: "/app/mission", label: "Atlas Mission" },
       { href: "/app/mission-control", label: "Mission Control" },
