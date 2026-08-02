@@ -2094,6 +2094,322 @@ button.linkish:hover {
   background: #fbfcfc;
 }
 
+/* Atlas Smart Calendar */
+.smart-cal {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.sc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sc-anchor {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.sc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.sc-main,
+.sc-side {
+  display: grid;
+  gap: 1rem;
+}
+
+.sc-event {
+  width: 100%;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--sc-color) 45%, var(--line));
+  border-left: 4px solid var(--sc-color);
+  background: color-mix(in srgb, var(--sc-color) 12%, var(--foam));
+  border-radius: 12px;
+  padding: 0.55rem 0.65rem;
+  display: grid;
+  gap: 0.15rem;
+  cursor: grab;
+}
+
+.sc-event.compact {
+  padding: 0.2rem 0.35rem;
+  font-size: 0.72rem;
+  border-left-width: 3px;
+}
+
+.sc-event.compact strong {
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc-event small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.sc-event.dragging {
+  opacity: 0.55;
+}
+
+.sc-day-grid {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sc-hour-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.65rem;
+  min-height: 3.2rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.sc-hour-row > strong {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  padding-top: 0.35rem;
+}
+
+.sc-hour-events {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 2.4rem;
+  border-radius: 10px;
+}
+
+.sc-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.sc-week-col {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  min-height: 280px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.sc-week-col.today,
+.sc-month-cell.today {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px rgba(47, 143, 138, 0.25);
+}
+
+.sc-week-col header {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sc-week-events {
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+}
+
+.sc-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.sc-month-head {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.sc-month-cell {
+  min-height: 5.5rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.35rem;
+  background: var(--foam);
+  display: grid;
+  gap: 0.2rem;
+  align-content: start;
+  cursor: pointer;
+}
+
+.sc-month-cell.muted {
+  opacity: 0.45;
+}
+
+.sc-month-cell > span {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sc-year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.sc-year-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  padding: 1rem;
+  text-align: left;
+  display: grid;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.sc-year-card:hover {
+  border-color: var(--teal);
+}
+
+.sc-year-card span {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.sc-timeline {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.sc-timeline-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.sc-timeline-track {
+  position: relative;
+  height: 2.4rem;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(47, 143, 138, 0.08), transparent 40%, rgba(15, 42, 50, 0.04));
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.sc-timeline-block {
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0 0.4rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: grab;
+}
+
+.sc-agenda {
+  display: grid;
+  gap: 1rem;
+}
+
+.sc-agenda-day h3 {
+  margin-bottom: 0.45rem;
+  font-size: 1rem;
+}
+
+.sc-agenda-slot {
+  border-left: 4px solid var(--teal);
+  cursor: grab;
+}
+
+.sc-legend {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.sc-legend-item {
+  display: grid;
+  grid-template-columns: 0.85rem 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.sc-legend-item span {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+}
+
+.sc-conflict {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.55rem 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(180, 35, 24, 0.08);
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.sc-suggestions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.sc-suggestion {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.75rem;
+  background: var(--paper);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.sc-suggestion p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 1100px) {
+  .sc-layout,
+  .sc-week-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-year-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .sc-month-grid,
+  .sc-year-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sc-timeline-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .quote-preview {
   background: var(--paper);
   border: 1px solid var(--line);
