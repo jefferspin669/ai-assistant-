@@ -26,7 +26,7 @@ export function AppShell({
         <Link href="/" className="sidebar-brand">
           Atlas <span>AI</span>
         </Link>
-        <p className="sidebar-tag">Atlas v1 · first usable version</p>
+        <p className="sidebar-tag">Frontend · API · Database</p>
         <nav className="sidebar-nav">
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>

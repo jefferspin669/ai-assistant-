@@ -12,8 +12,8 @@ export default function DashboardPage() {
       subtitle="First usable version — dashboard, calendar, tasks, conversations, files, and tax in one workspace."
       action={
         <div className="cta-row">
-          <Link className="btn btn-outline" href="/app/tasks">
-            Tasks
+          <Link className="btn btn-outline" href="/app/architecture">
+            Architecture
           </Link>
           <Link className="btn btn-dark" href="/app/appointments">
             Calendar
@@ -57,12 +57,12 @@ export default function DashboardPage() {
           <h2>Jump into v1</h2>
           <div className="list">
             {[
-              { href: "/app/appointments", label: "Smart Calendar", text: "Custom color categories + AI planner" },
-              { href: "/app/tasks", label: "Tasks", text: "CallbackFlow, bills, and personal work" },
-              { href: "/app/tax", label: "Tax ledger", text: "Income, expenses, and a basic estimate" },
-              { href: "/app/account", label: "Profile & vault", text: "Settings, files, saved conversations" },
-              { href: "/app/workflows", label: "Automation Builder", text: "Beyond v1 — no-code workflows" },
-              { href: "/app/memory", label: "AI Memory", text: "Beyond v1 — long-term preferences" },
+              { href: "/app/appointments", label: "Calendar", text: "Frontend · color categories + AI planner" },
+              { href: "/app/tax", label: "Tax Center", text: "Transactions + tax records" },
+              { href: "/app/chat", label: "AI Chat", text: "Conversations table via AI API" },
+              { href: "/app/files", label: "Files", text: "Documents uploads" },
+              { href: "/app/settings", label: "Settings", text: "Profile, notifications, billing" },
+              { href: "/app/architecture", label: "Architecture", text: "Frontend · Backend API · Database" },
             ].map((item) => (
               <div className="list-row" key={item.href}>
                 <span className="badge ok">Open</span>

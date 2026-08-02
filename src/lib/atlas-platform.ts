@@ -3,30 +3,40 @@ export type NavGroup = { label: string; items: NavItem[] };
 
 export const navGroups: NavGroup[] = [
   {
-    label: "Atlas v1",
+    label: "Frontend",
     items: [
       { href: "/app", label: "Dashboard", exact: true },
       { href: "/app/appointments", label: "Calendar" },
+      { href: "/app/tax", label: "Tax Center" },
+      { href: "/app/chat", label: "AI Chat" },
+      { href: "/app/files", label: "Files" },
+      { href: "/app/settings", label: "Settings" },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
       { href: "/app/tasks", label: "Tasks" },
-      { href: "/app/tax", label: "Tax ledger" },
-      { href: "/app/account", label: "Profile & vault" },
+      { href: "/app/architecture", label: "Architecture" },
+      { href: "/app/account", label: "Account Center" },
       { href: "/app/security", label: "Secure database" },
+      { href: "/app/actions", label: "Atlas Actions" },
+      { href: "/app/executive", label: "Executive Dashboard" },
+      { href: "/app/memory", label: "AI Memory" },
+      { href: "/app/workflows", label: "Automation Builder" },
+      { href: "/app/voice", label: "Voice Everywhere" },
     ],
   },
   {
     label: "Command",
     items: [
-      { href: "/app/actions", label: "Atlas Actions" },
-      { href: "/app/executive", label: "Executive Dashboard" },
       { href: "/app/mission", label: "Atlas Mission" },
       { href: "/app/mission-control", label: "Mission Control" },
       { href: "/app/autonomous", label: "Autonomous Mode" },
       { href: "/app/os", label: "AI Operating System" },
       { href: "/app/computer", label: "AI Computer Control" },
       { href: "/app/brain", label: "Atlas Brain" },
-      { href: "/app/memory", label: "AI Memory" },
       { href: "/app/knowledge", label: "Knowledge Brain" },
-      { href: "/app/voice", label: "Voice Everywhere" },
     ],
   },
   {

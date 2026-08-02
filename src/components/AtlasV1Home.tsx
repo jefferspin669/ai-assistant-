@@ -8,16 +8,16 @@ import { computeTaxEstimate, loadTaxTransactions, money } from "@/lib/tax-ledger
 import { vaultStatus } from "@/lib/secure-store";
 
 const V1_SHIPPED = [
-  { href: "/signup", label: "Registration & login", detail: "Signup, login, logout, password reset" },
-  { href: "/app", label: "User dashboard", detail: "Command Center + Atlas v1 home" },
-  { href: "/app/appointments", label: "Calendar + color categories", detail: "Smart Calendar with custom colors" },
-  { href: "/app/tasks", label: "Tasks", detail: "To-do / doing / done board" },
-  { href: "/app/account", label: "Saved AI conversations", detail: "Persisted from Talk to Atlas when signed in" },
-  { href: "/app/account", label: "Profile & settings", detail: "Account Center profiles and preferences" },
-  { href: "/app/account", label: "File uploads", detail: "Cloud vault + tax receipt attachments" },
-  { href: "/app/tax", label: "Tax income & expenses", detail: "Ledger with durable local storage" },
-  { href: "/app/tax", label: "Basic tax estimate", detail: "Recalculates from your ledger" },
-  { href: "/app/security", label: "Secure database", detail: "Salted password hashes + isolated vault" },
+  { href: "/app", label: "Dashboard", detail: "Frontend home + Command Center" },
+  { href: "/app/appointments", label: "Calendar", detail: "Smart Calendar + color categories" },
+  { href: "/app/tax", label: "Tax Center", detail: "Ledger + basic estimate" },
+  { href: "/app/chat", label: "AI Chat", detail: "Conversations via Backend API → Database" },
+  { href: "/app/files", label: "Files", detail: "Document uploads into Documents table" },
+  { href: "/app/settings", label: "Settings", detail: "Profile, notifications, billing" },
+  { href: "/app/architecture", label: "Architecture", detail: "Frontend · Backend API · Database map" },
+  { href: "/app/tasks", label: "Tasks", detail: "Task board backed by Tasks table" },
+  { href: "/signup", label: "Authentication", detail: "Signup, login, logout, password reset" },
+  { href: "/app/security", label: "Secure database", detail: "Salted hashes + isolated vault" },
 ];
 
 const ROADMAP = [
