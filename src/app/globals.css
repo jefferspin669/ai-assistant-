@@ -676,6 +676,152 @@ img {
   white-space: pre-wrap;
 }
 
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.75rem 0;
+}
+
+.plan-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.plan-card.active,
+.plan-card:hover {
+  border-color: var(--teal);
+  background: linear-gradient(180deg, rgba(232, 241, 240, 0.95), var(--foam));
+}
+
+.plan-price {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.plan-card small {
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.stat-tile {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: var(--paper);
+  display: grid;
+  gap: 0.25rem;
+}
+
+.stat-tile span {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.stat-tile strong {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.week-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+  align-items: end;
+  min-height: 140px;
+  margin-top: 0.75rem;
+}
+
+.week-bar {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+  align-content: end;
+  min-height: 120px;
+}
+
+.week-bar-fill {
+  width: 100%;
+  max-width: 2rem;
+  border-radius: 10px 10px 4px 4px;
+  background: linear-gradient(180deg, var(--teal), var(--teal-deep));
+}
+
+.week-bar span {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.week-bar small {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.status-banner {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  margin-bottom: 0.85rem;
+  font-weight: 650;
+}
+
+.status-banner.ok {
+  background: rgba(31, 122, 77, 0.12);
+  color: var(--ok);
+}
+
+.status-pill {
+  text-transform: capitalize;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.status-pill.operational {
+  color: var(--ok);
+  background: rgba(31, 122, 77, 0.1);
+}
+
+.status-pill.degraded {
+  color: #9a6700;
+  background: rgba(217, 164, 65, 0.16);
+}
+
+.status-pill.maintenance {
+  color: var(--ink-soft);
+  background: var(--mist);
+}
+
+@media (max-width: 900px) {
+  .plan-grid,
+  .stat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .plan-grid,
+  .stat-grid,
+  .week-bars {
+    grid-template-columns: 1fr;
+  }
+}
+
 .account-tab {
   text-align: left;
   border: 1px solid var(--line);

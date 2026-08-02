@@ -22,6 +22,13 @@ import {
   SettingsPanel,
   TeamPanel,
 } from "@/components/account/WorkspacePanels";
+import {
+  AiWorkspacePanel,
+  AnalyticsPanel,
+  BillingPanel,
+  DeveloperPanel,
+  ReliabilityPanel,
+} from "@/components/account/PlatformPanels";
 
 type Section =
   | "overview"
@@ -33,10 +40,16 @@ type Section =
   | "organization"
   | "notifications"
   | "team"
-  | "settings";
+  | "settings"
+  | "ai-workspace"
+  | "reliability"
+  | "developer"
+  | "billing"
+  | "analytics";
 
 const SECTIONS: { id: Section; label: string; blurb: string }[] = [
   { id: "overview", label: "Overview", blurb: "Profile snapshot, profits, AI name" },
+  { id: "ai-workspace", label: "AI Workspace", blurb: "Chats, prompts, files, projects" },
   { id: "auth", label: "Authentication", blurb: "Password, OAuth, 2FA, passkeys, sessions" },
   { id: "profiles", label: "Profiles", blurb: "Personal + businesses, photo, preferences" },
   { id: "organization", label: "Organization", blurb: "Folders, tags, favorites, search, archive" },
@@ -44,7 +57,11 @@ const SECTIONS: { id: Section; label: string; blurb: string }[] = [
   { id: "memory", label: "Memory", blurb: "Preferences, people, projects, long-term" },
   { id: "notifications", label: "Notifications", blurb: "Push, email, SMS, desktop, DND" },
   { id: "team", label: "Team", blurb: "Invites, roles, workspaces, chat, audit" },
-  { id: "settings", label: "Settings", blurb: "AI, privacy, billing, apps, API keys" },
+  { id: "reliability", label: "Reliability", blurb: "Autosave, offline, sync, recovery" },
+  { id: "developer", label: "Developer", blurb: "API, webhooks, plugins, sandbox" },
+  { id: "billing", label: "Billing", blurb: "Plans, usage, invoices, referrals" },
+  { id: "analytics", label: "Analytics", blurb: "Usage, time saved, productivity" },
+  { id: "settings", label: "Settings", blurb: "AI, privacy, apps, export" },
   { id: "security", label: "Security", blurb: "Encryption, alerts, permissions, devices" },
 ];
 
@@ -1068,6 +1085,10 @@ export function AccountCenter() {
           </div>
         )}
 
+        {section === "ai-workspace" && account ? (
+          <AiWorkspacePanel account={account} note={note} fail={fail} />
+        ) : null}
+
         {section === "organization" && account ? (
           <OrganizationPanel account={account} note={note} fail={fail} />
         ) : null}
@@ -1078,6 +1099,22 @@ export function AccountCenter() {
 
         {section === "team" && account ? (
           <TeamPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "reliability" && account ? (
+          <ReliabilityPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "developer" && account ? (
+          <DeveloperPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "billing" && account ? (
+          <BillingPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "analytics" && account ? (
+          <AnalyticsPanel account={account} note={note} fail={fail} />
         ) : null}
 
         {section === "settings" && account ? (

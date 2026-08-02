@@ -188,11 +188,42 @@ export type ApiKeyRecord = {
   lastUsedAt: string | null;
 };
 
+export type PlanTier = "free" | "pro" | "business" | "enterprise";
+
 export type BillingInfo = {
-  plan: "free" | "starter" | "growth" | "scale";
+  plan: PlanTier;
   status: "active" | "past_due" | "canceled";
   renewsAt: string;
   seats: number;
+  referralCode: string;
+  referralCredits: number;
+  paymentMethods: PaymentMethod[];
+  invoices: InvoiceRecord[];
+  usage: UsageMeter;
+};
+
+export type PaymentMethod = {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+};
+
+export type InvoiceRecord = {
+  id: string;
+  at: string;
+  amount: number;
+  status: "paid" | "open" | "void";
+  description: string;
+};
+
+export type UsageMeter = {
+  aiRequests: number;
+  storageMb: number;
+  seatsUsed: number;
+  periodLabel: string;
 };
 
 export type AppSettings = {
@@ -206,6 +237,90 @@ export type AppSettings = {
   connectedApps: ConnectedApp[];
   billing: BillingInfo;
   apiKeys: ApiKeyRecord[];
+};
+
+export type AiChat = {
+  id: string;
+  title: string;
+  preview: string;
+  messages: { role: "user" | "ai"; text: string }[];
+  projectId: string | null;
+  shared: boolean;
+  updatedAt: string;
+  createdAt: string;
+};
+
+export type SavedPrompt = {
+  id: string;
+  title: string;
+  body: string;
+  library: boolean;
+  createdAt: string;
+};
+
+export type GeneratedFile = {
+  id: string;
+  title: string;
+  kind: string;
+  content: string;
+  createdAt: string;
+};
+
+export type ProjectWorkspace = {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+};
+
+export type AiWorkspace = {
+  chats: AiChat[];
+  prompts: SavedPrompt[];
+  generatedFiles: GeneratedFile[];
+  projects: ProjectWorkspace[];
+  draftChatId: string | null;
+  draftText: string;
+};
+
+export type ReliabilitySettings = {
+  autoSave: boolean;
+  offlineMode: boolean;
+  syncAcrossDevices: boolean;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+  recoveredAt: string | null;
+};
+
+export type WebhookEndpoint = {
+  id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+};
+
+export type PluginRecord = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description: string;
+};
+
+export type DeveloperHub = {
+  webhooks: WebhookEndpoint[];
+  plugins: PluginRecord[];
+  sandboxLog: { id: string; at: string; detail: string }[];
+  docsVisited: boolean;
+};
+
+export type AnalyticsSnapshot = {
+  aiRequests: number;
+  timeSavedHours: number;
+  tasksCompleted: number;
+  moneySaved: number;
+  accuracyScore: number;
+  feedback: { id: string; at: string; rating: number; note: string }[];
+  weekly: { label: string; requests: number; tasks: number }[];
 };
 
 export type MemoryItem = {
@@ -290,6 +405,10 @@ export type UserAccount = {
   teamChat: TeamChatMessage[];
   auditLogs: AuditLogEntry[];
   appSettings: AppSettings;
+  aiWorkspace: AiWorkspace;
+  reliability: ReliabilitySettings;
+  developer: DeveloperHub;
+  analytics: AnalyticsSnapshot;
   resetToken: string | null;
   resetExpiresAt: string | null;
   createdAt: string;
@@ -449,9 +568,53 @@ function defaultNotifications(): NotificationSettings {
   };
 }
 
-function defaultAppSettings(): AppSettings {
+function migratePlan(plan: string | undefined): PlanTier {
+  if (plan === "pro" || plan === "business" || plan === "enterprise" || plan === "free") return plan;
+  if (plan === "growth" || plan === "scale") return plan === "scale" ? "enterprise" : "business";
+  if (plan === "starter") return "pro";
+  return "pro";
+}
+
+function defaultBilling(): BillingInfo {
   const renews = new Date();
   renews.setMonth(renews.getMonth() + 1);
+  const stamp = nowIso();
+  return {
+    plan: "pro",
+    status: "active",
+    renewsAt: renews.toISOString(),
+    seats: 3,
+    referralCode: `ATLAS-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    referralCredits: 0,
+    paymentMethods: [
+      {
+        id: newId(),
+        brand: "Visa",
+        last4: "4242",
+        expMonth: 12,
+        expYear: new Date().getFullYear() + 2,
+        isDefault: true,
+      },
+    ],
+    invoices: [
+      {
+        id: newId(),
+        at: stamp,
+        amount: 49,
+        status: "paid",
+        description: "Pro plan · monthly",
+      },
+    ],
+    usage: {
+      aiRequests: 1280,
+      storageMb: 420,
+      seatsUsed: 1,
+      periodLabel: "This billing period",
+    },
+  };
+}
+
+function defaultAppSettings(): AppSettings {
   return {
     voiceId: "atlas-warm",
     voiceLabel: "Atlas Warm",
@@ -466,13 +629,119 @@ function defaultAppSettings(): AppSettings {
       { id: "slack", name: "Slack", connected: false, connectedAt: null },
       { id: "stripe", name: "Stripe", connected: false, connectedAt: null },
     ],
-    billing: {
-      plan: "starter",
-      status: "active",
-      renewsAt: renews.toISOString(),
-      seats: 3,
-    },
+    billing: defaultBilling(),
     apiKeys: [],
+  };
+}
+
+function defaultAiWorkspace(ownerName: string): AiWorkspace {
+  const stamp = nowIso();
+  const projectId = newId();
+  const chatId = newId();
+  return {
+    projects: [
+      {
+        id: projectId,
+        name: "Customer follow-ups",
+        description: "Prompts and chats for retention work.",
+        createdAt: stamp,
+      },
+    ],
+    chats: [
+      {
+        id: chatId,
+        title: "How is business?",
+        preview: "Revenue is up 9% vs average…",
+        messages: [
+          { role: "user", text: "How is business?" },
+          { role: "ai", text: `Looking good, ${ownerName}. Revenue is up 9% vs average.` },
+        ],
+        projectId,
+        shared: false,
+        updatedAt: stamp,
+        createdAt: stamp,
+      },
+    ],
+    prompts: [
+      {
+        id: newId(),
+        title: "Weekly revenue check",
+        body: "How did we do on revenue this week vs last?",
+        library: true,
+        createdAt: stamp,
+      },
+      {
+        id: newId(),
+        title: "Draft estimate follow-up",
+        body: "Write a friendly text asking if they want to book from the estimate.",
+        library: true,
+        createdAt: stamp,
+      },
+    ],
+    generatedFiles: [
+      {
+        id: newId(),
+        title: "Follow-up email draft",
+        kind: "document",
+        content: "Hi {{name}}, just checking in on your estimate…",
+        createdAt: stamp,
+      },
+    ],
+    draftChatId: chatId,
+    draftText: "",
+  };
+}
+
+function defaultReliability(): ReliabilitySettings {
+  return {
+    autoSave: true,
+    offlineMode: true,
+    syncAcrossDevices: true,
+    lastSyncedAt: nowIso(),
+    lastError: null,
+    recoveredAt: null,
+  };
+}
+
+function defaultDeveloper(): DeveloperHub {
+  return {
+    webhooks: [],
+    plugins: [
+      {
+        id: "chrome-sidepanel",
+        name: "Browser side panel",
+        enabled: false,
+        description: "Open Atlas beside any tab.",
+      },
+      {
+        id: "zapier",
+        name: "Zapier connector",
+        enabled: false,
+        description: "Trigger workflows from Atlas events.",
+      },
+    ],
+    sandboxLog: [],
+    docsVisited: false,
+  };
+}
+
+function defaultAnalytics(): AnalyticsSnapshot {
+  return {
+    aiRequests: 1280,
+    timeSavedHours: 36.5,
+    tasksCompleted: 214,
+    moneySaved: 4820,
+    accuracyScore: 92,
+    feedback: [],
+    weekly: [
+      { label: "Mon", requests: 140, tasks: 28 },
+      { label: "Tue", requests: 180, tasks: 34 },
+      { label: "Wed", requests: 210, tasks: 41 },
+      { label: "Thu", requests: 190, tasks: 37 },
+      { label: "Fri", requests: 230, tasks: 44 },
+      { label: "Sat", requests: 90, tasks: 16 },
+      { label: "Sun", requests: 70, tasks: 14 },
+    ],
   };
 }
 
@@ -525,6 +794,8 @@ function normalizeCloudItem(item: CloudItem): CloudItem {
 
 function ensureAccountShape(account: UserAccount): UserAccount {
   const org = defaultOrgMeta(account.personal?.fullName || owner.name, account.email);
+  const defaults = defaultAppSettings();
+  const billingIn = account.appSettings?.billing || defaults.billing;
   return {
     ...account,
     cloudItems: (account.cloudItems || []).map(normalizeCloudItem),
@@ -544,17 +815,47 @@ function ensureAccountShape(account: UserAccount): UserAccount {
     teamChat: account.teamChat || [],
     auditLogs: account.auditLogs || [],
     appSettings: {
-      ...defaultAppSettings(),
+      ...defaults,
       ...(account.appSettings || {}),
       privacy: {
-        ...defaultAppSettings().privacy,
+        ...defaults.privacy,
         ...(account.appSettings?.privacy || {}),
       },
       connectedApps: account.appSettings?.connectedApps?.length
         ? account.appSettings.connectedApps
-        : defaultAppSettings().connectedApps,
-      billing: { ...defaultAppSettings().billing, ...(account.appSettings?.billing || {}) },
+        : defaults.connectedApps,
+      billing: {
+        ...defaults.billing,
+        ...billingIn,
+        plan: migratePlan(billingIn.plan),
+        paymentMethods: billingIn.paymentMethods?.length
+          ? billingIn.paymentMethods
+          : defaults.billing.paymentMethods,
+        invoices: billingIn.invoices?.length ? billingIn.invoices : defaults.billing.invoices,
+        usage: { ...defaults.billing.usage, ...(billingIn.usage || {}) },
+        referralCode: billingIn.referralCode || defaults.billing.referralCode,
+        referralCredits: billingIn.referralCredits ?? defaults.billing.referralCredits,
+      },
       apiKeys: account.appSettings?.apiKeys || [],
+    },
+    aiWorkspace: account.aiWorkspace?.chats
+      ? account.aiWorkspace
+      : defaultAiWorkspace(account.personal?.fullName || owner.name),
+    reliability: { ...defaultReliability(), ...(account.reliability || {}) },
+    developer: {
+      ...defaultDeveloper(),
+      ...(account.developer || {}),
+      plugins: account.developer?.plugins?.length
+        ? account.developer.plugins
+        : defaultDeveloper().plugins,
+      webhooks: account.developer?.webhooks || [],
+      sandboxLog: account.developer?.sandboxLog || [],
+    },
+    analytics: {
+      ...defaultAnalytics(),
+      ...(account.analytics || {}),
+      weekly: account.analytics?.weekly?.length ? account.analytics.weekly : defaultAnalytics().weekly,
+      feedback: account.analytics?.feedback || [],
     },
   };
 }
@@ -755,6 +1056,10 @@ function migrateLegacy(raw: unknown): UserAccount | null {
     teamChat: [],
     auditLogs: [],
     appSettings: defaultAppSettings(),
+    aiWorkspace: defaultAiWorkspace(ownerName),
+    reliability: defaultReliability(),
+    developer: defaultDeveloper(),
+    analytics: defaultAnalytics(),
     resetToken: null,
     resetExpiresAt: null,
     createdAt: String(legacy.createdAt || nowIso()),
@@ -1004,6 +1309,10 @@ function createBaseAccount(input: {
       },
     ],
     appSettings: defaultAppSettings(),
+    aiWorkspace: defaultAiWorkspace(input.ownerName),
+    reliability: defaultReliability(),
+    developer: defaultDeveloper(),
+    analytics: defaultAnalytics(),
     resetToken: null,
     resetExpiresAt: null,
     createdAt: stamp,
@@ -2017,7 +2326,14 @@ export function setConnectedApp(appId: string, connected: boolean): Result {
 
 export function updateBilling(patch: Partial<BillingInfo>): Result {
   return mutate((account) => {
-    const billing = { ...account.appSettings.billing, ...patch };
+    const billing: BillingInfo = {
+      ...account.appSettings.billing,
+      ...patch,
+      plan: migratePlan(patch.plan || account.appSettings.billing.plan),
+      usage: { ...account.appSettings.billing.usage, ...(patch.usage || {}) },
+      paymentMethods: patch.paymentMethods || account.appSettings.billing.paymentMethods,
+      invoices: patch.invoices || account.appSettings.billing.invoices,
+    };
     let next: UserAccount = {
       ...account,
       appSettings: { ...account.appSettings, billing },
@@ -2107,5 +2423,327 @@ export const VOICE_OPTIONS = [
   { id: "atlas-calm", label: "Atlas Calm" },
   { id: "atlas-bright", label: "Atlas Bright" },
 ];
+
+export const PLAN_TIERS: { id: PlanTier; label: string; price: string; blurb: string }[] = [
+  { id: "free", label: "Free", price: "$0", blurb: "Core AI workspace for solo trials." },
+  { id: "pro", label: "Pro", price: "$49", blurb: "Saved prompts, sync, and richer memory." },
+  { id: "business", label: "Business", price: "$149", blurb: "Team seats, shared chats, audit logs." },
+  { id: "enterprise", label: "Enterprise", price: "Custom", blurb: "SSO-ready controls and dedicated support." },
+];
+
+/* ─── AI Workspace ──────────────────────────────────────────────────────── */
+
+export function saveDraftText(text: string): Result {
+  return mutate((account) => {
+    if (!account.reliability.autoSave) return account;
+    return {
+      ...account,
+      aiWorkspace: { ...account.aiWorkspace, draftText: text },
+    };
+  });
+}
+
+export function createAiChat(title: string, firstMessage: string, projectId?: string | null): Result {
+  return mutate((account) => {
+    const stamp = nowIso();
+    const chat: AiChat = {
+      id: newId(),
+      title: title.trim() || firstMessage.slice(0, 48) || "New chat",
+      preview: firstMessage.slice(0, 80),
+      messages: [
+        { role: "user", text: firstMessage },
+        { role: "ai", text: "Got it — I’ll keep this in your AI workspace." },
+      ],
+      projectId: projectId ?? null,
+      shared: false,
+      updatedAt: stamp,
+      createdAt: stamp,
+    };
+    let next: UserAccount = {
+      ...account,
+      aiWorkspace: {
+        ...account.aiWorkspace,
+        chats: [chat, ...account.aiWorkspace.chats],
+        draftChatId: chat.id,
+        draftText: "",
+      },
+      analytics: {
+        ...account.analytics,
+        aiRequests: account.analytics.aiRequests + 1,
+        tasksCompleted: account.analytics.tasksCompleted + 1,
+      },
+    };
+    next = pushActivity(next, "Chat created", chat.title);
+    return next;
+  });
+}
+
+export function toggleChatShared(chatId: string): Result {
+  return mutate((account) => {
+    const chats = account.aiWorkspace.chats.map((c) =>
+      c.id === chatId ? { ...c, shared: !c.shared, updatedAt: nowIso() } : c,
+    );
+    return {
+      ...account,
+      aiWorkspace: { ...account.aiWorkspace, chats },
+    };
+  });
+}
+
+export function savePrompt(title: string, body: string, library = false): Result {
+  return mutate((account) => {
+    const trimmedTitle = title.trim();
+    const trimmedBody = body.trim();
+    if (!trimmedTitle || !trimmedBody) return "Title and prompt body are required.";
+    const prompt: SavedPrompt = {
+      id: newId(),
+      title: trimmedTitle,
+      body: trimmedBody,
+      library,
+      createdAt: nowIso(),
+    };
+    return {
+      ...account,
+      aiWorkspace: {
+        ...account.aiWorkspace,
+        prompts: [prompt, ...account.aiWorkspace.prompts],
+      },
+    };
+  });
+}
+
+export function deletePrompt(promptId: string): Result {
+  return mutate((account) => ({
+    ...account,
+    aiWorkspace: {
+      ...account.aiWorkspace,
+      prompts: account.aiWorkspace.prompts.filter((p) => p.id !== promptId),
+    },
+  }));
+}
+
+export function addGeneratedFile(title: string, kind: string, content: string): Result {
+  return mutate((account) => {
+    if (!title.trim() || !content.trim()) return "Title and content are required.";
+    const file: GeneratedFile = {
+      id: newId(),
+      title: title.trim(),
+      kind: kind.trim() || "document",
+      content: content.trim(),
+      createdAt: nowIso(),
+    };
+    return {
+      ...account,
+      aiWorkspace: {
+        ...account.aiWorkspace,
+        generatedFiles: [file, ...account.aiWorkspace.generatedFiles],
+      },
+    };
+  });
+}
+
+export function createProjectWorkspace(name: string, description: string): Result {
+  return mutate((account) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "Project name is required.";
+    const project: ProjectWorkspace = {
+      id: newId(),
+      name: trimmed,
+      description: description.trim(),
+      createdAt: nowIso(),
+    };
+    return {
+      ...account,
+      aiWorkspace: {
+        ...account.aiWorkspace,
+        projects: [...account.aiWorkspace.projects, project],
+      },
+    };
+  });
+}
+
+/* ─── Reliability ───────────────────────────────────────────────────────── */
+
+export function updateReliability(patch: Partial<ReliabilitySettings>): Result {
+  return mutate((account) => {
+    let next: UserAccount = {
+      ...account,
+      reliability: { ...account.reliability, ...patch },
+    };
+    next = pushActivity(next, "Reliability settings updated", Object.keys(patch).join(", "));
+    return next;
+  });
+}
+
+export function runDeviceSync(): Result {
+  return mutate((account) => {
+    let next: UserAccount = {
+      ...account,
+      reliability: {
+        ...account.reliability,
+        lastSyncedAt: nowIso(),
+        lastError: null,
+      },
+    };
+    next = pushAlert(next, "Devices synced", "Workspace synced across signed-in devices (demo).", "info");
+    return next;
+  });
+}
+
+export function simulateErrorRecovery(): Result {
+  return mutate((account) => {
+    const stamp = nowIso();
+    let next: UserAccount = {
+      ...account,
+      reliability: {
+        ...account.reliability,
+        lastError: "Network blip while saving draft",
+        recoveredAt: stamp,
+        lastSyncedAt: stamp,
+      },
+      aiWorkspace: {
+        ...account.aiWorkspace,
+        draftText: account.aiWorkspace.draftText || "Recovered unsaved draft from local cache.",
+      },
+    };
+    next = pushAlert(next, "Error recovered", "Draft restored after a transient failure.", "warn");
+    return next;
+  });
+}
+
+/* ─── Developer hub ─────────────────────────────────────────────────────── */
+
+export function addWebhook(url: string, eventsCsv: string): Result {
+  return mutate((account) => {
+    const trimmed = url.trim();
+    if (!trimmed.startsWith("https://") && !trimmed.startsWith("http://")) {
+      return "Enter a valid webhook URL.";
+    }
+    const events = eventsCsv
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    const hook: WebhookEndpoint = {
+      id: newId(),
+      url: trimmed,
+      events: events.length ? events : ["chat.completed", "invoice.created"],
+      active: true,
+      createdAt: nowIso(),
+    };
+    let next: UserAccount = {
+      ...account,
+      developer: {
+        ...account.developer,
+        webhooks: [hook, ...account.developer.webhooks],
+      },
+    };
+    next = pushAudit(next, "Webhook added", trimmed);
+    return next;
+  });
+}
+
+export function removeWebhook(id: string): Result {
+  return mutate((account) => ({
+    ...account,
+    developer: {
+      ...account.developer,
+      webhooks: account.developer.webhooks.filter((w) => w.id !== id),
+    },
+  }));
+}
+
+export function togglePlugin(pluginId: string): Result {
+  return mutate((account) => {
+    const plugins = account.developer.plugins.map((p) =>
+      p.id === pluginId ? { ...p, enabled: !p.enabled } : p,
+    );
+    return {
+      ...account,
+      developer: { ...account.developer, plugins },
+    };
+  });
+}
+
+export function runSandboxTest(detail: string): Result {
+  return mutate((account) => {
+    const entry = {
+      id: newId(),
+      at: nowIso(),
+      detail: detail.trim() || "Sandbox request OK · 200 · 42ms",
+    };
+    return {
+      ...account,
+      developer: {
+        ...account.developer,
+        sandboxLog: [entry, ...account.developer.sandboxLog].slice(0, 20),
+        docsVisited: true,
+      },
+    };
+  });
+}
+
+/* ─── Billing extras ────────────────────────────────────────────────────── */
+
+export function addPaymentMethod(brand: string, last4: string): Result {
+  return mutate((account) => {
+    if (!/^\d{4}$/.test(last4.trim())) return "Enter the last 4 digits.";
+    const method: PaymentMethod = {
+      id: newId(),
+      brand: brand.trim() || "Card",
+      last4: last4.trim(),
+      expMonth: 1,
+      expYear: new Date().getFullYear() + 3,
+      isDefault: account.appSettings.billing.paymentMethods.length === 0,
+    };
+    const billing = {
+      ...account.appSettings.billing,
+      paymentMethods: [...account.appSettings.billing.paymentMethods, method],
+    };
+    return {
+      ...account,
+      appSettings: { ...account.appSettings, billing },
+    };
+  });
+}
+
+export function applyReferralCredit(): Result {
+  return mutate((account) => {
+    const billing = {
+      ...account.appSettings.billing,
+      referralCredits: account.appSettings.billing.referralCredits + 25,
+    };
+    let next: UserAccount = {
+      ...account,
+      appSettings: { ...account.appSettings, billing },
+    };
+    next = pushAlert(next, "Referral credit applied", "+$25 demo credit added.", "info");
+    return next;
+  });
+}
+
+/* ─── Analytics ─────────────────────────────────────────────────────────── */
+
+export function submitAccuracyFeedback(rating: number, note: string): Result {
+  return mutate((account) => {
+    if (rating < 1 || rating > 5) return "Rating must be 1–5.";
+    const entry = {
+      id: newId(),
+      at: nowIso(),
+      rating,
+      note: note.trim() || "No note",
+    };
+    const feedback = [entry, ...account.analytics.feedback].slice(0, 50);
+    const avg =
+      feedback.reduce((sum, item) => sum + item.rating, 0) / Math.max(feedback.length, 1);
+    return {
+      ...account,
+      analytics: {
+        ...account.analytics,
+        feedback,
+        accuracyScore: Math.round((avg / 5) * 100),
+      },
+    };
+  });
+}
 
 export { DEMO_2FA_CODE };

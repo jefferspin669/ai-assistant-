@@ -767,8 +767,11 @@ export function SettingsPanel({
           {account.appSettings.billing.status} · {account.appSettings.billing.seats} seats · renews{" "}
           {formatWhen(account.appSettings.billing.renewsAt)}
         </p>
+        <p className="account-hint">
+          Full plan controls, invoices, and payment methods live in the Billing tab.
+        </p>
         <div className="biz-switcher">
-          {(["free", "starter", "growth", "scale"] as const).map((plan) => (
+          {(["free", "pro", "business", "enterprise"] as const).map((plan) => (
             <button
               key={plan}
               type="button"

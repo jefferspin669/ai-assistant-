@@ -16,18 +16,25 @@ import {
   accountBusinessName,
   accountOwnerName,
   addBusiness,
+  addGeneratedFile,
   addKnowledgeArticle,
   addMemory,
   addPasskey,
+  addPaymentMethod,
   addProfitEntry,
+  addWebhook,
+  applyReferralCredit,
+  createAiChat,
   createApiKey,
   createFolder,
+  createProjectWorkspace,
   createTag,
   createWorkspace,
   deleteAccountData,
   deleteCloudItem,
   deleteFolder,
   deleteMemory,
+  deletePrompt,
   deleteTag,
   demoDefaults,
   exportAccountData,
@@ -44,6 +51,7 @@ import {
   removePasskey,
   removeProfitEntry,
   removeTeamMember,
+  removeWebhook,
   requestPasswordReset,
   resetPasswordWithToken,
   restoreCloudItem,
@@ -52,13 +60,21 @@ import {
   revokeOtherSessions,
   revokeSession,
   runCloudBackup,
+  runDeviceSync,
+  runSandboxTest,
+  saveDraftText,
   saveCloudItem,
+  savePrompt,
   sendTeamChat,
   setActiveBusiness,
   setConnectedApp,
   setDeviceTrusted,
   setDoNotDisturb,
   signupAccount,
+  simulateErrorRecovery,
+  submitAccuracyFeedback,
+  toggleChatShared,
+  togglePlugin,
   totalProfits,
   touchSessionActivity,
   unlinkOAuthProvider,
@@ -70,6 +86,7 @@ import {
   updateMemory,
   updateNotificationSettings,
   updatePersonalProfile,
+  updateReliability,
   updateSecuritySettings,
   updateTeamMemberRole,
   verifyTwoFactor,
@@ -85,6 +102,7 @@ import {
   type PersonalProfile,
   type ProfileUpdate,
   type PublicAccount,
+  type ReliabilitySettings,
   type SecuritySettings,
   type SignupInput,
   type TeamRole,
@@ -167,6 +185,23 @@ type AccountContextValue = {
   revokeKey: (keyId: string) => ActionResult;
   exportData: () => { ok: true; json: string } | { ok: false; error: string };
   wipeData: () => ActionResult;
+  autosaveDraft: (text: string) => ActionResult;
+  startChat: (title: string, message: string, projectId?: string | null) => ActionResult;
+  shareChat: (chatId: string) => ActionResult;
+  addPrompt: (title: string, body: string, library?: boolean) => ActionResult;
+  removePrompt: (id: string) => ActionResult;
+  addAiFile: (title: string, kind: string, content: string) => ActionResult;
+  addProject: (name: string, description: string) => ActionResult;
+  patchReliability: (patch: Partial<ReliabilitySettings>) => ActionResult;
+  syncDevices: () => ActionResult;
+  recoverError: () => ActionResult;
+  addHook: (url: string, events: string) => ActionResult;
+  removeHook: (id: string) => ActionResult;
+  flipPlugin: (id: string) => ActionResult;
+  sandboxTest: (detail: string) => ActionResult;
+  addCard: (brand: string, last4: string) => ActionResult;
+  claimReferral: () => ActionResult;
+  sendFeedback: (rating: number, note: string) => ActionResult;
   refresh: () => void;
 };
 
@@ -412,6 +447,49 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const revokeKey = useCallback((keyId: string) => wrap(revokeApiKey(keyId), setAccount), []);
   const exportData = useCallback(() => exportAccountData(), []);
   const wipeData = useCallback(() => wrap(deleteAccountData(), setAccount), []);
+  const autosaveDraft = useCallback((text: string) => wrap(saveDraftText(text), setAccount), []);
+  const startChat = useCallback(
+    (title: string, message: string, projectId?: string | null) =>
+      wrap(createAiChat(title, message, projectId), setAccount),
+    [],
+  );
+  const shareChat = useCallback((chatId: string) => wrap(toggleChatShared(chatId), setAccount), []);
+  const addPrompt = useCallback(
+    (title: string, body: string, library = false) => wrap(savePrompt(title, body, library), setAccount),
+    [],
+  );
+  const removePrompt = useCallback((id: string) => wrap(deletePrompt(id), setAccount), []);
+  const addAiFile = useCallback(
+    (title: string, kind: string, content: string) =>
+      wrap(addGeneratedFile(title, kind, content), setAccount),
+    [],
+  );
+  const addProject = useCallback(
+    (name: string, description: string) => wrap(createProjectWorkspace(name, description), setAccount),
+    [],
+  );
+  const patchReliability = useCallback(
+    (patch: Partial<ReliabilitySettings>) => wrap(updateReliability(patch), setAccount),
+    [],
+  );
+  const syncDevices = useCallback(() => wrap(runDeviceSync(), setAccount), []);
+  const recoverError = useCallback(() => wrap(simulateErrorRecovery(), setAccount), []);
+  const addHook = useCallback(
+    (url: string, events: string) => wrap(addWebhook(url, events), setAccount),
+    [],
+  );
+  const removeHook = useCallback((id: string) => wrap(removeWebhook(id), setAccount), []);
+  const flipPlugin = useCallback((id: string) => wrap(togglePlugin(id), setAccount), []);
+  const sandboxTest = useCallback((detail: string) => wrap(runSandboxTest(detail), setAccount), []);
+  const addCard = useCallback(
+    (brand: string, last4: string) => wrap(addPaymentMethod(brand, last4), setAccount),
+    [],
+  );
+  const claimReferral = useCallback(() => wrap(applyReferralCredit(), setAccount), []);
+  const sendFeedback = useCallback(
+    (rating: number, note: string) => wrap(submitAccuracyFeedback(rating, note), setAccount),
+    [],
+  );
 
   const defaults = demoDefaults();
 
@@ -479,6 +557,23 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       revokeKey,
       exportData,
       wipeData,
+      autosaveDraft,
+      startChat,
+      shareChat,
+      addPrompt,
+      removePrompt,
+      addAiFile,
+      addProject,
+      patchReliability,
+      syncDevices,
+      recoverError,
+      addHook,
+      removeHook,
+      flipPlugin,
+      sandboxTest,
+      addCard,
+      claimReferral,
+      sendFeedback,
       refresh,
     }),
     [
@@ -539,6 +634,23 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       revokeKey,
       exportData,
       wipeData,
+      autosaveDraft,
+      startChat,
+      shareChat,
+      addPrompt,
+      removePrompt,
+      addAiFile,
+      addProject,
+      patchReliability,
+      syncDevices,
+      recoverError,
+      addHook,
+      removeHook,
+      flipPlugin,
+      sandboxTest,
+      addCard,
+      claimReferral,
+      sendFeedback,
       refresh,
     ],
   );
