@@ -67,6 +67,35 @@ async function handle(req: NextRequest, ctx: Ctx) {
     );
   }
   if (domain === "users") return json(atlasApi.users.list());
+  if (domain === "businesses" && action && req.method === "POST") {
+    return json(
+      atlasApi.businesses.update(action, {
+        business_name: body.business_name != null ? String(body.business_name) : undefined,
+        business_type: body.business_type != null ? String(body.business_type) : undefined,
+        tax_structure: body.tax_structure != null ? String(body.tax_structure) : undefined,
+        state: body.state != null ? String(body.state) : undefined,
+        logo_url:
+          body.logo_url === null
+            ? null
+            : body.logo_url != null
+              ? String(body.logo_url)
+              : undefined,
+        owner_id: body.owner_id != null ? String(body.owner_id) : undefined,
+      }),
+    );
+  }
+  if (domain === "businesses" && req.method === "POST") {
+    return json(
+      atlasApi.businesses.create({
+        owner_id: String(body.owner_id || ""),
+        business_name: String(body.business_name || body.name || ""),
+        business_type: body.business_type != null ? String(body.business_type) : undefined,
+        tax_structure: body.tax_structure != null ? String(body.tax_structure) : undefined,
+        state: body.state != null ? String(body.state) : undefined,
+        logo_url: body.logo_url != null ? String(body.logo_url) : null,
+      }),
+    );
+  }
   if (domain === "businesses") return json(atlasApi.businesses.list());
   if (domain === "calendar") return json(atlasApi.calendar.listEvents());
   if (domain === "tasks") return json(atlasApi.tasks.list());

@@ -113,28 +113,53 @@ export function ArchitectureStudio() {
           </div>
         </section>
 
-        <section className="panel">
-          <h2>users</h2>
-          <p className="panel-lead">Primary identity table (passwords live in user_credentials).</p>
-          <ul className="manage-list">
-            {[
-              "id",
-              "email",
-              "full_name",
-              "profile_image",
-              "timezone",
-              "preferred_language",
-              "created_at",
-              "updated_at",
-            ].map((column) => (
-              <li key={column}>
-                <div>
-                  <strong>{column}</strong>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="split">
+          <section className="panel">
+            <h2>users</h2>
+            <p className="panel-lead">Primary identity table (passwords live in user_credentials).</p>
+            <ul className="manage-list">
+              {[
+                "id",
+                "email",
+                "full_name",
+                "profile_image",
+                "timezone",
+                "preferred_language",
+                "created_at",
+                "updated_at",
+              ].map((column) => (
+                <li key={column}>
+                  <div>
+                    <strong>{column}</strong>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="panel">
+            <h2>organizations</h2>
+            <p className="panel-lead">Business workspace owned by a users.id.</p>
+            <ul className="manage-list">
+              {[
+                "id",
+                "owner_id",
+                "business_name",
+                "logo_url",
+                "business_type",
+                "tax_structure",
+                "state",
+                "created_at",
+              ].map((column) => (
+                <li key={column}>
+                  <div>
+                    <strong>{column}</strong>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
 
         <section className="panel">
           <h2>HTTP API</h2>

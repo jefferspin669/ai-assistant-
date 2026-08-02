@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAccount } from "@/components/AccountProvider";
 import { atlasApi } from "@/lib/api/atlas-api";
-import type { DbUser } from "@/lib/db/schema";
+import type { DbOrganization, DbUser } from "@/lib/db/schema";
 
 const TIMEZONES = [
   "America/Chicago",
@@ -22,32 +22,51 @@ const LANGUAGES = [
   { id: "fr", label: "French" },
 ];
 
+const TAX_STRUCTURES = ["Sole proprietor", "LLC", "S-Corp", "C-Corp", "Partnership"];
+
 export function SettingsStudio() {
   const { account, ownerName, businessName, logout, ready } = useAccount();
   const [user, setUser] = useState<DbUser | null>(null);
+  const [org, setOrg] = useState<DbOrganization | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [timezone, setTimezone] = useState("America/Chicago");
   const [language, setLanguage] = useState("en");
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [businessNameField, setBusinessNameField] = useState("");
+  const [businessType, setBusinessType] = useState("HVAC");
+  const [taxStructure, setTaxStructure] = useState("LLC");
+  const [orgState, setOrgState] = useState("TX");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [plan, setPlan] = useState("free");
   const [notes, setNotes] = useState(0);
   const [flash, setFlash] = useState("");
 
-  function loadUser() {
+  function loadRows() {
     const listed = atlasApi.users.list();
-    if (!listed.ok || !listed.data[0]) return;
-    const row = listed.data[0];
-    setUser(row);
-    setFullName(row.full_name);
-    setEmail(row.email);
-    setTimezone(row.timezone);
-    setLanguage(row.preferred_language);
-    setProfileImage(row.profile_image);
+    if (listed.ok && listed.data[0]) {
+      const row = listed.data[0];
+      setUser(row);
+      setFullName(row.full_name);
+      setEmail(row.email);
+      setTimezone(row.timezone);
+      setLanguage(row.preferred_language);
+      setProfileImage(row.profile_image);
+    }
+    const orgs = atlasApi.businesses.list();
+    if (orgs.ok && orgs.data[0]) {
+      const row = orgs.data[0];
+      setOrg(row);
+      setBusinessNameField(row.business_name);
+      setBusinessType(row.business_type);
+      setTaxStructure(row.tax_structure);
+      setOrgState(row.state);
+      setLogoUrl(row.logo_url);
+    }
   }
 
   useEffect(() => {
-    loadUser();
+    loadRows();
     const sub = atlasApi.billing.getSubscription();
     if (sub.ok && sub.data) setPlan(sub.data.plan);
     const n = atlasApi.notifications.list();
@@ -78,7 +97,7 @@ export function SettingsStudio() {
   return (
     <AppShell
       title="Settings"
-      subtitle="users table — id, email, full_name, profile_image, timezone, preferred_language."
+      subtitle="users + organizations rows — profile, business_name, tax_structure, state, and more."
     >
       {flash ? (
         <p className={flash.toLowerCase().includes("no users") || flash.toLowerCase().includes("not found") ? "auth-error" : "auth-success"}>
@@ -180,6 +199,111 @@ export function SettingsStudio() {
           ) : null}
         </section>
 
+        <section className="panel">
+          <h2>Organization</h2>
+          <p className="panel-lead">
+            Database <code>organizations</code>
+            {org ? ` · ${org.id}` : ""}.
+            {org ? ` owner_id ${org.owner_id}` : ""}
+          </p>
+          <form
+            className="form-grid"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!org) {
+                setFlash("No organizations row yet — open Architecture and re-seed the database.");
+                return;
+              }
+              const result = atlasApi.businesses.update(org.id, {
+                business_name: businessNameField,
+                business_type: businessType,
+                tax_structure: taxStructure,
+                state: orgState,
+                logo_url: logoUrl,
+              });
+              if (!result.ok) {
+                setFlash(result.error);
+                return;
+              }
+              setOrg(result.data);
+              setFlash("organizations row updated.");
+            }}
+          >
+            <label>
+              business_name
+              <input
+                value={businessNameField}
+                onChange={(e) => setBusinessNameField(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              business_type
+              <input value={businessType} onChange={(e) => setBusinessType(e.target.value)} />
+            </label>
+            <label>
+              tax_structure
+              <select value={taxStructure} onChange={(e) => setTaxStructure(e.target.value)}>
+                {TAX_STRUCTURES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              state
+              <input
+                value={orgState}
+                maxLength={2}
+                onChange={(e) => setOrgState(e.target.value.toUpperCase())}
+                required
+              />
+            </label>
+            <label>
+              logo_url
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 400_000) {
+                    setFlash("Keep logos under ~400KB for the demo vault.");
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setLogoUrl(String(reader.result || ""));
+                    setFlash("logo_url ready — save to write the organizations row.");
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+            </label>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt=""
+                style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 12 }}
+              />
+            ) : (
+              <p className="account-hint">No logo_url set.</p>
+            )}
+            <button className="btn btn-dark" type="submit">
+              Save organizations row
+            </button>
+          </form>
+          {org ? (
+            <p className="account-hint" style={{ marginTop: "0.75rem" }}>
+              created_at {new Date(org.created_at).toLocaleString()}
+            </p>
+          ) : null}
+        </section>
+      </div>
+
+      <div className="split">
         <section className="panel">
           <h2>Account session</h2>
           <p className="panel-lead">

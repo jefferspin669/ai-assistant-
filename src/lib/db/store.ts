@@ -60,6 +60,26 @@ function normalizeUser(raw: Partial<DbUser> & { name?: string; createdAt?: strin
   };
 }
 
+function normalizeOrganization(
+  raw: Partial<DbOrganization> & {
+    ownerUserId?: string;
+    name?: string;
+    industry?: string;
+    createdAt?: string;
+  },
+): DbOrganization {
+  return {
+    id: raw.id || newId("org"),
+    owner_id: raw.owner_id || raw.ownerUserId || "",
+    business_name: raw.business_name || raw.name || "My Business",
+    logo_url: raw.logo_url ?? null,
+    business_type: raw.business_type || raw.industry || "General",
+    tax_structure: raw.tax_structure || "Sole proprietor",
+    state: raw.state || "TX",
+    created_at: raw.created_at || raw.createdAt || nowIso(),
+  };
+}
+
 /** Seed a demo workspace so the architecture map and APIs have data. */
 export function seedDatabase(): AtlasDatabase {
   const userId = newId("user");
@@ -84,10 +104,13 @@ export function seedDatabase(): AtlasDatabase {
 
   const org: DbOrganization = {
     id: orgId,
-    ownerUserId: userId,
-    name: "Atlas Demo Co",
-    industry: "HVAC",
-    createdAt: stamp,
+    owner_id: userId,
+    business_name: "Atlas Demo Co",
+    logo_url: null,
+    business_type: "HVAC",
+    tax_structure: "LLC",
+    state: "TX",
+    created_at: stamp,
   };
 
   const calendar = typeof window !== "undefined" ? loadCalendarState() : null;
@@ -264,13 +287,22 @@ export function loadDatabase(): AtlasDatabase {
         user_id: user.id,
         password_hash: user.passwordHash,
       }));
+    type LegacyOrg = Partial<DbOrganization> & {
+      ownerUserId?: string;
+      name?: string;
+      industry?: string;
+      createdAt?: string;
+    };
+    const organizations = ((parsed.organizations || []) as LegacyOrg[]).map((org) =>
+      normalizeOrganization(org),
+    );
     const state: AtlasDatabase = {
       ...emptyDb(),
       ...parsed,
       users,
       user_credentials:
         parsed.user_credentials?.length ? parsed.user_credentials : legacyCredentials,
-      organizations: parsed.organizations || [],
+      organizations,
       events: parsed.events || [],
       tasks: parsed.tasks || [],
       transactions: parsed.transactions || [],

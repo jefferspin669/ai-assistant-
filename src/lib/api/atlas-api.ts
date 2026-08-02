@@ -71,10 +71,13 @@ export const authApi = {
       organizations: [
         {
           id: orgId,
-          ownerUserId: userId,
-          name: input.businessName.trim() || "My Business",
-          industry: "General",
-          createdAt: stamp,
+          owner_id: userId,
+          business_name: input.businessName.trim() || "My Business",
+          logo_url: null,
+          business_type: "General",
+          tax_structure: "Sole proprietor",
+          state: "TX",
+          created_at: stamp,
         },
         ...data.organizations,
       ],
@@ -151,18 +154,61 @@ export const businessesApi = {
   list(): ApiResult<AtlasDatabase["organizations"]> {
     return ok(db().organizations);
   },
-  create(ownerUserId: string, name: string, industry = "General"): ApiResult<AtlasDatabase["organizations"][number]> {
+  get(orgId: string): ApiResult<AtlasDatabase["organizations"][number]> {
+    const org = db().organizations.find((o) => o.id === orgId);
+    if (!org) return err("Organization not found.", 404);
+    return ok(org);
+  },
+  create(input: {
+    owner_id: string;
+    business_name: string;
+    business_type?: string;
+    tax_structure?: string;
+    state?: string;
+    logo_url?: string | null;
+  }): ApiResult<AtlasDatabase["organizations"][number]> {
     const data = db();
-    if (!data.users.some((u) => u.id === ownerUserId)) return err("Owner user not found.", 404);
+    if (!data.users.some((u) => u.id === input.owner_id)) return err("Owner user not found.", 404);
     const org = {
       id: newId("org"),
-      ownerUserId,
-      name: name.trim() || "New business",
-      industry,
-      createdAt: nowIso(),
+      owner_id: input.owner_id,
+      business_name: input.business_name.trim() || "New business",
+      logo_url: input.logo_url ?? null,
+      business_type: input.business_type?.trim() || "General",
+      tax_structure: input.tax_structure?.trim() || "Sole proprietor",
+      state: (input.state || "TX").trim().toUpperCase().slice(0, 2),
+      created_at: nowIso(),
     };
     persist({ ...data, organizations: [org, ...data.organizations] });
     return ok(org);
+  },
+  update(
+    orgId: string,
+    patch: Partial<
+      Pick<
+        AtlasDatabase["organizations"][number],
+        "business_name" | "logo_url" | "business_type" | "tax_structure" | "state" | "owner_id"
+      >
+    >,
+  ): ApiResult<AtlasDatabase["organizations"][number]> {
+    const data = db();
+    const existing = data.organizations.find((o) => o.id === orgId);
+    if (!existing) return err("Organization not found.", 404);
+    const next = {
+      ...existing,
+      ...patch,
+      business_name: patch.business_name?.trim() || existing.business_name,
+      business_type: patch.business_type?.trim() || existing.business_type,
+      tax_structure: patch.tax_structure?.trim() || existing.tax_structure,
+      state: patch.state
+        ? patch.state.trim().toUpperCase().slice(0, 2)
+        : existing.state,
+    };
+    persist({
+      ...data,
+      organizations: data.organizations.map((o) => (o.id === orgId ? next : o)),
+    });
+    return ok(next);
   },
 };
 

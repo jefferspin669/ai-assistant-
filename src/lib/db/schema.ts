@@ -18,12 +18,16 @@ export type DbUserCredential = {
   password_hash: string;
 };
 
+/** `organizations` table */
 export type DbOrganization = {
   id: string;
-  ownerUserId: string;
-  name: string;
-  industry: string;
-  createdAt: string;
+  owner_id: string;
+  business_name: string;
+  logo_url: string | null;
+  business_type: string;
+  tax_structure: string;
+  state: string;
+  created_at: string;
 };
 
 export type DbEvent = {
