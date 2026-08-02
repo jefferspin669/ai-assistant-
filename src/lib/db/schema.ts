@@ -43,17 +43,29 @@ export type DbOrganizationMember = {
   joined_at: string;
 };
 
-export type DbEvent = {
+export type EventPriority = "low" | "normal" | "high";
+
+/** `calendar_events` table */
+export type DbCalendarEvent = {
   id: string;
-  orgId: string;
-  userId: string;
+  user_id: string;
+  organization_id: string;
   title: string;
-  categoryId: string;
-  color: string;
-  start: string;
-  end: string;
-  notes: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  timezone: string;
+  category_id: string;
+  location: string;
+  priority: EventPriority;
+  reminder_time: string | null;
+  recurring_rule: string | null;
+  external_calendar_id: string | null;
+  created_at: string;
 };
+
+/** @deprecated Use DbCalendarEvent */
+export type DbEvent = DbCalendarEvent;
 
 export type DbTask = {
   id: string;
@@ -148,7 +160,7 @@ export type AtlasDatabase = {
   user_credentials: DbUserCredential[];
   organizations: DbOrganization[];
   organization_members: DbOrganizationMember[];
-  events: DbEvent[];
+  calendar_events: DbCalendarEvent[];
   tasks: DbTask[];
   transactions: DbTransaction[];
   taxRecords: DbTaxRecord[];
@@ -163,7 +175,7 @@ export const DB_TABLES = [
   "Users",
   "Organizations",
   "Organization Members",
-  "Events",
+  "Calendar Events",
   "Tasks",
   "Transactions",
   "Tax Records",

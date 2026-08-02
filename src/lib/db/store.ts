@@ -5,7 +5,7 @@ import type {
   AtlasDatabase,
   DbConversation,
   DbDocument,
-  DbEvent,
+  DbCalendarEvent,
   DbMemory,
   DbNotification,
   DbOrganization,
@@ -18,8 +18,8 @@ import type {
   DbUserCredential,
 } from "@/lib/db/schema";
 
-const DB_KEY = "atlas-database-v3";
-const LEGACY_DB_KEYS = ["atlas-database-v2", "atlas-database-v1"];
+const DB_KEY = "atlas-database-v4";
+const LEGACY_DB_KEYS = ["atlas-database-v3", "atlas-database-v2", "atlas-database-v1"];
 
 function newId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}_${crypto.randomUUID()}`;
@@ -36,7 +36,7 @@ function emptyDb(): AtlasDatabase {
     user_credentials: [],
     organizations: [],
     organization_members: [],
-    events: [],
+    calendar_events: [],
     tasks: [],
     transactions: [],
     taxRecords: [],
@@ -79,6 +79,42 @@ function normalizeOrganization(
     tax_structure: raw.tax_structure || "Sole proprietor",
     state: raw.state || "TX",
     created_at: raw.created_at || raw.createdAt || nowIso(),
+  };
+}
+
+function normalizeCalendarEvent(
+  raw: Partial<DbCalendarEvent> & {
+    orgId?: string;
+    userId?: string;
+    categoryId?: string;
+    start?: string;
+    end?: string;
+    notes?: string;
+    createdAt?: string;
+  },
+  fallbacks: { userId: string; orgId: string },
+): DbCalendarEvent {
+  const start = raw.start_time || raw.start || nowIso();
+  const end =
+    raw.end_time ||
+    raw.end ||
+    new Date(new Date(start).getTime() + 60 * 60000).toISOString();
+  return {
+    id: raw.id || newId("evt"),
+    user_id: raw.user_id || raw.userId || fallbacks.userId,
+    organization_id: raw.organization_id || raw.orgId || fallbacks.orgId,
+    title: raw.title || "Untitled event",
+    description: raw.description || raw.notes || "",
+    start_time: start,
+    end_time: end,
+    timezone: raw.timezone || "America/Chicago",
+    category_id: raw.category_id || raw.categoryId || "work",
+    location: raw.location || "",
+    priority: raw.priority || "normal",
+    reminder_time: raw.reminder_time ?? null,
+    recurring_rule: raw.recurring_rule ?? null,
+    external_calendar_id: raw.external_calendar_id ?? null,
+    created_at: raw.created_at || raw.createdAt || start,
   };
 }
 
@@ -166,17 +202,27 @@ export function seedDatabase(): AtlasDatabase {
   ];
 
   const calendar = typeof window !== "undefined" ? loadCalendarState() : null;
-  const events: DbEvent[] = (calendar?.events || []).slice(0, 12).map((event) => ({
-    id: event.id,
-    orgId,
-    userId,
-    title: event.title,
-    categoryId: event.categoryId,
-    color: calendar?.categories.find((c) => c.id === event.categoryId)?.color || "#2f8f8a",
-    start: event.start,
-    end: event.end,
-    notes: event.notes,
-  }));
+  const calendar_events: DbCalendarEvent[] = (calendar?.events || []).slice(0, 12).map((event) => {
+    const startMs = new Date(event.start).getTime();
+    const reminder = new Date(startMs - 30 * 60000).toISOString();
+    return {
+      id: event.id,
+      user_id: userId,
+      organization_id: orgId,
+      title: event.title,
+      description: event.notes || "",
+      start_time: event.start,
+      end_time: event.end,
+      timezone: "America/Chicago",
+      category_id: event.categoryId,
+      location: event.location || "",
+      priority: event.priority || "normal",
+      reminder_time: reminder,
+      recurring_rule: null,
+      external_calendar_id: null,
+      created_at: stamp,
+    };
+  });
 
   const tasks: DbTask[] = loadTasks().map((task) => ({
     id: task.id,
@@ -300,7 +346,7 @@ export function seedDatabase(): AtlasDatabase {
     user_credentials: [credential],
     organizations: [org],
     organization_members,
-    events,
+    calendar_events,
     tasks,
     transactions,
     taxRecords,
@@ -366,6 +412,23 @@ export function loadDatabase(): AtlasDatabase {
         joined_at: org.created_at,
       }));
     }
+    type LegacyEvent = Partial<DbCalendarEvent> & {
+      orgId?: string;
+      userId?: string;
+      categoryId?: string;
+      start?: string;
+      end?: string;
+      notes?: string;
+      createdAt?: string;
+    };
+    const legacyEvents = ((parsed as { events?: LegacyEvent[] }).events ||
+      parsed.calendar_events ||
+      []) as LegacyEvent[];
+    const fallbacks = {
+      userId: users[0]?.id || "",
+      orgId: organizations[0]?.id || "",
+    };
+    const calendar_events = legacyEvents.map((event) => normalizeCalendarEvent(event, fallbacks));
     const state: AtlasDatabase = {
       ...emptyDb(),
       ...parsed,
@@ -374,7 +437,7 @@ export function loadDatabase(): AtlasDatabase {
         parsed.user_credentials?.length ? parsed.user_credentials : legacyCredentials,
       organizations,
       organization_members,
-      events: parsed.events || [],
+      calendar_events,
       tasks: parsed.tasks || [],
       transactions: parsed.transactions || [],
       taxRecords: parsed.taxRecords || [],
@@ -407,7 +470,7 @@ export function databaseStats(db: AtlasDatabase) {
     Users: db.users.length,
     Organizations: db.organizations.length,
     "Organization Members": db.organization_members.length,
-    Events: db.events.length,
+    "Calendar Events": db.calendar_events.length,
     Tasks: db.tasks.length,
     Transactions: db.transactions.length,
     "Tax Records": db.taxRecords.length,

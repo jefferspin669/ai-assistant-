@@ -120,7 +120,66 @@ async function handle(req: NextRequest, ctx: Ctx) {
     const orgId = req.nextUrl.searchParams.get("organization_id") || undefined;
     return json(atlasApi.organizationMembers.list(orgId || undefined));
   }
-  if (domain === "calendar") return json(atlasApi.calendar.listEvents());
+  if (domain === "calendar" && action && req.method === "POST") {
+    return json(
+      atlasApi.calendar.update(action, {
+        title: body.title != null ? String(body.title) : undefined,
+        description: body.description != null ? String(body.description) : undefined,
+        start_time: body.start_time != null ? String(body.start_time) : undefined,
+        end_time: body.end_time != null ? String(body.end_time) : undefined,
+        timezone: body.timezone != null ? String(body.timezone) : undefined,
+        category_id: body.category_id != null ? String(body.category_id) : undefined,
+        location: body.location != null ? String(body.location) : undefined,
+        priority: body.priority as "low" | "normal" | "high" | undefined,
+        reminder_time:
+          body.reminder_time === null
+            ? null
+            : body.reminder_time != null
+              ? String(body.reminder_time)
+              : undefined,
+        recurring_rule:
+          body.recurring_rule === null
+            ? null
+            : body.recurring_rule != null
+              ? String(body.recurring_rule)
+              : undefined,
+        external_calendar_id:
+          body.external_calendar_id === null
+            ? null
+            : body.external_calendar_id != null
+              ? String(body.external_calendar_id)
+              : undefined,
+      }),
+    );
+  }
+  if (domain === "calendar" && req.method === "POST") {
+    return json(
+      atlasApi.calendar.createEvent({
+        user_id: String(body.user_id || ""),
+        organization_id: String(body.organization_id || ""),
+        title: String(body.title || ""),
+        description: body.description != null ? String(body.description) : undefined,
+        start_time: String(body.start_time || new Date().toISOString()),
+        end_time: String(body.end_time || new Date(Date.now() + 3600000).toISOString()),
+        timezone: body.timezone != null ? String(body.timezone) : undefined,
+        category_id: body.category_id != null ? String(body.category_id) : undefined,
+        location: body.location != null ? String(body.location) : undefined,
+        priority: body.priority as "low" | "normal" | "high" | undefined,
+        reminder_time: body.reminder_time != null ? String(body.reminder_time) : null,
+        recurring_rule: body.recurring_rule != null ? String(body.recurring_rule) : null,
+        external_calendar_id:
+          body.external_calendar_id != null ? String(body.external_calendar_id) : null,
+      }),
+    );
+  }
+  if (domain === "calendar") {
+    return json(
+      atlasApi.calendar.listEvents({
+        user_id: req.nextUrl.searchParams.get("user_id") || undefined,
+        organization_id: req.nextUrl.searchParams.get("organization_id") || undefined,
+      }),
+    );
+  }
   if (domain === "tasks") return json(atlasApi.tasks.list());
   if (domain === "transactions") return json(atlasApi.transactions.list());
   if (domain === "taxes" && action === "estimate") return json(atlasApi.taxes.estimate());

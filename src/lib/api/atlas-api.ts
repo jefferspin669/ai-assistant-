@@ -16,11 +16,12 @@ import type {
   AtlasDatabase,
   DbConversation,
   DbDocument,
-  DbEvent,
+  DbCalendarEvent,
   DbNotification,
   DbOrganizationMember,
   DbTask,
   DbTransaction,
+  EventPriority,
   OrgMemberRole,
 } from "@/lib/db/schema";
 import { err, ok, type ApiResult } from "@/lib/api/types";
@@ -326,14 +327,97 @@ export const organizationMembersApi = {
 /* ─── Calendar / Tasks ───────────────────────────────────────────────────── */
 
 export const calendarApi = {
-  listEvents(): ApiResult<DbEvent[]> {
-    return ok(db().events);
+  listEvents(filters?: {
+    user_id?: string;
+    organization_id?: string;
+  }): ApiResult<DbCalendarEvent[]> {
+    let rows = db().calendar_events;
+    if (filters?.user_id) rows = rows.filter((e) => e.user_id === filters.user_id);
+    if (filters?.organization_id) {
+      rows = rows.filter((e) => e.organization_id === filters.organization_id);
+    }
+    return ok([...rows].sort((a, b) => +new Date(a.start_time) - +new Date(b.start_time)));
   },
-  createEvent(input: Omit<DbEvent, "id">): ApiResult<DbEvent> {
-    const event: DbEvent = { ...input, id: newId("evt") };
-    const data = db();
-    persist({ ...data, events: [event, ...data.events] });
+  get(eventId: string): ApiResult<DbCalendarEvent> {
+    const event = db().calendar_events.find((e) => e.id === eventId);
+    if (!event) return err("Calendar event not found.", 404);
     return ok(event);
+  },
+  createEvent(input: {
+    user_id: string;
+    organization_id: string;
+    title: string;
+    description?: string;
+    start_time: string;
+    end_time: string;
+    timezone?: string;
+    category_id?: string;
+    location?: string;
+    priority?: EventPriority;
+    reminder_time?: string | null;
+    recurring_rule?: string | null;
+    external_calendar_id?: string | null;
+  }): ApiResult<DbCalendarEvent> {
+    const data = db();
+    if (!data.users.some((u) => u.id === input.user_id)) return err("User not found.", 404);
+    if (!data.organizations.some((o) => o.id === input.organization_id)) {
+      return err("Organization not found.", 404);
+    }
+    const start = input.start_time || nowIso();
+    const end =
+      input.end_time || new Date(new Date(start).getTime() + 60 * 60000).toISOString();
+    const event: DbCalendarEvent = {
+      id: newId("evt"),
+      user_id: input.user_id,
+      organization_id: input.organization_id,
+      title: input.title.trim() || "Untitled event",
+      description: (input.description || "").trim(),
+      start_time: start,
+      end_time: end,
+      timezone: input.timezone || "America/Chicago",
+      category_id: input.category_id || "work",
+      location: (input.location || "").trim(),
+      priority: input.priority || "normal",
+      reminder_time: input.reminder_time ?? null,
+      recurring_rule: input.recurring_rule ?? null,
+      external_calendar_id: input.external_calendar_id ?? null,
+      created_at: nowIso(),
+    };
+    persist({ ...data, calendar_events: [event, ...data.calendar_events] });
+    return ok(event);
+  },
+  update(
+    eventId: string,
+    patch: Partial<
+      Pick<
+        DbCalendarEvent,
+        | "title"
+        | "description"
+        | "start_time"
+        | "end_time"
+        | "timezone"
+        | "category_id"
+        | "location"
+        | "priority"
+        | "reminder_time"
+        | "recurring_rule"
+        | "external_calendar_id"
+      >
+    >,
+  ): ApiResult<DbCalendarEvent> {
+    const data = db();
+    const existing = data.calendar_events.find((e) => e.id === eventId);
+    if (!existing) return err("Calendar event not found.", 404);
+    const next = {
+      ...existing,
+      ...patch,
+      title: patch.title?.trim() || existing.title,
+    };
+    persist({
+      ...data,
+      calendar_events: data.calendar_events.map((e) => (e.id === eventId ? next : e)),
+    });
+    return ok(next);
   },
 };
 
@@ -561,7 +645,7 @@ export const metaApi = {
         "Users",
         "Organizations",
         "Organization Members",
-        "Events",
+        "Calendar Events",
         "Tasks",
         "Transactions",
         "Tax Records",
@@ -581,7 +665,7 @@ export const metaApi = {
     const stats = databaseStats(db());
     return ok({
       status: "ok",
-      engine: "atlas-database-v3 (localStorage)",
+      engine: "atlas-database-v4 (localStorage)",
       tables: Object.keys(stats).length,
     });
   },
