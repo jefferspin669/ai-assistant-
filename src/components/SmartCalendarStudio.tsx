@@ -2,6 +2,15 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { useAccount } from "@/components/AccountProvider";
+import {
+  CalendarIntelligencePanel,
+  DailyPlannerBanner,
+  LifeTimelinePanel,
+  SharedCalendarsPanel,
+  VoiceCommandsPanel,
+  useDailyPlan,
+} from "@/components/calendar/CalendarExtrasPanels";
 import {
   CALENDAR_LAYERS,
   HOURS,
@@ -34,7 +43,11 @@ import {
   type CalendarGoal,
   type CalendarLayerId,
   type CalendarView,
+  type LifeEntry,
+  type PostponedCalendarTask,
   type ScheduleSuggestion,
+  type SharedCalendarMember,
+  type SharedCalendarRequest,
 } from "@/lib/smart-calendar";
 
 const VIEWS: { id: CalendarView; label: string }[] = [
@@ -44,6 +57,7 @@ const VIEWS: { id: CalendarView; label: string }[] = [
   { id: "yearly", label: "Yearly" },
   { id: "timeline", label: "Timeline" },
   { id: "agenda", label: "Agenda" },
+  { id: "life", label: "Life" },
 ];
 
 function monthMatrix(anchor: Date) {
@@ -53,11 +67,16 @@ function monthMatrix(anchor: Date) {
 }
 
 export function SmartCalendarStudio() {
+  const { ownerName } = useAccount();
   const [ready, setReady] = useState(false);
   const [categories, setCategories] = useState<CalendarCategory[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [goals, setGoals] = useState<CalendarGoal[]>([]);
   const [activeLayers, setActiveLayers] = useState<CalendarLayerId[]>([]);
+  const [sharedMembers, setSharedMembers] = useState<SharedCalendarMember[]>([]);
+  const [sharedRequests, setSharedRequests] = useState<SharedCalendarRequest[]>([]);
+  const [lifeTimeline, setLifeTimeline] = useState<LifeEntry[]>([]);
+  const [postponedTasks, setPostponedTasks] = useState<PostponedCalendarTask[]>([]);
   const [view, setView] = useState<CalendarView>("weekly");
   const [anchor, setAnchor] = useState(() => {
     const d = new Date();
@@ -81,14 +100,39 @@ export function SmartCalendarStudio() {
     setEvents(state.events);
     setGoals(state.goals);
     setActiveLayers(state.activeLayers);
+    setSharedMembers(state.sharedMembers);
+    setSharedRequests(state.sharedRequests);
+    setLifeTimeline(state.lifeTimeline);
+    setPostponedTasks(state.postponedTasks);
     setNewCategory(state.categories[0]?.id || "work");
     setReady(true);
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    saveCalendarState({ categories, events, goals, activeLayers });
-  }, [ready, categories, events, goals, activeLayers]);
+    saveCalendarState({
+      categories,
+      events,
+      goals,
+      activeLayers,
+      sharedMembers,
+      sharedRequests,
+      lifeTimeline,
+      postponedTasks,
+    });
+  }, [
+    ready,
+    categories,
+    events,
+    goals,
+    activeLayers,
+    sharedMembers,
+    sharedRequests,
+    lifeTimeline,
+    postponedTasks,
+  ]);
+
+  const dailyPlan = useDailyPlan(ownerName || "Kyle", events);
 
   const visibleEvents = useMemo(
     () => filterEventsByLayers(events, activeLayers),
@@ -246,13 +290,16 @@ export function SmartCalendarStudio() {
   return (
     <AppShell
       title="Atlas Smart Calendar"
-      subtitle="Goals, pinned deadlines, calendar layers, AI time analysis, and weather-aware outdoor planning."
+      subtitle="Voice commands, daily planning, shared calendars, pattern intelligence, and a searchable Life Timeline."
       action={
         <div className="cta-row">
           <button
             type="button"
             className="btn btn-outline"
-            onClick={() => setAnchor(addDays(anchor, view === "yearly" ? -365 : view === "monthly" ? -30 : -7))}
+            onClick={() =>
+              setAnchor(addDays(anchor, view === "yearly" ? -365 : view === "monthly" ? -30 : -7))
+            }
+            disabled={view === "life"}
           >
             Prev
           </button>
@@ -262,7 +309,10 @@ export function SmartCalendarStudio() {
           <button
             type="button"
             className="btn btn-dark"
-            onClick={() => setAnchor(addDays(anchor, view === "yearly" ? 365 : view === "monthly" ? 30 : 7))}
+            onClick={() =>
+              setAnchor(addDays(anchor, view === "yearly" ? 365 : view === "monthly" ? 30 : 7))
+            }
+            disabled={view === "life"}
           >
             Next
           </button>
@@ -283,13 +333,17 @@ export function SmartCalendarStudio() {
               </button>
             ))}
           </div>
-          <p className="sc-anchor">{formatDayLabel(anchor)}</p>
+          <p className="sc-anchor">{view === "life" ? "Life history" : formatDayLabel(anchor)}</p>
         </div>
 
         {flash ? <p className="auth-success">{flash}</p> : null}
 
+        <DailyPlannerBanner plan={dailyPlan} />
+
         <div className="sc-layout">
           <div className="sc-main">
+            {view === "life" ? <LifeTimelinePanel lifeTimeline={lifeTimeline} /> : null}
+
             {view === "daily" ? (
               <section className="panel">
                 <h2>Daily · {formatDayLabel(anchor)}</h2>
@@ -505,6 +559,23 @@ export function SmartCalendarStudio() {
           </div>
 
           <aside className="sc-side">
+            <VoiceCommandsPanel
+              events={events}
+              setEvents={setEvents}
+              onNote={note}
+            />
+
+            <SharedCalendarsPanel
+              sharedMembers={sharedMembers}
+              sharedRequests={sharedRequests}
+              setSharedRequests={setSharedRequests}
+              onNote={note}
+            />
+
+            <CalendarIntelligencePanel events={events} postponedTasks={postponedTasks} />
+
+            {view !== "life" ? <LifeTimelinePanel lifeTimeline={lifeTimeline} compact /> : null}
+
             <section className="panel">
               <h2>Calendar layers</h2>
               <p className="panel-lead">Toggle calendars on or off to focus the planner.</p>

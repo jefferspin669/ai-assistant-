@@ -2488,6 +2488,220 @@ button.linkish:hover {
   color: var(--ink-soft);
 }
 
+.sc-daily-plan {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(217, 164, 65, 0.16), transparent 42%),
+    linear-gradient(145deg, rgba(232, 241, 240, 0.95), var(--foam));
+  animation: sc-plan-in 480ms ease both;
+}
+
+.sc-daily-plan h2 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.55rem, 2.6vw, 2rem);
+  letter-spacing: -0.03em;
+  margin: 0.15rem 0 0.45rem;
+}
+
+.sc-plan-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+  margin: 0.35rem 0 0.85rem;
+  padding: 0;
+}
+
+.sc-plan-list li {
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.sc-plan-list strong {
+  display: block;
+  color: var(--ink);
+  font-size: 1.25rem;
+  line-height: 1.1;
+  margin-bottom: 0.15rem;
+}
+
+.sc-plan-priorities ol {
+  margin: 0.35rem 0 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.sc-plan-priorities li {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sc-plan-priorities small {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.sc-example-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.sc-example-chip {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, color 160ms ease;
+}
+
+.sc-example-chip:hover {
+  border-color: var(--teal);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.sc-shared-members {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.65rem 0 0.85rem;
+}
+
+.sc-shared-member {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.sc-shared-member span {
+  grid-column: 1;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.sc-shared-member em {
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.sc-shared-member em.ok {
+  color: var(--ok);
+}
+
+.sc-insights {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.sc-insight {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.7rem 0.8rem;
+  background: var(--paper);
+  display: grid;
+  gap: 0.3rem;
+  animation: sc-insight-in 420ms ease both;
+}
+
+.sc-insight span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal-deep);
+}
+
+.sc-insight.kind-postpone span {
+  color: #8a5a10;
+}
+
+.sc-insight.kind-reschedule span {
+  color: #2f4f8a;
+}
+
+.sc-insight p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.sc-life-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.sc-life-entry {
+  border-left: 3px solid var(--teal);
+  padding: 0.55rem 0.75rem;
+  background: linear-gradient(90deg, rgba(47, 143, 138, 0.06), transparent 70%);
+  display: grid;
+  gap: 0.2rem;
+  animation: sc-insight-in 500ms ease both;
+}
+
+.sc-life-entry header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.sc-life-entry p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.sc-life-panel {
+  min-height: 420px;
+}
+
+@keyframes sc-plan-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sc-insight-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 1100px) {
   .sc-layout,
   .sc-week-grid {
