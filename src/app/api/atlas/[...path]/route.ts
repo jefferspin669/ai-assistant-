@@ -120,6 +120,35 @@ async function handle(req: NextRequest, ctx: Ctx) {
     const orgId = req.nextUrl.searchParams.get("organization_id") || undefined;
     return json(atlasApi.organizationMembers.list(orgId || undefined));
   }
+  if (domain === "calendar-categories" && action && req.method === "POST") {
+    return json(
+      atlasApi.calendar.updateCategory(action, {
+        name: body.name != null ? String(body.name) : undefined,
+        color: body.color != null ? String(body.color) : undefined,
+        icon: body.icon != null ? String(body.icon) : undefined,
+      }),
+    );
+  }
+  if (domain === "calendar-categories" && req.method === "POST") {
+    return json(
+      atlasApi.calendar.createCategory({
+        user_id: String(body.user_id || ""),
+        organization_id: String(body.organization_id || ""),
+        name: String(body.name || ""),
+        color: body.color != null ? String(body.color) : undefined,
+        icon: body.icon != null ? String(body.icon) : undefined,
+        id: body.id != null ? String(body.id) : undefined,
+      }),
+    );
+  }
+  if (domain === "calendar-categories") {
+    return json(
+      atlasApi.calendar.listCategories({
+        user_id: req.nextUrl.searchParams.get("user_id") || undefined,
+        organization_id: req.nextUrl.searchParams.get("organization_id") || undefined,
+      }),
+    );
+  }
   if (domain === "calendar" && action && req.method === "POST") {
     return json(
       atlasApi.calendar.update(action, {

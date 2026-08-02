@@ -5,6 +5,7 @@ import type {
   AtlasDatabase,
   DbConversation,
   DbDocument,
+  DbCalendarCategory,
   DbCalendarEvent,
   DbMemory,
   DbNotification,
@@ -18,8 +19,27 @@ import type {
   DbUserCredential,
 } from "@/lib/db/schema";
 
-const DB_KEY = "atlas-database-v4";
-const LEGACY_DB_KEYS = ["atlas-database-v3", "atlas-database-v2", "atlas-database-v1"];
+const DB_KEY = "atlas-database-v5";
+const LEGACY_DB_KEYS = [
+  "atlas-database-v4",
+  "atlas-database-v3",
+  "atlas-database-v2",
+  "atlas-database-v1",
+];
+
+const CATEGORY_ICONS: Record<string, string> = {
+  meetings: "users",
+  personal: "user",
+  work: "briefcase",
+  deadlines: "flag",
+  bills: "receipt",
+  taxes: "landmark",
+  "high-priority": "alert",
+  family: "home",
+  school: "book",
+  travel: "map",
+  fitness: "activity",
+};
 
 function newId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}_${crypto.randomUUID()}`;
@@ -36,6 +56,7 @@ function emptyDb(): AtlasDatabase {
     user_credentials: [],
     organizations: [],
     organization_members: [],
+    calendar_categories: [],
     calendar_events: [],
     tasks: [],
     transactions: [],
@@ -202,6 +223,26 @@ export function seedDatabase(): AtlasDatabase {
   ];
 
   const calendar = typeof window !== "undefined" ? loadCalendarState() : null;
+  const sourceCategories =
+    calendar?.categories?.length
+      ? calendar.categories
+      : [
+          { id: "meetings", label: "Meetings", color: "#3b82f6" },
+          { id: "personal", label: "Personal", color: "#22c55e" },
+          { id: "work", label: "Work", color: "#eab308" },
+          { id: "deadlines", label: "Deadlines", color: "#ef4444" },
+          { id: "bills", label: "Bills", color: "#a855f7" },
+          { id: "family", label: "Family", color: "#fb7185" },
+        ];
+  const calendar_categories: DbCalendarCategory[] = sourceCategories.map((category) => ({
+    id: category.id,
+    user_id: userId,
+    organization_id: orgId,
+    name: category.label,
+    color: category.color,
+    icon: CATEGORY_ICONS[category.id] || "tag",
+  }));
+
   const calendar_events: DbCalendarEvent[] = (calendar?.events || []).slice(0, 12).map((event) => {
     const startMs = new Date(event.start).getTime();
     const reminder = new Date(startMs - 30 * 60000).toISOString();
@@ -346,6 +387,7 @@ export function seedDatabase(): AtlasDatabase {
     user_credentials: [credential],
     organizations: [org],
     organization_members,
+    calendar_categories,
     calendar_events,
     tasks,
     transactions,
@@ -429,6 +471,18 @@ export function loadDatabase(): AtlasDatabase {
       orgId: organizations[0]?.id || "",
     };
     const calendar_events = legacyEvents.map((event) => normalizeCalendarEvent(event, fallbacks));
+    let calendar_categories = parsed.calendar_categories || [];
+    if (!calendar_categories.length && users.length && organizations.length) {
+      const ids = Array.from(new Set(calendar_events.map((e) => e.category_id).filter(Boolean)));
+      calendar_categories = (ids.length ? ids : ["work", "meetings", "personal"]).map((id) => ({
+        id,
+        user_id: fallbacks.userId,
+        organization_id: fallbacks.orgId,
+        name: id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        color: "#2f8f8a",
+        icon: CATEGORY_ICONS[id] || "tag",
+      }));
+    }
     const state: AtlasDatabase = {
       ...emptyDb(),
       ...parsed,
@@ -437,6 +491,7 @@ export function loadDatabase(): AtlasDatabase {
         parsed.user_credentials?.length ? parsed.user_credentials : legacyCredentials,
       organizations,
       organization_members,
+      calendar_categories,
       calendar_events,
       tasks: parsed.tasks || [],
       transactions: parsed.transactions || [],
@@ -470,6 +525,7 @@ export function databaseStats(db: AtlasDatabase) {
     Users: db.users.length,
     Organizations: db.organizations.length,
     "Organization Members": db.organization_members.length,
+    "Calendar Categories": db.calendar_categories.length,
     "Calendar Events": db.calendar_events.length,
     Tasks: db.tasks.length,
     Transactions: db.transactions.length,

@@ -177,26 +177,10 @@ export function ArchitectureStudio() {
           </section>
 
           <section className="panel">
-            <h2>calendar_events</h2>
-            <p className="panel-lead">Scheduled work and life events for a user + organization.</p>
+            <h2>calendar_categories</h2>
+            <p className="panel-lead">Color labels referenced by calendar_events.category_id.</p>
             <ul className="manage-list">
-              {[
-                "id",
-                "user_id",
-                "organization_id",
-                "title",
-                "description",
-                "start_time",
-                "end_time",
-                "timezone",
-                "category_id",
-                "location",
-                "priority",
-                "reminder_time",
-                "recurring_rule",
-                "external_calendar_id",
-                "created_at",
-              ].map((column) => (
+              {["id", "user_id", "organization_id", "name", "color", "icon"].map((column) => (
                 <li key={column}>
                   <div>
                     <strong>{column}</strong>
@@ -208,6 +192,36 @@ export function ArchitectureStudio() {
         </div>
 
         <section className="panel">
+          <h2>calendar_events</h2>
+          <p className="panel-lead">Scheduled work and life events for a user + organization.</p>
+          <ul className="manage-list">
+            {[
+              "id",
+              "user_id",
+              "organization_id",
+              "title",
+              "description",
+              "start_time",
+              "end_time",
+              "timezone",
+              "category_id",
+              "location",
+              "priority",
+              "reminder_time",
+              "recurring_rule",
+              "external_calendar_id",
+              "created_at",
+            ].map((column) => (
+              <li key={column}>
+                <div>
+                  <strong>{column}</strong>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel">
           <h2>HTTP API</h2>
           <p className="panel-lead">
             REST façade at <code>/api/atlas/*</code> — use the client API for durable browser state.
@@ -217,6 +231,8 @@ export function ArchitectureStudio() {
               "GET /api/atlas/meta/health",
               "GET /api/atlas/meta/architecture",
               "GET /api/atlas/users",
+              "GET /api/atlas/calendar-categories",
+              "POST /api/atlas/calendar-categories",
               "GET /api/atlas/calendar",
               "POST /api/atlas/calendar",
               "GET /api/atlas/organization-members",

@@ -16,6 +16,7 @@ import type {
   AtlasDatabase,
   DbConversation,
   DbDocument,
+  DbCalendarCategory,
   DbCalendarEvent,
   DbNotification,
   DbOrganizationMember,
@@ -327,6 +328,67 @@ export const organizationMembersApi = {
 /* ─── Calendar / Tasks ───────────────────────────────────────────────────── */
 
 export const calendarApi = {
+  listCategories(filters?: {
+    user_id?: string;
+    organization_id?: string;
+  }): ApiResult<DbCalendarCategory[]> {
+    let rows = db().calendar_categories;
+    if (filters?.user_id) rows = rows.filter((c) => c.user_id === filters.user_id);
+    if (filters?.organization_id) {
+      rows = rows.filter((c) => c.organization_id === filters.organization_id);
+    }
+    return ok(rows);
+  },
+  createCategory(input: {
+    user_id: string;
+    organization_id: string;
+    name: string;
+    color?: string;
+    icon?: string;
+    id?: string;
+  }): ApiResult<DbCalendarCategory> {
+    const data = db();
+    if (!data.users.some((u) => u.id === input.user_id)) return err("User not found.", 404);
+    if (!data.organizations.some((o) => o.id === input.organization_id)) {
+      return err("Organization not found.", 404);
+    }
+    const name = input.name.trim() || "Custom";
+    const id =
+      input.id?.trim() ||
+      `cat-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${newId("x").slice(-6)}`;
+    if (data.calendar_categories.some((c) => c.id === id)) {
+      return err("Category id already exists.", 409);
+    }
+    const category: DbCalendarCategory = {
+      id,
+      user_id: input.user_id,
+      organization_id: input.organization_id,
+      name,
+      color: input.color || "#2f8f8a",
+      icon: input.icon?.trim() || "tag",
+    };
+    persist({ ...data, calendar_categories: [category, ...data.calendar_categories] });
+    return ok(category);
+  },
+  updateCategory(
+    categoryId: string,
+    patch: Partial<Pick<DbCalendarCategory, "name" | "color" | "icon">>,
+  ): ApiResult<DbCalendarCategory> {
+    const data = db();
+    const existing = data.calendar_categories.find((c) => c.id === categoryId);
+    if (!existing) return err("Calendar category not found.", 404);
+    const next = {
+      ...existing,
+      ...patch,
+      name: patch.name?.trim() || existing.name,
+      icon: patch.icon?.trim() || existing.icon,
+    };
+    persist({
+      ...data,
+      calendar_categories: data.calendar_categories.map((c) => (c.id === categoryId ? next : c)),
+    });
+    return ok(next);
+  },
   listEvents(filters?: {
     user_id?: string;
     organization_id?: string;
@@ -645,6 +707,7 @@ export const metaApi = {
         "Users",
         "Organizations",
         "Organization Members",
+        "Calendar Categories",
         "Calendar Events",
         "Tasks",
         "Transactions",
@@ -665,7 +728,7 @@ export const metaApi = {
     const stats = databaseStats(db());
     return ok({
       status: "ok",
-      engine: "atlas-database-v4 (localStorage)",
+      engine: "atlas-database-v5 (localStorage)",
       tables: Object.keys(stats).length,
     });
   },

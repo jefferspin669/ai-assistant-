@@ -45,6 +45,16 @@ export type DbOrganizationMember = {
 
 export type EventPriority = "low" | "normal" | "high";
 
+/** `calendar_categories` table */
+export type DbCalendarCategory = {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  name: string;
+  color: string;
+  icon: string;
+};
+
 /** `calendar_events` table */
 export type DbCalendarEvent = {
   id: string;
@@ -160,6 +170,7 @@ export type AtlasDatabase = {
   user_credentials: DbUserCredential[];
   organizations: DbOrganization[];
   organization_members: DbOrganizationMember[];
+  calendar_categories: DbCalendarCategory[];
   calendar_events: DbCalendarEvent[];
   tasks: DbTask[];
   transactions: DbTransaction[];
@@ -175,6 +186,7 @@ export const DB_TABLES = [
   "Users",
   "Organizations",
   "Organization Members",
+  "Calendar Categories",
   "Calendar Events",
   "Tasks",
   "Transactions",
