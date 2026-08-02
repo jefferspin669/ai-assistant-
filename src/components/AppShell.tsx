@@ -56,7 +56,7 @@ export function AppShell({
             </span>
           </div>
           <Link href="/app/account" className="ghost-link">
-            {account ? "Edit account & AI name" : "Create account"}
+            {account ? "Account Center" : "Create account"}
           </Link>
           <Link href="/onboarding" className="ghost-link">
             Customize your AI employee

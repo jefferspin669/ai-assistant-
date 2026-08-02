@@ -101,7 +101,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Platform",
     items: [
-      { href: "/app/account", label: "Your Account" },
+      { href: "/app/account", label: "Account Center" },
       { href: "/app/employees", label: "AI Agents" },
       { href: "/app/digital-employees", label: "Digital Employees" },
       { href: "/app/dna", label: "Business DNA" },

@@ -24,8 +24,10 @@ export default function OnboardingPage() {
     if (personalities.includes(aiPersonality as (typeof personalities)[number])) {
       setPersonality(aiPersonality as (typeof personalities)[number]);
     }
-    if (account?.industry && industries.includes(account.industry as Industry)) {
-      setSelected(account.industry as Industry);
+    const biz =
+      account?.businesses.find((b) => b.id === account.activeBusinessId) || account?.businesses[0];
+    if (biz?.industry && industries.includes(biz.industry as Industry)) {
+      setSelected(biz.industry as Industry);
     }
   }, [ready, aiName, aiPersonality, account]);
 
@@ -41,13 +43,15 @@ export default function OnboardingPage() {
   function onContinue() {
     setSaveError("");
     if (account) {
+      const biz =
+        account.businesses.find((b) => b.id === account.activeBusinessId) || account.businesses[0];
       const result = updateProfile({
-        ownerName: account.ownerName || ownerName,
-        businessName: account.businessName || businessName,
+        ownerName: account.personal.fullName || ownerName,
+        businessName: biz?.name || businessName,
         industry: selected,
         aiName: name.trim() || "Sarah",
         aiPersonality: personality,
-        aiRole: account.aiRole,
+        aiRole: biz?.aiRole || "Office Manager",
       });
       if (!result.ok) {
         setSaveError(result.error);

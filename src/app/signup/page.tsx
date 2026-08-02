@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
+import type { OAuthProvider } from "@/lib/account";
 import { industries } from "@/lib/data";
 
 const personalities = ["Friendly", "Professional", "Funny", "Serious"] as const;
+const providers: OAuthProvider[] = ["google", "apple", "microsoft"];
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, account, ready } = useAccount();
+  const { signup, loginOAuth, account, ready } = useAccount();
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,6 +45,16 @@ export default function SignupPage() {
     router.push("/app/account");
   }
 
+  function onOAuth(provider: OAuthProvider) {
+    setError("");
+    const result = loginOAuth(provider, ownerName || undefined);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.push("/app/account");
+  }
+
   return (
     <div className="auth-page">
       <div className="container auth-wrap">
@@ -50,15 +62,32 @@ export default function SignupPage() {
           <Link href="/" className="logo" style={{ color: "var(--ink)" }}>
             Atlas <span>AI</span>
           </Link>
-          <h1>Create your account</h1>
+          <h1>Secure sign up</h1>
           <p>
-            Save your business profile, track profits, and name your AI employee — everything stays
-            on this device for the prototype.
+            Create an account with a strong password, or continue with Google, Apple, or Microsoft.
+            You can turn on 2FA and passkeys after signing in.
           </p>
         </div>
 
-        <form className="panel auth-card" onSubmit={onSubmit}>
-          <div className="form-grid">
+        <div className="panel auth-card">
+          <div className="oauth-row">
+            {providers.map((provider) => (
+              <button
+                key={provider}
+                type="button"
+                className="btn btn-outline"
+                onClick={() => onOAuth(provider)}
+              >
+                Continue with {provider[0].toUpperCase() + provider.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div className="auth-divider">
+            <span>or use email</span>
+          </div>
+
+          <form className="form-grid" onSubmit={onSubmit}>
             <label>
               Your name
               <input
@@ -96,7 +125,7 @@ export default function SignupPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 4 characters"
+                placeholder="8+ characters with letters and numbers"
                 autoComplete="new-password"
                 required
               />
@@ -133,19 +162,19 @@ export default function SignupPage() {
                 </select>
               </label>
             </div>
-          </div>
 
-          {error ? <p className="auth-error">{error}</p> : null}
+            {error ? <p className="auth-error">{error}</p> : null}
 
-          <div className="auth-actions">
-            <button className="btn btn-dark" type="submit">
-              Create account
-            </button>
-            <p>
-              Already have an account? <Link href="/login">Sign in</Link>
-            </p>
-          </div>
-        </form>
+            <div className="auth-actions">
+              <button className="btn btn-dark" type="submit">
+                Create secure account
+              </button>
+              <p>
+                Already have an account? <Link href="/login">Sign in</Link>
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
