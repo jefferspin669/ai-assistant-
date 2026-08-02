@@ -853,12 +853,21 @@ export function AccountCenter() {
               </div>
               <form
                 className="form-grid"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
+                  let content = cloudContent;
+                  if (cloudKind === "file" && !content.trim()) {
+                    fail("Choose a file to upload, or paste text content.");
+                    return;
+                  }
+                  if (!content.trim() && cloudKind !== "file") {
+                    fail("Add content before saving.");
+                    return;
+                  }
                   const result = saveCloud({
                     kind: cloudKind,
-                    title: cloudTitle,
-                    content: cloudContent,
+                    title: cloudTitle || "Untitled upload",
+                    content: content || "Empty file placeholder",
                     id: selectedCloudId || undefined,
                   });
                   if (!result.ok) return fail(result.error);
@@ -885,13 +894,40 @@ export function AccountCenter() {
                   Title
                   <input value={cloudTitle} onChange={(e) => setCloudTitle(e.target.value)} required />
                 </label>
+                {cloudKind === "file" ? (
+                  <label>
+                    Upload file
+                    <input
+                      type="file"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const url = await fileToDataUrl(file, 900_000);
+                        if (!url) {
+                          fail("File is too large for the demo vault (keep under ~900KB).");
+                          return;
+                        }
+                        setCloudTitle((prev) => prev || file.name);
+                        setCloudContent(
+                          `File: ${file.name}\nType: ${file.type || "unknown"}\nSize: ${Math.round(file.size / 1024)} KB\n\n${url}`,
+                        );
+                        note(`Ready to save “${file.name}”.`);
+                      }}
+                    />
+                  </label>
+                ) : null}
                 <label>
                   Content
                   <textarea
                     value={cloudContent}
                     onChange={(e) => setCloudContent(e.target.value)}
                     rows={4}
-                    required
+                    required={cloudKind !== "file"}
+                    placeholder={
+                      cloudKind === "file"
+                        ? "Filled automatically from your upload — or paste text"
+                        : "Notes, transcript, or document body"
+                    }
                   />
                 </label>
                 <button className="btn btn-dark" type="submit">

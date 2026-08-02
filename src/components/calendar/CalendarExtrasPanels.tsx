@@ -325,3 +325,53 @@ export function LifeTimelinePanel({
 export function useDailyPlan(ownerName: string, events: CalendarEvent[]) {
   return useMemo(() => buildDailyPlan(ownerName, events), [ownerName, events]);
 }
+
+const EXTERNAL_CALENDARS = [
+  { id: "google", label: "Google Calendar", detail: "Two-way sync for personal + work" },
+  { id: "outlook", label: "Outlook / Microsoft 365", detail: "Business meetings and rooms" },
+  { id: "apple", label: "Apple Calendar", detail: "iPhone and Mac events" },
+];
+
+export function ExternalCalendarsPanel({ onNote }: { onNote: (message: string) => void }) {
+  const [connected, setConnected] = useState<Record<string, boolean>>({
+    google: false,
+    outlook: false,
+    apple: false,
+  });
+
+  return (
+    <section className="panel">
+      <h2>External calendars</h2>
+      <p className="panel-lead">
+        Connect Google, Outlook, or Apple — Atlas mirrors events into Smart Calendar (demo connect).
+      </p>
+      <ul className="manage-list">
+        {EXTERNAL_CALENDARS.map((cal) => (
+          <li key={cal.id}>
+            <div>
+              <strong>{cal.label}</strong>
+              <small>{cal.detail}</small>
+            </div>
+            <button
+              type="button"
+              className={connected[cal.id] ? "btn btn-outline" : "btn btn-dark"}
+              onClick={() => {
+                setConnected((prev) => {
+                  const next = !prev[cal.id];
+                  onNote(
+                    next
+                      ? `${cal.label} connected (demo).`
+                      : `${cal.label} disconnected.`,
+                  );
+                  return { ...prev, [cal.id]: next };
+                });
+              }}
+            >
+              {connected[cal.id] ? "Disconnect" : "Connect"}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

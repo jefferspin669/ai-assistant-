@@ -29,12 +29,13 @@ function timeGreeting() {
 }
 
 export function CommandCenter() {
-  const { ownerName, businessName, aiName, aiRole, ready } = useAccount();
+  const { ownerName, businessName, aiName, aiRole, ready, account, saveConversation } = useAccount();
   const greeting = useMemo(() => timeGreeting(), []);
   const greetedRef = useRef(false);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
   const [messages, setMessages] = useState<ChatItem[]>([]);
+  const [savedNote, setSavedNote] = useState("");
 
   useEffect(() => {
     if (!ready || greetedRef.current) return;
@@ -48,6 +49,14 @@ export function CommandCenter() {
     ]);
   }, [ready, ownerName]);
 
+  function persistTurn(userText: string, aiText: string, agentLabel: string) {
+    if (!account) return;
+    const result = saveConversation(userText, aiText, agentLabel);
+    if (result.ok) {
+      setSavedNote("Conversation saved to your AI workspace.");
+    }
+  }
+
   function pushResult(result: CommandResult, spoken: string) {
     const next: ChatItem[] = [{ kind: "user", text: spoken }];
     if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
@@ -60,6 +69,7 @@ export function CommandCenter() {
       });
     } else {
       next.push({ kind: "ai", text: result.reply, agentLabel: result.agentLabel });
+      persistTurn(spoken, result.reply, result.agentLabel);
     }
     setMessages((prev) => [...prev, ...next]);
   }
@@ -80,6 +90,8 @@ export function CommandCenter() {
     setMessages((prev) => {
       const item = prev[index];
       if (!item || item.kind !== "confirm" || item.resolved) return prev;
+      const reply = approved ? item.doneLabel : "Understood — I won’t take that action.";
+      persistTurn(item.confirmPrompt, reply, item.agentLabel);
       const updated = prev.map((entry, i) =>
         i === index && entry.kind === "confirm"
           ? { ...entry, resolved: approved ? ("approved" as const) : ("cancelled" as const) }
@@ -90,7 +102,7 @@ export function CommandCenter() {
         {
           kind: "ai" as const,
           agentLabel: item.agentLabel,
-          text: approved ? item.doneLabel : "Understood — I won’t take that action.",
+          text: reply,
         },
       ];
     });
@@ -175,7 +187,11 @@ export function CommandCenter() {
             <p>
               Prefer outcomes over how-tos — try Atlas Actions for multi-step work that continues on
               every device.
+              {account
+                ? " Signed-in chats are saved to your AI workspace."
+                : " Sign in to save conversations."}
             </p>
+            {savedNote ? <p className="auth-success">{savedNote}</p> : null}
           </div>
           <button className={`btn ${listening ? "btn-primary" : "btn-outline"}`} type="button" onClick={onSpeakToggle}>
             {listening ? "Listening…" : "Speak"}

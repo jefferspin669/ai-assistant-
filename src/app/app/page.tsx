@@ -1,20 +1,28 @@
 import Link from "next/link";
+import { AtlasV1Home } from "@/components/AtlasV1Home";
 import { CommandCenter } from "@/components/CommandCenter";
 import { AppShell } from "@/components/AppShell";
-import { activityFeed, dashboardMetrics, phases } from "@/lib/data";
+import { activityFeed, dashboardMetrics } from "@/lib/data";
 import { intelligenceScore } from "@/lib/atlas-platform";
 
 export default function DashboardPage() {
   return (
     <AppShell
       title="Atlas"
-      subtitle="Don’t ask how — tell Atlas what to do. Atlas Actions runs the outcome across every device."
+      subtitle="First usable version — dashboard, calendar, tasks, conversations, files, and tax in one workspace."
       action={
-        <Link className="btn btn-dark" href="/app/actions">
-          Open Atlas Actions
-        </Link>
+        <div className="cta-row">
+          <Link className="btn btn-outline" href="/app/tasks">
+            Tasks
+          </Link>
+          <Link className="btn btn-dark" href="/app/appointments">
+            Calendar
+          </Link>
+        </div>
       }
     >
+      <AtlasV1Home />
+
       <CommandCenter />
 
       <div className="stat-grid metrics-dense">
@@ -46,17 +54,15 @@ export default function DashboardPage() {
         </section>
 
         <section className="panel">
-          <h2>Atlas platform</h2>
+          <h2>Jump into v1</h2>
           <div className="list">
             {[
-              { href: "/app/actions", label: "Atlas Actions", text: "Say the outcome — invoice, email, remind, books" },
-              { href: "/app/executive", label: "Executive Dashboard", text: "Schedule, tasks, emails, bills, cash, weather" },
-              { href: "/app/mission-control", label: "Mission Control", text: "CEO command bridge — already briefed" },
-              { href: "/app/marketplace", label: "AI Agent Marketplace", text: "Install Sales, HR, Marketing, and more" },
-              { href: "/app/workflows", label: "Automation Builder", text: "No-code if-this-then-that for the business" },
-              { href: "/app/knowledge", label: "Knowledge Brain", text: "Ask your manuals, policies, and emails" },
-              { href: "/app/finance", label: "Financial Command", text: "Cash, budgets, invoices, payroll, tax plan" },
-              { href: "/app/voice", label: "Voice Everywhere", text: "Same conversation on every device" },
+              { href: "/app/appointments", label: "Smart Calendar", text: "Custom color categories + AI planner" },
+              { href: "/app/tasks", label: "Tasks", text: "CallbackFlow, bills, and personal work" },
+              { href: "/app/tax", label: "Tax ledger", text: "Income, expenses, and a basic estimate" },
+              { href: "/app/account", label: "Profile & vault", text: "Settings, files, saved conversations" },
+              { href: "/app/workflows", label: "Automation Builder", text: "Beyond v1 — no-code workflows" },
+              { href: "/app/memory", label: "AI Memory", text: "Beyond v1 — long-term preferences" },
             ].map((item) => (
               <div className="list-row" key={item.href}>
                 <span className="badge ok">Open</span>
@@ -66,16 +72,6 @@ export default function DashboardPage() {
                   </Link>
                   <span className="muted-line">{item.text}</span>
                 </p>
-              </div>
-            ))}
-          </div>
-          <h3 style={{ marginTop: "1rem" }}>Build in phases</h3>
-          <div className="phase-list">
-            {phases.map((phase) => (
-              <div className="phase-item" key={phase.phase}>
-                <span>{phase.phase}</span>
-                <strong>{phase.title}</strong>
-                <p>{phase.items.join(" · ")}</p>
               </div>
             ))}
           </div>

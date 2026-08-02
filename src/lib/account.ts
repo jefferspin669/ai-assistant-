@@ -1,4 +1,5 @@
 import { customEmployee, owner } from "@/lib/data";
+import { hashPassword, isHashedPassword, verifyPassword } from "@/lib/secure-store";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -966,6 +967,20 @@ function toPublic(account: UserAccount): PublicAccount {
   };
 }
 
+function sealPassword(plain: string): string {
+  return hashPassword(plain.trim());
+}
+
+function passwordMatches(account: UserAccount, plain: string) {
+  return verifyPassword(plain.trim(), account.password);
+}
+
+function withUpgradedPassword(account: UserAccount, plain: string): UserAccount {
+  if (!plain.trim()) return account;
+  if (isHashedPassword(account.password)) return account;
+  return { ...account, password: sealPassword(plain) };
+}
+
 function activeBusiness(account: UserAccount): BusinessProfile {
   return (
     account.businesses.find((b) => b.id === account.activeBusinessId) ||
@@ -1342,7 +1357,7 @@ export function signupAccount(input: SignupInput): Result {
 
   let account = createBaseAccount({
     email,
-    password,
+    password: sealPassword(password),
     ownerName,
     businessName,
     industry: input.industry || "HVAC",
@@ -1359,20 +1374,23 @@ export function loginAccount(emailRaw: string, passwordRaw: string): LoginSucces
   const email = normalizeEmail(emailRaw);
   const password = passwordRaw.trim();
   const account = readAccounts().find((a) => a.email === email);
-  if (!account || account.password !== password) {
+  if (!account || !passwordMatches(account, password)) {
     return { ok: false, error: "Email or password doesn’t match." };
   }
 
-  if (account.security.twoFactorEnabled) {
+  let secured = withUpgradedPassword(account, password);
+
+  if (secured.security.twoFactorEnabled) {
     const challengeId = newId();
     sessionStorage.setItem(
       PENDING_2FA_KEY,
-      JSON.stringify({ challengeId, accountId: account.id, at: nowIso() }),
+      JSON.stringify({ challengeId, accountId: secured.id, at: nowIso() }),
     );
-    return { ok: true, requires2fa: true, challengeId, email: account.email };
+    if (secured.password !== account.password) saveAccount(secured);
+    return { ok: true, requires2fa: true, challengeId, email: secured.email };
   }
 
-  const next = attachSession(account, "password");
+  const next = attachSession(secured, "password");
   saveAccount(next);
   setSessionUserId(next.id);
   return { ok: true, account: toPublic(next) };
@@ -1536,7 +1554,7 @@ export function resetPasswordWithToken(token: string, newPassword: string): Resu
   }
   let next: UserAccount = {
     ...account,
-    password: newPassword.trim(),
+    password: sealPassword(newPassword.trim()),
     resetToken: null,
     resetExpiresAt: null,
   };
@@ -2475,6 +2493,78 @@ export function createAiChat(title: string, firstMessage: string, projectId?: st
     };
     next = pushActivity(next, "Chat created", chat.title);
     return next;
+  });
+}
+
+/** Persist a Command Center turn into the signed-in AI workspace. */
+export function saveCommandConversation(
+  userText: string,
+  aiText: string,
+  agentLabel = "Atlas",
+): Result {
+  return mutate((account) => {
+    const stamp = nowIso();
+    const title = userText.trim().slice(0, 48) || "Atlas conversation";
+    const draftId = account.aiWorkspace.draftChatId;
+    const existing = account.aiWorkspace.chats.find((c) => c.id === draftId);
+
+    if (existing) {
+      const chats = account.aiWorkspace.chats.map((chat) =>
+        chat.id === existing.id
+          ? {
+              ...chat,
+              preview: aiText.slice(0, 80),
+              updatedAt: stamp,
+              messages: [
+                ...chat.messages,
+                { role: "user" as const, text: userText },
+                { role: "ai" as const, text: `[${agentLabel}] ${aiText}` },
+              ],
+            }
+          : chat,
+      );
+      return {
+        ...account,
+        aiWorkspace: {
+          ...account.aiWorkspace,
+          chats,
+        },
+        analytics: {
+          ...account.analytics,
+          aiRequests: account.analytics.aiRequests + 1,
+        },
+      };
+    }
+
+    const chat: AiChat = {
+      id: newId(),
+      title,
+      preview: aiText.slice(0, 80),
+      messages: [
+        { role: "user", text: userText },
+        { role: "ai", text: `[${agentLabel}] ${aiText}` },
+      ],
+      projectId: null,
+      shared: false,
+      updatedAt: stamp,
+      createdAt: stamp,
+    };
+    return pushActivity(
+      {
+        ...account,
+        aiWorkspace: {
+          ...account.aiWorkspace,
+          chats: [chat, ...account.aiWorkspace.chats],
+          draftChatId: chat.id,
+        },
+        analytics: {
+          ...account.analytics,
+          aiRequests: account.analytics.aiRequests + 1,
+        },
+      },
+      "Conversation saved",
+      title,
+    );
   });
 }
 

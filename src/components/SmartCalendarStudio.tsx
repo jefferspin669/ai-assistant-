@@ -6,6 +6,7 @@ import { useAccount } from "@/components/AccountProvider";
 import {
   CalendarIntelligencePanel,
   DailyPlannerBanner,
+  ExternalCalendarsPanel,
   LifeTimelinePanel,
   SharedCalendarsPanel,
   VoiceCommandsPanel,
@@ -564,6 +565,8 @@ export function SmartCalendarStudio() {
               setEvents={setEvents}
               onNote={note}
             />
+
+            <ExternalCalendarsPanel onNote={note} />
 
             <SharedCalendarsPanel
               sharedMembers={sharedMembers}

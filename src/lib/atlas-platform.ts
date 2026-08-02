@@ -3,9 +3,19 @@ export type NavGroup = { label: string; items: NavItem[] };
 
 export const navGroups: NavGroup[] = [
   {
+    label: "Atlas v1",
+    items: [
+      { href: "/app", label: "Dashboard", exact: true },
+      { href: "/app/appointments", label: "Calendar" },
+      { href: "/app/tasks", label: "Tasks" },
+      { href: "/app/tax", label: "Tax ledger" },
+      { href: "/app/account", label: "Profile & vault" },
+      { href: "/app/security", label: "Secure database" },
+    ],
+  },
+  {
     label: "Command",
     items: [
-      { href: "/app", label: "Atlas", exact: true },
       { href: "/app/actions", label: "Atlas Actions" },
       { href: "/app/executive", label: "Executive Dashboard" },
       { href: "/app/mission", label: "Atlas Mission" },
@@ -54,6 +64,7 @@ export const navGroups: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/app/appointments", label: "Smart Calendar" },
+      { href: "/app/tasks", label: "Tasks" },
       { href: "/app/scheduling", label: "Intelligent Scheduling" },
       { href: "/app/routes", label: "Route Optimization" },
       { href: "/app/inventory", label: "AI Inventory" },

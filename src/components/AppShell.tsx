@@ -18,7 +18,7 @@ export function AppShell({
   action?: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { account, aiName, ownerName } = useAccount();
+  const { account, aiName, ownerName, ready, logout } = useAccount();
 
   return (
     <div className="app-shell">
@@ -26,7 +26,7 @@ export function AppShell({
         <Link href="/" className="sidebar-brand">
           Atlas <span>AI</span>
         </Link>
-        <p className="sidebar-tag">Intelligent workforce · any size</p>
+        <p className="sidebar-tag">Atlas v1 · first usable version</p>
         <nav className="sidebar-nav">
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
@@ -58,6 +58,15 @@ export function AppShell({
           <Link href="/app/account" className="ghost-link">
             {account ? "Account Center" : "Create account"}
           </Link>
+          {account ? (
+            <button type="button" className="ghost-link" onClick={() => logout()}>
+              Log out
+            </button>
+          ) : (
+            <Link href="/login" className="ghost-link">
+              Log in
+            </Link>
+          )}
           <Link href="/onboarding" className="ghost-link">
             Customize your AI employee
           </Link>
@@ -72,7 +81,28 @@ export function AppShell({
           </div>
           {action}
         </header>
-        <div className="app-content">{children}</div>
+        <div className="app-content">
+          {ready && !account ? (
+            <div className="tax-safety-banner" style={{ marginBottom: "1rem" }}>
+              <div className="tax-safety-banner-head">
+                <strong>Guest mode</strong>
+                <span>Create an account to save chats, files, and password-protected vault data.</span>
+              </div>
+              <div className="cta-row">
+                <Link className="btn btn-dark" href="/signup">
+                  Register
+                </Link>
+                <Link className="btn btn-outline" href="/login">
+                  Log in
+                </Link>
+                <Link className="ghost-link" href="/forgot-password">
+                  Reset password
+                </Link>
+              </div>
+            </div>
+          ) : null}
+          {children}
+        </div>
       </div>
     </div>
   );

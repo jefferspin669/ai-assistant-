@@ -25,6 +25,7 @@ import {
   addWebhook,
   applyReferralCredit,
   createAiChat,
+  saveCommandConversation,
   createApiKey,
   createFolder,
   createProjectWorkspace,
@@ -186,6 +187,7 @@ type AccountContextValue = {
   exportData: () => { ok: true; json: string } | { ok: false; error: string };
   wipeData: () => ActionResult;
   autosaveDraft: (text: string) => ActionResult;
+  saveConversation: (userText: string, aiText: string, agentLabel?: string) => ActionResult;
   startChat: (title: string, message: string, projectId?: string | null) => ActionResult;
   shareChat: (chatId: string) => ActionResult;
   addPrompt: (title: string, body: string, library?: boolean) => ActionResult;
@@ -453,6 +455,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       wrap(createAiChat(title, message, projectId), setAccount),
     [],
   );
+  const saveConversation = useCallback(
+    (userText: string, aiText: string, agentLabel?: string) =>
+      wrap(saveCommandConversation(userText, aiText, agentLabel), setAccount),
+    [],
+  );
   const shareChat = useCallback((chatId: string) => wrap(toggleChatShared(chatId), setAccount), []);
   const addPrompt = useCallback(
     (title: string, body: string, library = false) => wrap(savePrompt(title, body, library), setAccount),
@@ -558,6 +565,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       exportData,
       wipeData,
       autosaveDraft,
+      saveConversation,
       startChat,
       shareChat,
       addPrompt,
@@ -635,6 +643,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       exportData,
       wipeData,
       autosaveDraft,
+      saveConversation,
       startChat,
       shareChat,
       addPrompt,
