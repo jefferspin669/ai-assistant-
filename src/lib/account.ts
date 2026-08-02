@@ -93,6 +93,119 @@ export type CloudItem = {
   updatedAt: string;
   versions: CloudVersion[];
   deletedAt: string | null;
+  folderId: string | null;
+  tagIds: string[];
+  favorite: boolean;
+  archived: boolean;
+  pinned: boolean;
+};
+
+export type OrgFolder = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
+export type OrgTag = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+export type NotificationSettings = {
+  push: boolean;
+  email: boolean;
+  sms: boolean;
+  desktop: boolean;
+  doNotDisturb: boolean;
+  dndUntil: string | null;
+  categories: {
+    security: boolean;
+    billing: boolean;
+    team: boolean;
+    ai: boolean;
+    marketing: boolean;
+  };
+};
+
+export type TeamRole = "owner" | "admin" | "manager" | "employee";
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: TeamRole;
+  status: "active" | "invited";
+  invitedAt: string;
+  joinedAt: string | null;
+};
+
+export type SharedWorkspace = {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+};
+
+export type KnowledgeArticle = {
+  id: string;
+  workspaceId: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TeamChatMessage = {
+  id: string;
+  workspaceId: string;
+  authorName: string;
+  text: string;
+  at: string;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  detail: string;
+};
+
+export type ConnectedApp = {
+  id: string;
+  name: string;
+  connected: boolean;
+  connectedAt: string | null;
+};
+
+export type ApiKeyRecord = {
+  id: string;
+  name: string;
+  prefix: string;
+  secretHint: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+export type BillingInfo = {
+  plan: "free" | "starter" | "growth" | "scale";
+  status: "active" | "past_due" | "canceled";
+  renewsAt: string;
+  seats: number;
+};
+
+export type AppSettings = {
+  voiceId: string;
+  voiceLabel: string;
+  privacy: {
+    shareUsage: boolean;
+    allowTraining: boolean;
+    showOnlineStatus: boolean;
+  };
+  connectedApps: ConnectedApp[];
+  billing: BillingInfo;
+  apiKeys: ApiKeyRecord[];
 };
 
 export type MemoryItem = {
@@ -168,6 +281,15 @@ export type UserAccount = {
   securityAlerts: SecurityAlert[];
   activityLog: ActivityLogEntry[];
   security: SecuritySettings;
+  folders: OrgFolder[];
+  tags: OrgTag[];
+  notifications: NotificationSettings;
+  teamMembers: TeamMember[];
+  workspaces: SharedWorkspace[];
+  knowledgeBase: KnowledgeArticle[];
+  teamChat: TeamChatMessage[];
+  auditLogs: AuditLogEntry[];
+  appSettings: AppSettings;
   resetToken: string | null;
   resetExpiresAt: string | null;
   createdAt: string;
@@ -309,6 +431,134 @@ function defaultSecurity(): SecuritySettings {
   };
 }
 
+function defaultNotifications(): NotificationSettings {
+  return {
+    push: true,
+    email: true,
+    sms: false,
+    desktop: true,
+    doNotDisturb: false,
+    dndUntil: null,
+    categories: {
+      security: true,
+      billing: true,
+      team: true,
+      ai: true,
+      marketing: false,
+    },
+  };
+}
+
+function defaultAppSettings(): AppSettings {
+  const renews = new Date();
+  renews.setMonth(renews.getMonth() + 1);
+  return {
+    voiceId: "atlas-warm",
+    voiceLabel: "Atlas Warm",
+    privacy: {
+      shareUsage: false,
+      allowTraining: false,
+      showOnlineStatus: true,
+    },
+    connectedApps: [
+      { id: "google-calendar", name: "Google Calendar", connected: false, connectedAt: null },
+      { id: "quickbooks", name: "QuickBooks", connected: false, connectedAt: null },
+      { id: "slack", name: "Slack", connected: false, connectedAt: null },
+      { id: "stripe", name: "Stripe", connected: false, connectedAt: null },
+    ],
+    billing: {
+      plan: "starter",
+      status: "active",
+      renewsAt: renews.toISOString(),
+      seats: 3,
+    },
+    apiKeys: [],
+  };
+}
+
+function defaultOrgMeta(ownerName: string, email: string) {
+  const stamp = nowIso();
+  const inboxId = newId();
+  const opsId = newId();
+  return {
+    folders: [
+      { id: inboxId, name: "Inbox", createdAt: stamp },
+      { id: opsId, name: "Operations", createdAt: stamp },
+    ] as OrgFolder[],
+    tags: [
+      { id: newId(), name: "urgent", color: "#b42318" },
+      { id: newId(), name: "customer", color: "#2f8f8a" },
+      { id: newId(), name: "finance", color: "#b88420" },
+    ] as OrgTag[],
+    teamMembers: [
+      {
+        id: newId(),
+        name: ownerName,
+        email,
+        role: "owner" as TeamRole,
+        status: "active" as const,
+        invitedAt: stamp,
+        joinedAt: stamp,
+      },
+    ] as TeamMember[],
+    workspaces: [
+      {
+        id: newId(),
+        name: "Company HQ",
+        description: "Shared workspace for the whole team.",
+        createdAt: stamp,
+      },
+    ] as SharedWorkspace[],
+  };
+}
+
+function normalizeCloudItem(item: CloudItem): CloudItem {
+  return {
+    ...item,
+    folderId: item.folderId ?? null,
+    tagIds: Array.isArray(item.tagIds) ? item.tagIds : [],
+    favorite: Boolean(item.favorite),
+    archived: Boolean(item.archived),
+    pinned: Boolean(item.pinned),
+  };
+}
+
+function ensureAccountShape(account: UserAccount): UserAccount {
+  const org = defaultOrgMeta(account.personal?.fullName || owner.name, account.email);
+  return {
+    ...account,
+    cloudItems: (account.cloudItems || []).map(normalizeCloudItem),
+    folders: account.folders?.length ? account.folders : org.folders,
+    tags: account.tags?.length ? account.tags : org.tags,
+    notifications: {
+      ...defaultNotifications(),
+      ...(account.notifications || {}),
+      categories: {
+        ...defaultNotifications().categories,
+        ...(account.notifications?.categories || {}),
+      },
+    },
+    teamMembers: account.teamMembers?.length ? account.teamMembers : org.teamMembers,
+    workspaces: account.workspaces?.length ? account.workspaces : org.workspaces,
+    knowledgeBase: account.knowledgeBase || [],
+    teamChat: account.teamChat || [],
+    auditLogs: account.auditLogs || [],
+    appSettings: {
+      ...defaultAppSettings(),
+      ...(account.appSettings || {}),
+      privacy: {
+        ...defaultAppSettings().privacy,
+        ...(account.appSettings?.privacy || {}),
+      },
+      connectedApps: account.appSettings?.connectedApps?.length
+        ? account.appSettings.connectedApps
+        : defaultAppSettings().connectedApps,
+      billing: { ...defaultAppSettings().billing, ...(account.appSettings?.billing || {}) },
+      apiKeys: account.appSettings?.apiKeys || [],
+    },
+  };
+}
+
 function defaultPersonal(name: string, email: string): PersonalProfile {
   return {
     fullName: name,
@@ -358,6 +608,11 @@ function seedCloud(): CloudItem[] {
       updatedAt: stamp,
       versions: [{ id: newId(), at: stamp, label: "v1", content: "How is business?" }],
       deletedAt: null,
+      folderId: null,
+      tagIds: [],
+      favorite: true,
+      archived: false,
+      pinned: true,
     },
     {
       id: newId(),
@@ -368,6 +623,11 @@ function seedCloud(): CloudItem[] {
       updatedAt: stamp,
       versions: [],
       deletedAt: null,
+      folderId: null,
+      tagIds: [],
+      favorite: false,
+      archived: false,
+      pinned: false,
     },
   ];
 }
@@ -453,7 +713,9 @@ function migrateLegacy(raw: unknown): UserAccount | null {
   if (!raw || typeof raw !== "object") return null;
   const legacy = raw as Record<string, unknown>;
   if (!legacy.email || !legacy.id) return null;
-  if ("personal" in legacy && "businesses" in legacy) return legacy as unknown as UserAccount;
+  if ("personal" in legacy && "businesses" in legacy) {
+    return ensureAccountShape(legacy as unknown as UserAccount);
+  }
 
   const email = String(legacy.email);
   const ownerName = String(legacy.ownerName || owner.name);
@@ -466,7 +728,7 @@ function migrateLegacy(raw: unknown): UserAccount | null {
   });
   if (legacy.aiRole) business.aiRole = String(legacy.aiRole);
 
-  return {
+  return ensureAccountShape({
     id: String(legacy.id),
     email,
     password: String(legacy.password || ""),
@@ -484,11 +746,20 @@ function migrateLegacy(raw: unknown): UserAccount | null {
     securityAlerts: [],
     activityLog: [],
     security: defaultSecurity(),
+    folders: [],
+    tags: [],
+    notifications: defaultNotifications(),
+    teamMembers: [],
+    workspaces: [],
+    knowledgeBase: [],
+    teamChat: [],
+    auditLogs: [],
+    appSettings: defaultAppSettings(),
     resetToken: null,
     resetExpiresAt: null,
     createdAt: String(legacy.createdAt || nowIso()),
     updatedAt: String(legacy.updatedAt || nowIso()),
-  };
+  });
 }
 
 function readAccounts(): UserAccount[] {
@@ -498,7 +769,7 @@ function readAccounts(): UserAccount[] {
     if (raw) {
       const parsed = JSON.parse(raw) as unknown[];
       return Array.isArray(parsed)
-        ? parsed.map((item) => migrateLegacy(item)).filter(Boolean) as UserAccount[]
+        ? (parsed.map((item) => migrateLegacy(item)).filter(Boolean) as UserAccount[]).map(ensureAccountShape)
         : [];
     }
     const legacy = localStorage.getItem(LEGACY_KEY);
@@ -666,7 +937,9 @@ function createBaseAccount(input: {
     aiPersonality: input.aiPersonality,
     email,
   });
-  return {
+  const org = defaultOrgMeta(input.ownerName, email);
+  const hq = org.workspaces[0];
+  return ensureAccountShape({
     id: newId(),
     email,
     password: input.password,
@@ -676,7 +949,9 @@ function createBaseAccount(input: {
     businesses: [business],
     activeBusinessId: business.id,
     profits: [],
-    cloudItems: seedCloud(),
+    cloudItems: seedCloud().map((item, index) =>
+      index === 0 ? { ...item, folderId: org.folders[0]?.id || null, tagIds: [org.tags[0]?.id].filter(Boolean) as string[] } : item,
+    ),
     memories: seedMemories(input.ownerName),
     devices: [],
     sessions: [],
@@ -695,11 +970,45 @@ function createBaseAccount(input: {
       { id: newId(), at: stamp, action: "Account created", detail: "Secure sign-up completed." },
     ],
     security: defaultSecurity(),
+    folders: org.folders,
+    tags: org.tags,
+    notifications: defaultNotifications(),
+    teamMembers: org.teamMembers,
+    workspaces: org.workspaces,
+    knowledgeBase: [
+      {
+        id: newId(),
+        workspaceId: hq.id,
+        title: "How we answer the phone",
+        content: "Greet warmly, capture address and photos, book a window.",
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ],
+    teamChat: [
+      {
+        id: newId(),
+        workspaceId: hq.id,
+        authorName: input.ownerName,
+        text: "Welcome to the shared workspace — drop notes for the team here.",
+        at: stamp,
+      },
+    ],
+    auditLogs: [
+      {
+        id: newId(),
+        at: stamp,
+        actor: input.ownerName,
+        action: "Workspace created",
+        detail: "Company HQ shared workspace is ready.",
+      },
+    ],
+    appSettings: defaultAppSettings(),
     resetToken: null,
     resetExpiresAt: null,
     createdAt: stamp,
     updatedAt: stamp,
-  };
+  });
 }
 
 /* ─── Auth ──────────────────────────────────────────────────────────────── */
@@ -1123,6 +1432,11 @@ export function saveCloudItem(input: {
       updatedAt: stamp,
       versions: [{ id: newId(), at: stamp, label: "v1", content }],
       deletedAt: null,
+      folderId: null,
+      tagIds: [],
+      favorite: false,
+      archived: false,
+      pinned: false,
     };
     return pushActivity(
       { ...account, cloudItems: [item, ...account.cloudItems] },
@@ -1357,5 +1671,441 @@ export function formatWhen(iso: string) {
     return iso;
   }
 }
+
+function pushAudit(account: UserAccount, action: string, detail: string): UserAccount {
+  const entry: AuditLogEntry = {
+    id: newId(),
+    at: nowIso(),
+    actor: account.personal.fullName || account.email,
+    action,
+    detail,
+  };
+  return { ...account, auditLogs: [entry, ...account.auditLogs].slice(0, 100) };
+}
+
+/* ─── Organization ──────────────────────────────────────────────────────── */
+
+export function createFolder(name: string): Result {
+  return mutate((account) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "Folder name is required.";
+    if (account.folders.some((f) => f.name.toLowerCase() === trimmed.toLowerCase())) {
+      return "A folder with that name already exists.";
+    }
+    const folder: OrgFolder = { id: newId(), name: trimmed, createdAt: nowIso() };
+    let next: UserAccount = { ...account, folders: [...account.folders, folder] };
+    next = pushActivity(next, "Folder created", trimmed);
+    return next;
+  });
+}
+
+export function deleteFolder(folderId: string): Result {
+  return mutate((account) => {
+    if (!account.folders.some((f) => f.id === folderId)) return "Folder not found.";
+    const cloudItems = account.cloudItems.map((c) =>
+      c.folderId === folderId ? { ...c, folderId: null } : c,
+    );
+    let next: UserAccount = {
+      ...account,
+      folders: account.folders.filter((f) => f.id !== folderId),
+      cloudItems,
+    };
+    next = pushActivity(next, "Folder deleted", folderId);
+    return next;
+  });
+}
+
+export function createTag(name: string, color = "#2f8f8a"): Result {
+  return mutate((account) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "Tag name is required.";
+    const tag: OrgTag = { id: newId(), name: trimmed, color };
+    let next: UserAccount = { ...account, tags: [...account.tags, tag] };
+    next = pushActivity(next, "Tag created", trimmed);
+    return next;
+  });
+}
+
+export function deleteTag(tagId: string): Result {
+  return mutate((account) => {
+    if (!account.tags.some((t) => t.id === tagId)) return "Tag not found.";
+    const cloudItems = account.cloudItems.map((c) => ({
+      ...c,
+      tagIds: c.tagIds.filter((id) => id !== tagId),
+    }));
+    let next: UserAccount = {
+      ...account,
+      tags: account.tags.filter((t) => t.id !== tagId),
+      cloudItems,
+    };
+    next = pushActivity(next, "Tag deleted", tagId);
+    return next;
+  });
+}
+
+export function updateCloudOrganization(
+  itemId: string,
+  patch: Partial<Pick<CloudItem, "folderId" | "tagIds" | "favorite" | "archived" | "pinned">>,
+): Result {
+  return mutate((account) => {
+    if (!account.cloudItems.some((c) => c.id === itemId)) return "Item not found.";
+    const cloudItems = account.cloudItems.map((c) =>
+      c.id === itemId ? { ...c, ...patch, updatedAt: nowIso() } : c,
+    );
+    return pushActivity({ ...account, cloudItems }, "Item organization updated", itemId);
+  });
+}
+
+export type SearchHit = {
+  id: string;
+  source: "cloud" | "memory" | "knowledge" | "chat";
+  title: string;
+  snippet: string;
+};
+
+export function searchEverything(query: string): SearchHit[] {
+  const account = getCurrentAccount();
+  if (!account) return [];
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const hits: SearchHit[] = [];
+
+  for (const item of account.cloudItems) {
+    if (`${item.title} ${item.content} ${item.kind}`.toLowerCase().includes(q)) {
+      hits.push({
+        id: item.id,
+        source: "cloud",
+        title: item.title,
+        snippet: item.deletedAt
+          ? "In trash"
+          : item.archived
+            ? "Archived"
+            : item.content.slice(0, 120),
+      });
+    }
+  }
+  for (const memory of account.memories) {
+    if (`${memory.title} ${memory.content}`.toLowerCase().includes(q)) {
+      hits.push({
+        id: memory.id,
+        source: "memory",
+        title: memory.title,
+        snippet: memory.content.slice(0, 120),
+      });
+    }
+  }
+  for (const article of account.knowledgeBase) {
+    if (`${article.title} ${article.content}`.toLowerCase().includes(q)) {
+      hits.push({
+        id: article.id,
+        source: "knowledge",
+        title: article.title,
+        snippet: article.content.slice(0, 120),
+      });
+    }
+  }
+  for (const message of account.teamChat) {
+    if (message.text.toLowerCase().includes(q)) {
+      hits.push({
+        id: message.id,
+        source: "chat",
+        title: `${message.authorName} in chat`,
+        snippet: message.text.slice(0, 120),
+      });
+    }
+  }
+  return hits.slice(0, 40);
+}
+
+/* ─── Notifications ─────────────────────────────────────────────────────── */
+
+export function updateNotificationSettings(patch: Partial<NotificationSettings>): Result {
+  return mutate((account) => {
+    const notifications: NotificationSettings = {
+      ...account.notifications,
+      ...patch,
+      categories: {
+        ...account.notifications.categories,
+        ...(patch.categories || {}),
+      },
+    };
+    let next: UserAccount = { ...account, notifications };
+    next = pushActivity(next, "Notification settings updated", Object.keys(patch).join(", "));
+    return next;
+  });
+}
+
+export function setDoNotDisturb(enabled: boolean, hours = 2): Result {
+  return mutate((account) => {
+    const until = enabled ? new Date(Date.now() + hours * 60 * 60 * 1000).toISOString() : null;
+    let next: UserAccount = {
+      ...account,
+      notifications: {
+        ...account.notifications,
+        doNotDisturb: enabled,
+        dndUntil: until,
+      },
+    };
+    next = pushActivity(
+      next,
+      enabled ? "Do Not Disturb on" : "Do Not Disturb off",
+      enabled ? `Until ${until}` : "Notifications resumed",
+    );
+    return next;
+  });
+}
+
+/* ─── Team ──────────────────────────────────────────────────────────────── */
+
+export function inviteTeamMember(name: string, emailRaw: string, role: TeamRole): Result {
+  return mutate((account) => {
+    if (!account.security.permissions.allowTeamInvite) {
+      return "Team invites are disabled in permissions.";
+    }
+    const email = normalizeEmail(emailRaw);
+    const trimmed = name.trim();
+    if (!trimmed || !email.includes("@")) return "Name and valid email are required.";
+    if (role === "owner") return "Owner role can’t be assigned by invite.";
+    if (account.teamMembers.some((m) => m.email === email)) {
+      return "That person is already on the team.";
+    }
+    const member: TeamMember = {
+      id: newId(),
+      name: trimmed,
+      email,
+      role,
+      status: "invited",
+      invitedAt: nowIso(),
+      joinedAt: null,
+    };
+    let next: UserAccount = { ...account, teamMembers: [...account.teamMembers, member] };
+    next = pushActivity(next, "Team invite sent", `${trimmed} as ${role}`);
+    next = pushAudit(next, "Member invited", `${trimmed} (${email}) → ${role}`);
+    if (next.notifications.categories.team) {
+      next = pushAlert(next, "Team invite sent", `${trimmed} was invited as ${role}.`, "info");
+    }
+    return next;
+  });
+}
+
+export function updateTeamMemberRole(memberId: string, role: TeamRole): Result {
+  return mutate((account) => {
+    const member = account.teamMembers.find((m) => m.id === memberId);
+    if (!member) return "Team member not found.";
+    if (member.role === "owner") return "Can’t change the owner’s role.";
+    if (role === "owner") return "Transfer ownership isn’t available in this demo.";
+    const teamMembers = account.teamMembers.map((m) =>
+      m.id === memberId ? { ...m, role, status: "active" as const, joinedAt: m.joinedAt || nowIso() } : m,
+    );
+    let next: UserAccount = { ...account, teamMembers };
+    next = pushAudit(next, "Role updated", `${member.name} → ${role}`);
+    return next;
+  });
+}
+
+export function removeTeamMember(memberId: string): Result {
+  return mutate((account) => {
+    const member = account.teamMembers.find((m) => m.id === memberId);
+    if (!member) return "Team member not found.";
+    if (member.role === "owner") return "Can’t remove the account owner.";
+    let next: UserAccount = {
+      ...account,
+      teamMembers: account.teamMembers.filter((m) => m.id !== memberId),
+    };
+    next = pushAudit(next, "Member removed", member.email);
+    return next;
+  });
+}
+
+export function createWorkspace(name: string, description: string): Result {
+  return mutate((account) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "Workspace name is required.";
+    const workspace: SharedWorkspace = {
+      id: newId(),
+      name: trimmed,
+      description: description.trim(),
+      createdAt: nowIso(),
+    };
+    let next: UserAccount = { ...account, workspaces: [...account.workspaces, workspace] };
+    next = pushAudit(next, "Workspace created", trimmed);
+    return next;
+  });
+}
+
+export function addKnowledgeArticle(workspaceId: string, title: string, content: string): Result {
+  return mutate((account) => {
+    if (!account.workspaces.some((w) => w.id === workspaceId)) return "Workspace not found.";
+    const trimmed = title.trim();
+    if (!trimmed || !content.trim()) return "Title and content are required.";
+    const stamp = nowIso();
+    const article: KnowledgeArticle = {
+      id: newId(),
+      workspaceId,
+      title: trimmed,
+      content: content.trim(),
+      createdAt: stamp,
+      updatedAt: stamp,
+    };
+    let next: UserAccount = {
+      ...account,
+      knowledgeBase: [article, ...account.knowledgeBase],
+    };
+    next = pushAudit(next, "Knowledge article added", trimmed);
+    return next;
+  });
+}
+
+export function sendTeamChat(workspaceId: string, text: string): Result {
+  return mutate((account) => {
+    if (!account.workspaces.some((w) => w.id === workspaceId)) return "Workspace not found.";
+    const trimmed = text.trim();
+    if (!trimmed) return "Message can’t be empty.";
+    const message: TeamChatMessage = {
+      id: newId(),
+      workspaceId,
+      authorName: account.personal.fullName || account.email,
+      text: trimmed,
+      at: nowIso(),
+    };
+    return {
+      ...account,
+      teamChat: [...account.teamChat, message].slice(-100),
+    };
+  });
+}
+
+/* ─── App settings / billing / API keys ─────────────────────────────────── */
+
+export function updateAppSettings(patch: Partial<AppSettings>): Result {
+  return mutate((account) => {
+    const appSettings: AppSettings = {
+      ...account.appSettings,
+      ...patch,
+      privacy: {
+        ...account.appSettings.privacy,
+        ...(patch.privacy || {}),
+      },
+      billing: {
+        ...account.appSettings.billing,
+        ...(patch.billing || {}),
+      },
+      connectedApps: patch.connectedApps || account.appSettings.connectedApps,
+      apiKeys: patch.apiKeys || account.appSettings.apiKeys,
+    };
+    let next: UserAccount = { ...account, appSettings };
+    next = pushActivity(next, "App settings updated", Object.keys(patch).join(", "));
+    return next;
+  });
+}
+
+export function setConnectedApp(appId: string, connected: boolean): Result {
+  return mutate((account) => {
+    const connectedApps = account.appSettings.connectedApps.map((app) =>
+      app.id === appId
+        ? { ...app, connected, connectedAt: connected ? nowIso() : null }
+        : app,
+    );
+    let next: UserAccount = {
+      ...account,
+      appSettings: { ...account.appSettings, connectedApps },
+    };
+    next = pushAudit(next, connected ? "App connected" : "App disconnected", appId);
+    return next;
+  });
+}
+
+export function updateBilling(patch: Partial<BillingInfo>): Result {
+  return mutate((account) => {
+    const billing = { ...account.appSettings.billing, ...patch };
+    let next: UserAccount = {
+      ...account,
+      appSettings: { ...account.appSettings, billing },
+    };
+    next = pushAudit(next, "Billing updated", `${billing.plan} · ${billing.status}`);
+    if (account.notifications.categories.billing) {
+      next = pushAlert(next, "Subscription updated", `Plan is now ${billing.plan}.`, "info");
+    }
+    return next;
+  });
+}
+
+export function createApiKey(name: string): Result {
+  return mutate((account) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "API key name is required.";
+    const secret = newId().replace(/-/g, "");
+    const key: ApiKeyRecord = {
+      id: newId(),
+      name: trimmed,
+      prefix: `atk_${secret.slice(0, 8)}`,
+      secretHint: `${secret.slice(0, 4)}…${secret.slice(-4)}`,
+      createdAt: nowIso(),
+      lastUsedAt: null,
+    };
+    let next: UserAccount = {
+      ...account,
+      appSettings: {
+        ...account.appSettings,
+        apiKeys: [key, ...account.appSettings.apiKeys],
+      },
+    };
+    next = pushAudit(next, "API key created", key.prefix);
+    return next;
+  });
+}
+
+export function revokeApiKey(keyId: string): Result {
+  return mutate((account) => {
+    if (!account.appSettings.apiKeys.some((k) => k.id === keyId)) return "API key not found.";
+    let next: UserAccount = {
+      ...account,
+      appSettings: {
+        ...account.appSettings,
+        apiKeys: account.appSettings.apiKeys.filter((k) => k.id !== keyId),
+      },
+    };
+    next = pushAudit(next, "API key revoked", keyId);
+    return next;
+  });
+}
+
+export function exportAccountData(): { ok: true; json: string } | { ok: false; error: string } {
+  const account = getCurrentAccount();
+  if (!account) return { ok: false, error: "You’re not signed in." };
+  if (!account.security.permissions.allowExport) {
+    return { ok: false, error: "Data export is disabled in permissions." };
+  }
+  return { ok: true, json: JSON.stringify(account, null, 2) };
+}
+
+export function deleteAccountData(): Result {
+  return mutate((account) => {
+    let next: UserAccount = {
+      ...account,
+      profits: [],
+      cloudItems: [],
+      memories: [],
+      knowledgeBase: [],
+      teamChat: [],
+      folders: defaultOrgMeta(account.personal.fullName, account.email).folders,
+      tags: [],
+      appSettings: {
+        ...account.appSettings,
+        apiKeys: [],
+      },
+    };
+    next = pushAlert(next, "Data deleted", "Vault content was wiped from this device.", "critical");
+    next = pushAudit(next, "Data deletion", "User requested local data wipe.");
+    return next;
+  });
+}
+
+export const VOICE_OPTIONS = [
+  { id: "atlas-warm", label: "Atlas Warm" },
+  { id: "atlas-clear", label: "Atlas Clear" },
+  { id: "atlas-calm", label: "Atlas Calm" },
+  { id: "atlas-bright", label: "Atlas Bright" },
+];
 
 export { DEMO_2FA_CODE };

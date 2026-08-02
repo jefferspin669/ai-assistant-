@@ -16,15 +16,35 @@ import {
   type ThemePreference,
 } from "@/lib/account";
 import { industries } from "@/lib/data";
+import {
+  NotificationsPanel,
+  OrganizationPanel,
+  SettingsPanel,
+  TeamPanel,
+} from "@/components/account/WorkspacePanels";
 
-type Section = "overview" | "auth" | "profiles" | "cloud" | "memory" | "security";
+type Section =
+  | "overview"
+  | "auth"
+  | "profiles"
+  | "cloud"
+  | "memory"
+  | "security"
+  | "organization"
+  | "notifications"
+  | "team"
+  | "settings";
 
 const SECTIONS: { id: Section; label: string; blurb: string }[] = [
   { id: "overview", label: "Overview", blurb: "Profile snapshot, profits, AI name" },
   { id: "auth", label: "Authentication", blurb: "Password, OAuth, 2FA, passkeys, sessions" },
   { id: "profiles", label: "Profiles", blurb: "Personal + businesses, photo, preferences" },
+  { id: "organization", label: "Organization", blurb: "Folders, tags, favorites, search, archive" },
   { id: "cloud", label: "Cloud storage", blurb: "Conversations, files, versions, trash" },
   { id: "memory", label: "Memory", blurb: "Preferences, people, projects, long-term" },
+  { id: "notifications", label: "Notifications", blurb: "Push, email, SMS, desktop, DND" },
+  { id: "team", label: "Team", blurb: "Invites, roles, workspaces, chat, audit" },
+  { id: "settings", label: "Settings", blurb: "AI, privacy, billing, apps, API keys" },
   { id: "security", label: "Security", blurb: "Encryption, alerts, permissions, devices" },
 ];
 
@@ -1047,6 +1067,22 @@ export function AccountCenter() {
             </section>
           </div>
         )}
+
+        {section === "organization" && account ? (
+          <OrganizationPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "notifications" && account ? (
+          <NotificationsPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "team" && account ? (
+          <TeamPanel account={account} note={note} fail={fail} />
+        ) : null}
+
+        {section === "settings" && account ? (
+          <SettingsPanel account={account} note={note} fail={fail} />
+        ) : null}
 
         {section === "security" && (
           <div className="account-stack">
