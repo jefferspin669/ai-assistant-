@@ -1,5 +1,7 @@
 import { getCurrentAccount, searchEverything } from "@/lib/account";
+import { loadContacts } from "@/lib/contacts";
 import { customers, payments, quotes } from "@/lib/data";
+import { loadCaptures } from "@/lib/quick-capture";
 import { loadCalendarState } from "@/lib/smart-calendar";
 import { loadTasks } from "@/lib/tasks";
 import { loadTaxTransactions } from "@/lib/tax-ledger";
@@ -252,6 +254,44 @@ export function globalSearch(query: string, limit = 40): GlobalSearchHit[] {
         score: 1,
       });
     }
+  }
+
+  // Address book contacts
+  try {
+    for (const contact of loadContacts()) {
+      const blob = `${contact.name} ${contact.email} ${contact.phone} ${contact.company} ${contact.notes} ${contact.kind}`;
+      if (!matchesTerms(blob, terms) && !(merchant && blob.toLowerCase().includes(merchant))) continue;
+      if (intent.kindHint && intent.kindHint !== "customer") continue;
+      push(hits, {
+        id: contact.id,
+        source: "customer",
+        title: contact.name,
+        snippet: `${contact.kind} · ${contact.company || contact.email || contact.phone}`,
+        href: "/app/contacts",
+        score: 3,
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Quick capture notes
+  try {
+    for (const note of loadCaptures()) {
+      const blob = `${note.title} ${note.body} ${note.kind} ${note.linkUrl || ""}`;
+      if (!matchesTerms(blob, terms)) continue;
+      if (intent.kindHint && intent.kindHint !== "note") continue;
+      push(hits, {
+        id: note.id,
+        source: "note",
+        title: note.title,
+        snippet: note.body.slice(0, 120) || note.kind,
+        href: "/app/notes",
+        score: 2,
+      });
+    }
+  } catch {
+    /* ignore */
   }
 
   // Customers

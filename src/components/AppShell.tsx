@@ -80,6 +80,9 @@ export function AppShell({
           <Link href="/app/setup" className="ghost-link">
             First-time setup
           </Link>
+          <Link href="/app/notes" className="ghost-link">
+            Quick capture
+          </Link>
         </div>
       </aside>
 

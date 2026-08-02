@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import type { OAuthProvider, PublicAccount } from "@/lib/account";
+import { loadDashboardLayout } from "@/lib/dashboard-layout";
 
 const providers: OAuthProvider[] = ["google", "apple", "microsoft"];
 
 function nextPath(account: PublicAccount | null | undefined) {
-  return account && !account.setup?.completed ? "/app/setup" : "/app";
+  if (account && !account.setup?.completed) return "/app/setup";
+  try {
+    return loadDashboardLayout().defaultPage || "/app";
+  } catch {
+    return "/app";
+  }
 }
 
 export default function LoginPage() {

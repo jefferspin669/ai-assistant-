@@ -9,16 +9,16 @@ import { computeTaxEstimate, loadTaxTransactions, money } from "@/lib/tax-ledger
 import { vaultStatus } from "@/lib/secure-store";
 
 const V1_SHIPPED = [
-  { href: "/app", label: "Dashboard", detail: "Frontend home + Command Center" },
+  { href: "/app", label: "Dashboard", detail: "Customizable work / personal layouts" },
+  { href: "/app/confirmations", label: "Confirmations", detail: "Risky actions wait for approval" },
+  { href: "/app/connections", label: "Connection center", detail: "Google, Stripe, banks, Slack…" },
+  { href: "/app/contacts", label: "Contacts", detail: "Customers, vendors, family, partners" },
+  { href: "/app/notes", label: "Quick capture", detail: "Notes → tasks, events, customers" },
   { href: "/app/setup", label: "First-time setup", detail: "Guided onboarding → starter dashboard" },
   { href: "/app", label: "Global search", detail: "⌘K across events, receipts, chats, files" },
   { href: "/app/data", label: "Import & export", detail: "ICS, CSV, Excel, accountant packs" },
   { href: "/app/recovery", label: "Undo & recovery", detail: "Trash, backups, version history" },
   { href: "/app/appointments", label: "Calendar", detail: "Smart Calendar + color categories" },
-  { href: "/app/tax", label: "Tax Center", detail: "Ledger + basic estimate" },
-  { href: "/app/chat", label: "AI Chat", detail: "Conversations via Backend API → Database" },
-  { href: "/app/files", label: "Files", detail: "Document uploads into Documents table" },
-  { href: "/app/tasks", label: "Tasks", detail: "Task board backed by Tasks table" },
 ];
 
 const ROADMAP = [

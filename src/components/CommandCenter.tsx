@@ -8,6 +8,7 @@ import {
   morningBriefing,
 } from "@/lib/data";
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
+import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 
 type ChatItem =
   | { kind: "user"; text: string }
@@ -18,6 +19,7 @@ type ChatItem =
       agentLabel: string;
       confirmPrompt: string;
       doneLabel: string;
+      confirmationId?: string;
       resolved?: "approved" | "cancelled";
     };
 
@@ -60,12 +62,21 @@ export function CommandCenter() {
   function pushResult(result: CommandResult, spoken: string) {
     const next: ChatItem[] = [{ kind: "user", text: spoken }];
     if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
+      const confirmation = requestConfirmation({
+        kind: "other",
+        title: result.confirmPrompt.replace(/\?$/, ""),
+        summary: result.reply,
+        details: [result.confirmPrompt, `Requested from Command Center: “${spoken}”`],
+        impact: "Atlas will only continue after you confirm.",
+        requestedBy: result.agentLabel,
+      });
       next.push({
         kind: "confirm",
         text: result.reply,
         agentLabel: result.agentLabel,
         confirmPrompt: result.confirmPrompt,
         doneLabel: result.doneLabel,
+        confirmationId: confirmation.id,
       });
     } else {
       next.push({ kind: "ai", text: result.reply, agentLabel: result.agentLabel });
@@ -90,6 +101,7 @@ export function CommandCenter() {
     setMessages((prev) => {
       const item = prev[index];
       if (!item || item.kind !== "confirm" || item.resolved) return prev;
+      if (item.confirmationId) resolveConfirmation(item.confirmationId, approved);
       const reply = approved ? item.doneLabel : "Understood — I won’t take that action.";
       persistTurn(item.confirmPrompt, reply, item.agentLabel);
       const updated = prev.map((entry, i) =>
