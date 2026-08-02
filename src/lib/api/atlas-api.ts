@@ -481,6 +481,17 @@ export const calendarApi = {
     });
     return ok(next);
   },
+  deleteEvent(eventId: string): ApiResult<{ id: string }> {
+    const data = db();
+    if (!data.calendar_events.some((e) => e.id === eventId)) {
+      return err("Calendar event not found.", 404);
+    }
+    persist({
+      ...data,
+      calendar_events: data.calendar_events.filter((e) => e.id !== eventId),
+    });
+    return ok({ id: eventId });
+  },
 };
 
 export const tasksApi = {
@@ -494,15 +505,27 @@ export const tasksApi = {
     persist({ ...data, tasks: [task, ...data.tasks] });
     return ok(task);
   },
-  updateStatus(taskId: string, status: DbTask["status"]): ApiResult<DbTask> {
+  update(
+    taskId: string,
+    patch: Partial<Pick<DbTask, "title" | "notes" | "status" | "priority" | "dueDate" | "category">>,
+  ): ApiResult<DbTask> {
     const data = db();
     const existing = data.tasks.find((t) => t.id === taskId);
     if (!existing) return err("Task not found.", 404);
-    const tasks = data.tasks.map((t) =>
-      t.id === taskId ? { ...t, status, updatedAt: nowIso() } : t,
-    );
-    persist({ ...data, tasks });
-    return ok(tasks.find((t) => t.id === taskId)!);
+    const next = {
+      ...existing,
+      ...patch,
+      title: patch.title?.trim() || existing.title,
+      updatedAt: nowIso(),
+    };
+    persist({
+      ...data,
+      tasks: data.tasks.map((t) => (t.id === taskId ? next : t)),
+    });
+    return ok(next);
+  },
+  updateStatus(taskId: string, status: DbTask["status"]): ApiResult<DbTask> {
+    return tasksApi.update(taskId, { status });
   },
 };
 
@@ -617,6 +640,17 @@ export const aiApi = {
   listMemories(): ApiResult<AtlasDatabase["memories"]> {
     return ok(db().memories);
   },
+  deleteConversation(conversationId: string): ApiResult<{ id: string }> {
+    const data = db();
+    if (!data.conversations.some((c) => c.id === conversationId)) {
+      return err("Conversation not found.", 404);
+    }
+    persist({
+      ...data,
+      conversations: data.conversations.filter((c) => c.id !== conversationId),
+    });
+    return ok({ id: conversationId });
+  },
 };
 
 export const notificationsApi = {
@@ -659,6 +693,15 @@ export const filesApi = {
     const data = db();
     persist({ ...data, documents: [doc, ...data.documents] });
     return ok(doc);
+  },
+  delete(fileId: string): ApiResult<{ id: string }> {
+    const data = db();
+    if (!data.documents.some((d) => d.id === fileId)) return err("File not found.", 404);
+    persist({
+      ...data,
+      documents: data.documents.filter((d) => d.id !== fileId),
+    });
+    return ok({ id: fileId });
   },
 };
 

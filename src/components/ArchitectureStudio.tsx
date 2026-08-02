@@ -224,24 +224,29 @@ export function ArchitectureStudio() {
         <section className="panel">
           <h2>HTTP API</h2>
           <p className="panel-lead">
-            REST façade at <code>/api/atlas/*</code> — use the client API for durable browser state.
+            REST routes backed by the Atlas database (process memory on the server; localStorage in the browser client).
           </p>
           <ul className="manage-list">
             {[
-              "GET /api/atlas/meta/health",
-              "GET /api/atlas/meta/architecture",
-              "GET /api/atlas/users",
-              "GET /api/atlas/calendar-categories",
-              "POST /api/atlas/calendar-categories",
-              "GET /api/atlas/calendar",
-              "POST /api/atlas/calendar",
-              "GET /api/atlas/organization-members",
-              "GET /api/atlas/tasks",
-              "GET /api/atlas/transactions",
-              "GET /api/atlas/taxes/estimate",
-              "POST /api/atlas/ai/chat",
-              "GET /api/atlas/files",
-              "GET /api/atlas/billing",
+              "POST /api/auth/register",
+              "POST /api/auth/login",
+              "GET /api/user/profile",
+              "PATCH /api/user/profile",
+              "GET /api/calendar/events",
+              "POST /api/calendar/events",
+              "PATCH /api/calendar/events/:id",
+              "DELETE /api/calendar/events/:id",
+              "GET /api/tasks",
+              "POST /api/tasks",
+              "PATCH /api/tasks/:id",
+              "GET /api/transactions",
+              "POST /api/transactions",
+              "POST /api/taxes/calculate",
+              "POST /api/ai/chat",
+              "GET /api/ai/conversations",
+              "DELETE /api/ai/conversations/:id",
+              "POST /api/files/upload",
+              "DELETE /api/files/:id",
             ].map((route) => (
               <li key={route}>
                 <div>

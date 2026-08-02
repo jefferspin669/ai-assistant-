@@ -27,6 +27,19 @@ const LEGACY_DB_KEYS = [
   "atlas-database-v1",
 ];
 
+/** Process-local DB for Next.js API routes (shared across route modules). */
+type AtlasGlobal = typeof globalThis & { __atlasServerDb?: AtlasDatabase };
+
+function getServerDb() {
+  const g = globalThis as AtlasGlobal;
+  if (!g.__atlasServerDb) g.__atlasServerDb = seedDatabase();
+  return g.__atlasServerDb;
+}
+
+function setServerDb(db: AtlasDatabase) {
+  (globalThis as AtlasGlobal).__atlasServerDb = db;
+}
+
 const CATEGORY_ICONS: Record<string, string> = {
   meetings: "users",
   personal: "user",
@@ -401,7 +414,9 @@ export function seedDatabase(): AtlasDatabase {
 }
 
 export function loadDatabase(): AtlasDatabase {
-  if (typeof window === "undefined") return seedDatabase();
+  if (typeof window === "undefined") {
+    return getServerDb();
+  }
   try {
     let raw = localStorage.getItem(DB_KEY);
     if (!raw) {
@@ -510,7 +525,10 @@ export function loadDatabase(): AtlasDatabase {
 }
 
 export function saveDatabase(db: AtlasDatabase) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    setServerDb(db);
+    return;
+  }
   localStorage.setItem(DB_KEY, JSON.stringify(db));
 }
 
