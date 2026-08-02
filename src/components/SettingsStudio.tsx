@@ -5,7 +5,13 @@ import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAccount } from "@/components/AccountProvider";
 import { atlasApi } from "@/lib/api/atlas-api";
-import type { DbOrganization, DbUser } from "@/lib/db/schema";
+import type {
+  DbOrganization,
+  DbOrganizationMember,
+  DbUser,
+  OrgMemberRole,
+  OrgMemberStatus,
+} from "@/lib/db/schema";
 
 const TIMEZONES = [
   "America/Chicago",
@@ -23,11 +29,16 @@ const LANGUAGES = [
 ];
 
 const TAX_STRUCTURES = ["Sole proprietor", "LLC", "S-Corp", "C-Corp", "Partnership"];
+const MEMBER_ROLES: OrgMemberRole[] = ["owner", "admin", "manager", "employee", "viewer"];
+const MEMBER_STATUSES: OrgMemberStatus[] = ["active", "invited", "suspended", "removed"];
 
 export function SettingsStudio() {
   const { account, ownerName, businessName, logout, ready } = useAccount();
   const [user, setUser] = useState<DbUser | null>(null);
   const [org, setOrg] = useState<DbOrganization | null>(null);
+  const [members, setMembers] = useState<DbOrganizationMember[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<OrgMemberRole>("employee");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [timezone, setTimezone] = useState("America/Chicago");
@@ -62,7 +73,16 @@ export function SettingsStudio() {
       setTaxStructure(row.tax_structure);
       setOrgState(row.state);
       setLogoUrl(row.logo_url);
+      const memberRows = atlasApi.organizationMembers.list(row.id);
+      if (memberRows.ok) setMembers(memberRows.data);
     }
+  }
+
+  function userLabel(userId: string) {
+    const listed = atlasApi.users.list();
+    if (!listed.ok) return userId;
+    const match = listed.data.find((u) => u.id === userId);
+    return match ? `${match.full_name} · ${match.email}` : userId;
   }
 
   useEffect(() => {
@@ -302,6 +322,122 @@ export function SettingsStudio() {
           ) : null}
         </section>
       </div>
+
+      <section className="panel">
+        <h2>Organization members</h2>
+        <p className="panel-lead">
+          Database <code>organization_members</code> — id, organization_id, user_id, role, status,
+          joined_at.
+        </p>
+        <ul className="manage-list">
+          {members.length === 0 ? (
+            <li>No members yet.</li>
+          ) : (
+            members.map((member) => (
+              <li key={member.id}>
+                <div>
+                  <strong>{userLabel(member.user_id)}</strong>
+                  <small>
+                    {member.role} · {member.status} · joined{" "}
+                    {new Date(member.joined_at).toLocaleDateString()}
+                  </small>
+                </div>
+                <div className="list-actions">
+                  <select
+                    value={member.role}
+                    onChange={(e) => {
+                      const result = atlasApi.organizationMembers.update(member.id, {
+                        role: e.target.value as OrgMemberRole,
+                      });
+                      if (result.ok) {
+                        setMembers((prev) =>
+                          prev.map((m) => (m.id === member.id ? result.data : m)),
+                        );
+                        setFlash("Member role updated.");
+                      }
+                    }}
+                  >
+                    {MEMBER_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={member.status}
+                    onChange={(e) => {
+                      const result = atlasApi.organizationMembers.update(member.id, {
+                        status: e.target.value as OrgMemberStatus,
+                      });
+                      if (result.ok) {
+                        setMembers((prev) =>
+                          prev.map((m) => (m.id === member.id ? result.data : m)),
+                        );
+                        setFlash("Member status updated.");
+                      }
+                    }}
+                  >
+                    {MEMBER_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </li>
+            ))
+          )}
+        </ul>
+        <form
+          className="form-grid"
+          style={{ marginTop: "1rem" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!org) {
+              setFlash("No organization to invite into.");
+              return;
+            }
+            const result = atlasApi.organizationMembers.invite({
+              organization_id: org.id,
+              email: inviteEmail,
+              role: inviteRole,
+            });
+            if (!result.ok) {
+              setFlash(result.error);
+              return;
+            }
+            setInviteEmail("");
+            setMembers((prev) => [result.data, ...prev]);
+            setFlash("Member invited.");
+          }}
+        >
+          <label>
+            Invite email
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            role
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as OrgMemberRole)}
+            >
+              {MEMBER_ROLES.filter((role) => role !== "owner").map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="btn btn-dark" type="submit">
+            Invite member
+          </button>
+        </form>
+      </section>
 
       <div className="split">
         <section className="panel">

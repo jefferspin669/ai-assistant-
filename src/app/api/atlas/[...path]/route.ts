@@ -97,6 +97,29 @@ async function handle(req: NextRequest, ctx: Ctx) {
     );
   }
   if (domain === "businesses") return json(atlasApi.businesses.list());
+  if (domain === "organization-members" && action === "invite" && req.method === "POST") {
+    return json(
+      atlasApi.organizationMembers.invite({
+        organization_id: String(body.organization_id || ""),
+        user_id: body.user_id != null ? String(body.user_id) : undefined,
+        email: body.email != null ? String(body.email) : undefined,
+        full_name: body.full_name != null ? String(body.full_name) : undefined,
+        role: body.role as "owner" | "admin" | "manager" | "employee" | "viewer" | undefined,
+      }),
+    );
+  }
+  if (domain === "organization-members" && action && req.method === "POST") {
+    return json(
+      atlasApi.organizationMembers.update(action, {
+        role: body.role as "owner" | "admin" | "manager" | "employee" | "viewer" | undefined,
+        status: body.status as "active" | "invited" | "suspended" | "removed" | undefined,
+      }),
+    );
+  }
+  if (domain === "organization-members") {
+    const orgId = req.nextUrl.searchParams.get("organization_id") || undefined;
+    return json(atlasApi.organizationMembers.list(orgId || undefined));
+  }
   if (domain === "calendar") return json(atlasApi.calendar.listEvents());
   if (domain === "tasks") return json(atlasApi.tasks.list());
   if (domain === "transactions") return json(atlasApi.transactions.list());

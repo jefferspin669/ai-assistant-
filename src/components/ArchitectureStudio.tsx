@@ -162,6 +162,20 @@ export function ArchitectureStudio() {
         </div>
 
         <section className="panel">
+          <h2>organization_members</h2>
+          <p className="panel-lead">Membership join table — role and status per user in an org.</p>
+          <ul className="manage-list">
+            {["id", "organization_id", "user_id", "role", "status", "joined_at"].map((column) => (
+              <li key={column}>
+                <div>
+                  <strong>{column}</strong>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel">
           <h2>HTTP API</h2>
           <p className="panel-lead">
             REST façade at <code>/api/atlas/*</code> — use the client API for durable browser state.

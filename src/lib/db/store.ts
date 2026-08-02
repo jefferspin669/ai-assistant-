@@ -9,6 +9,7 @@ import type {
   DbMemory,
   DbNotification,
   DbOrganization,
+  DbOrganizationMember,
   DbSubscription,
   DbTask,
   DbTaxRecord,
@@ -17,8 +18,8 @@ import type {
   DbUserCredential,
 } from "@/lib/db/schema";
 
-const DB_KEY = "atlas-database-v2";
-const LEGACY_DB_KEY = "atlas-database-v1";
+const DB_KEY = "atlas-database-v3";
+const LEGACY_DB_KEYS = ["atlas-database-v2", "atlas-database-v1"];
 
 function newId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}_${crypto.randomUUID()}`;
@@ -34,6 +35,7 @@ function emptyDb(): AtlasDatabase {
     users: [],
     user_credentials: [],
     organizations: [],
+    organization_members: [],
     events: [],
     tasks: [],
     transactions: [],
@@ -112,6 +114,56 @@ export function seedDatabase(): AtlasDatabase {
     state: "TX",
     created_at: stamp,
   };
+
+  const memberUserId = newId("user");
+  const invitedUserId = newId("user");
+  const teammate: DbUser = {
+    id: memberUserId,
+    email: "alex@atlas.ai",
+    full_name: "Alex Rivera",
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  const invited: DbUser = {
+    id: invitedUserId,
+    email: "sam@atlas.ai",
+    full_name: "Sam Patel",
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    created_at: stamp,
+    updated_at: stamp,
+  };
+
+  const organization_members: DbOrganizationMember[] = [
+    {
+      id: newId("om"),
+      organization_id: orgId,
+      user_id: userId,
+      role: "owner",
+      status: "active",
+      joined_at: stamp,
+    },
+    {
+      id: newId("om"),
+      organization_id: orgId,
+      user_id: memberUserId,
+      role: "manager",
+      status: "active",
+      joined_at: stamp,
+    },
+    {
+      id: newId("om"),
+      organization_id: orgId,
+      user_id: invitedUserId,
+      role: "employee",
+      status: "invited",
+      joined_at: stamp,
+    },
+  ];
 
   const calendar = typeof window !== "undefined" ? loadCalendarState() : null;
   const events: DbEvent[] = (calendar?.events || []).slice(0, 12).map((event) => ({
@@ -244,9 +296,10 @@ export function seedDatabase(): AtlasDatabase {
   ];
 
   return {
-    users: [user],
+    users: [user, teammate, invited],
     user_credentials: [credential],
     organizations: [org],
+    organization_members,
     events,
     tasks,
     transactions,
@@ -262,7 +315,13 @@ export function seedDatabase(): AtlasDatabase {
 export function loadDatabase(): AtlasDatabase {
   if (typeof window === "undefined") return seedDatabase();
   try {
-    const raw = localStorage.getItem(DB_KEY) || localStorage.getItem(LEGACY_DB_KEY);
+    let raw = localStorage.getItem(DB_KEY);
+    if (!raw) {
+      for (const key of LEGACY_DB_KEYS) {
+        raw = localStorage.getItem(key);
+        if (raw) break;
+      }
+    }
     if (!raw) {
       const seeded = seedDatabase();
       localStorage.setItem(DB_KEY, JSON.stringify(seeded));
@@ -296,6 +355,17 @@ export function loadDatabase(): AtlasDatabase {
     const organizations = ((parsed.organizations || []) as LegacyOrg[]).map((org) =>
       normalizeOrganization(org),
     );
+    let organization_members = parsed.organization_members || [];
+    if (!organization_members.length && organizations.length && users.length) {
+      organization_members = organizations.map((org) => ({
+        id: newId("om"),
+        organization_id: org.id,
+        user_id: org.owner_id || users[0].id,
+        role: "owner" as const,
+        status: "active" as const,
+        joined_at: org.created_at,
+      }));
+    }
     const state: AtlasDatabase = {
       ...emptyDb(),
       ...parsed,
@@ -303,6 +373,7 @@ export function loadDatabase(): AtlasDatabase {
       user_credentials:
         parsed.user_credentials?.length ? parsed.user_credentials : legacyCredentials,
       organizations,
+      organization_members,
       events: parsed.events || [],
       tasks: parsed.tasks || [],
       transactions: parsed.transactions || [],
@@ -335,6 +406,7 @@ export function databaseStats(db: AtlasDatabase) {
   return {
     Users: db.users.length,
     Organizations: db.organizations.length,
+    "Organization Members": db.organization_members.length,
     Events: db.events.length,
     Tasks: db.tasks.length,
     Transactions: db.transactions.length,

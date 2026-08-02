@@ -18,8 +18,10 @@ import type {
   DbDocument,
   DbEvent,
   DbNotification,
+  DbOrganizationMember,
   DbTask,
   DbTransaction,
+  OrgMemberRole,
 } from "@/lib/db/schema";
 import { err, ok, type ApiResult } from "@/lib/api/types";
 import { hashPassword, verifyPassword } from "@/lib/secure-store";
@@ -80,6 +82,17 @@ export const authApi = {
           created_at: stamp,
         },
         ...data.organizations,
+      ],
+      organization_members: [
+        {
+          id: newId("om"),
+          organization_id: orgId,
+          user_id: userId,
+          role: "owner",
+          status: "active",
+          joined_at: stamp,
+        },
+        ...data.organization_members,
       ],
       subscriptions: [
         {
@@ -179,7 +192,19 @@ export const businessesApi = {
       state: (input.state || "TX").trim().toUpperCase().slice(0, 2),
       created_at: nowIso(),
     };
-    persist({ ...data, organizations: [org, ...data.organizations] });
+    const member: DbOrganizationMember = {
+      id: newId("om"),
+      organization_id: org.id,
+      user_id: input.owner_id,
+      role: "owner",
+      status: "active",
+      joined_at: org.created_at,
+    };
+    persist({
+      ...data,
+      organizations: [org, ...data.organizations],
+      organization_members: [member, ...data.organization_members],
+    });
     return ok(org);
   },
   update(
@@ -207,6 +232,92 @@ export const businessesApi = {
     persist({
       ...data,
       organizations: data.organizations.map((o) => (o.id === orgId ? next : o)),
+    });
+    return ok(next);
+  },
+};
+
+export const organizationMembersApi = {
+  list(organizationId?: string): ApiResult<DbOrganizationMember[]> {
+    const rows = db().organization_members;
+    return ok(organizationId ? rows.filter((m) => m.organization_id === organizationId) : rows);
+  },
+  invite(input: {
+    organization_id: string;
+    user_id?: string;
+    email?: string;
+    full_name?: string;
+    role?: OrgMemberRole;
+  }): ApiResult<DbOrganizationMember> {
+    const data = db();
+    const org = data.organizations.find((o) => o.id === input.organization_id);
+    if (!org) return err("Organization not found.", 404);
+
+    let userId = input.user_id || "";
+    if (!userId) {
+      const email = (input.email || "").trim().toLowerCase();
+      if (!email.includes("@")) return err("Provide user_id or a valid email.", 422);
+      const existingUser = data.users.find((u) => u.email === email);
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        const stamp = nowIso();
+        userId = newId("user");
+        data.users = [
+          {
+            id: userId,
+            email,
+            full_name: input.full_name?.trim() || email.split("@")[0],
+            profile_image: null,
+            timezone: "America/Chicago",
+            preferred_language: "en",
+            created_at: stamp,
+            updated_at: stamp,
+          },
+          ...data.users,
+        ];
+      }
+    } else if (!data.users.some((u) => u.id === userId)) {
+      return err("User not found.", 404);
+    }
+
+    if (
+      data.organization_members.some(
+        (m) =>
+          m.organization_id === input.organization_id &&
+          m.user_id === userId &&
+          m.status !== "removed",
+      )
+    ) {
+      return err("User is already a member of this organization.", 409);
+    }
+
+    const member: DbOrganizationMember = {
+      id: newId("om"),
+      organization_id: input.organization_id,
+      user_id: userId,
+      role: input.role || "employee",
+      status: "invited",
+      joined_at: nowIso(),
+    };
+    persist({
+      ...data,
+      users: data.users,
+      organization_members: [member, ...data.organization_members],
+    });
+    return ok(member);
+  },
+  update(
+    memberId: string,
+    patch: Partial<Pick<DbOrganizationMember, "role" | "status">>,
+  ): ApiResult<DbOrganizationMember> {
+    const data = db();
+    const existing = data.organization_members.find((m) => m.id === memberId);
+    if (!existing) return err("Member not found.", 404);
+    const next = { ...existing, ...patch };
+    persist({
+      ...data,
+      organization_members: data.organization_members.map((m) => (m.id === memberId ? next : m)),
     });
     return ok(next);
   },
@@ -449,6 +560,7 @@ export const metaApi = {
       database: [
         "Users",
         "Organizations",
+        "Organization Members",
         "Events",
         "Tasks",
         "Transactions",
@@ -469,7 +581,7 @@ export const metaApi = {
     const stats = databaseStats(db());
     return ok({
       status: "ok",
-      engine: "atlas-database-v1 (localStorage)",
+      engine: "atlas-database-v3 (localStorage)",
       tables: Object.keys(stats).length,
     });
   },
@@ -479,6 +591,7 @@ export const atlasApi = {
   auth: authApi,
   users: usersApi,
   businesses: businessesApi,
+  organizationMembers: organizationMembersApi,
   calendar: calendarApi,
   tasks: tasksApi,
   transactions: transactionsApi,

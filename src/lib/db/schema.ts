@@ -30,6 +30,19 @@ export type DbOrganization = {
   created_at: string;
 };
 
+export type OrgMemberRole = "owner" | "admin" | "manager" | "employee" | "viewer";
+export type OrgMemberStatus = "active" | "invited" | "suspended" | "removed";
+
+/** `organization_members` table */
+export type DbOrganizationMember = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: OrgMemberRole;
+  status: OrgMemberStatus;
+  joined_at: string;
+};
+
 export type DbEvent = {
   id: string;
   orgId: string;
@@ -134,6 +147,7 @@ export type AtlasDatabase = {
   users: DbUser[];
   user_credentials: DbUserCredential[];
   organizations: DbOrganization[];
+  organization_members: DbOrganizationMember[];
   events: DbEvent[];
   tasks: DbTask[];
   transactions: DbTransaction[];
@@ -148,6 +162,7 @@ export type AtlasDatabase = {
 export const DB_TABLES = [
   "Users",
   "Organizations",
+  "Organization Members",
   "Events",
   "Tasks",
   "Transactions",
