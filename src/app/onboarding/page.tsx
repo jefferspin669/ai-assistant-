@@ -1,25 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useAccount } from "@/components/AccountProvider";
 import { audiences, industries, type Industry } from "@/lib/data";
 
 const personalities = ["Friendly", "Professional", "Funny", "Serious"] as const;
 
 export default function OnboardingPage() {
+  const router = useRouter();
+  const { account, updateProfile, aiName, aiPersonality, ownerName, businessName, ready } =
+    useAccount();
   const [audience, setAudience] = useState<(typeof audiences)[number]["id"]>("business");
   const [selected, setSelected] = useState<Industry>("HVAC");
   const [name, setName] = useState("Sarah");
   const [personality, setPersonality] = useState<(typeof personalities)[number]>("Friendly");
+  const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    if (!ready) return;
+    setName(aiName || "Sarah");
+    if (personalities.includes(aiPersonality as (typeof personalities)[number])) {
+      setPersonality(aiPersonality as (typeof personalities)[number]);
+    }
+    const biz =
+      account?.businesses.find((b) => b.id === account.activeBusinessId) || account?.businesses[0];
+    if (biz?.industry && industries.includes(biz.industry as Industry)) {
+      setSelected(biz.industry as Industry);
+    }
+  }, [ready, aiName, aiPersonality, account]);
 
   const nextHref = useMemo(() => {
     if (audience === "events") return "/app/events";
     if (audience === "individual" || audience === "family" || audience === "school") return "/app/personal";
     if (audience === "nonprofit") return "/app/marketplace";
-    return "/app";
-  }, [audience]);
+    return account ? "/app/account" : "/app";
+  }, [audience, account]);
 
   const selectedAudience = audiences.find((a) => a.id === audience)!;
+
+  function onContinue() {
+    setSaveError("");
+    if (account) {
+      const biz =
+        account.businesses.find((b) => b.id === account.activeBusinessId) || account.businesses[0];
+      const result = updateProfile({
+        ownerName: account.personal.fullName || ownerName,
+        businessName: biz?.name || businessName,
+        industry: selected,
+        aiName: name.trim() || "Sarah",
+        aiPersonality: personality,
+        aiRole: biz?.aiRole || "Office Manager",
+      });
+      if (!result.ok) {
+        setSaveError(result.error);
+        return;
+      }
+    }
+    router.push(nextHref);
+  }
 
   return (
     <div className="onboard">
@@ -33,6 +73,16 @@ export default function OnboardingPage() {
             Don’t just buy software — join a mission. Choose who Atlas helps first. We recommend
             starting with small service businesses, then expanding on the same platform.
           </p>
+          {!account ? (
+            <p style={{ color: "var(--ink-soft)", marginTop: "0.75rem" }}>
+              Want to save your AI name and profile?{" "}
+              <Link href="/signup">Create an account</Link> or <Link href="/login">sign in</Link>.
+            </p>
+          ) : (
+            <p style={{ color: "var(--ink-soft)", marginTop: "0.75rem" }}>
+              Signed in as {account.email}. Changing the AI name here updates your saved account.
+            </p>
+          )}
         </div>
 
         <h3 style={{ marginBottom: "0.75rem" }}>Who is this for?</h3>
@@ -113,9 +163,11 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        <Link className="btn btn-dark" href={nextHref}>
+        {saveError ? <p className="auth-error">{saveError}</p> : null}
+
+        <button className="btn btn-dark" type="button" onClick={onContinue}>
           Continue to {selectedAudience.label}
-        </Link>
+        </button>
       </div>
     </div>
   );

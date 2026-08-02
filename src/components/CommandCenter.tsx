@@ -1,14 +1,15 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useAccount } from "@/components/AccountProvider";
 import {
   aiEmployees,
   commandSuggestions,
-  customEmployee,
   morningBriefing,
-  owner,
 } from "@/lib/data";
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
+import { FeedbackToolbar } from "@/components/FeedbackToolbar";
+import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 
 type ChatItem =
   | { kind: "user"; text: string }
@@ -19,6 +20,7 @@ type ChatItem =
       agentLabel: string;
       confirmPrompt: string;
       doneLabel: string;
+      confirmationId?: string;
       resolved?: "approved" | "cancelled";
     };
 
@@ -30,29 +32,56 @@ function timeGreeting() {
 }
 
 export function CommandCenter() {
+  const { ownerName, businessName, aiName, aiRole, ready, account, saveConversation } = useAccount();
   const greeting = useMemo(() => timeGreeting(), []);
+  const greetedRef = useRef(false);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
-  const [messages, setMessages] = useState<ChatItem[]>(() => [
-    {
-      kind: "ai",
-      agentLabel: "Atlas",
-      text: `${timeGreeting()}, ${owner.name}. Nothing else needs to be checked — here’s what already happened.`,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatItem[]>([]);
+  const [savedNote, setSavedNote] = useState("");
+
+  useEffect(() => {
+    if (!ready || greetedRef.current) return;
+    greetedRef.current = true;
+    setMessages([
+      {
+        kind: "ai",
+        agentLabel: "Atlas",
+        text: `${timeGreeting()}, ${ownerName}. Nothing else needs to be checked — here’s what already happened.`,
+      },
+    ]);
+  }, [ready, ownerName]);
+
+  function persistTurn(userText: string, aiText: string, agentLabel: string) {
+    if (!account) return;
+    const result = saveConversation(userText, aiText, agentLabel);
+    if (result.ok) {
+      setSavedNote("Conversation saved to your AI workspace.");
+    }
+  }
 
   function pushResult(result: CommandResult, spoken: string) {
     const next: ChatItem[] = [{ kind: "user", text: spoken }];
     if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
+      const confirmation = requestConfirmation({
+        kind: "other",
+        title: result.confirmPrompt.replace(/\?$/, ""),
+        summary: result.reply,
+        details: [result.confirmPrompt, `Requested from Command Center: “${spoken}”`],
+        impact: "Atlas will only continue after you confirm.",
+        requestedBy: result.agentLabel,
+      });
       next.push({
         kind: "confirm",
         text: result.reply,
         agentLabel: result.agentLabel,
         confirmPrompt: result.confirmPrompt,
         doneLabel: result.doneLabel,
+        confirmationId: confirmation.id,
       });
     } else {
       next.push({ kind: "ai", text: result.reply, agentLabel: result.agentLabel });
+      persistTurn(spoken, result.reply, result.agentLabel);
     }
     setMessages((prev) => [...prev, ...next]);
   }
@@ -73,6 +102,9 @@ export function CommandCenter() {
     setMessages((prev) => {
       const item = prev[index];
       if (!item || item.kind !== "confirm" || item.resolved) return prev;
+      if (item.confirmationId) resolveConfirmation(item.confirmationId, approved);
+      const reply = approved ? item.doneLabel : "Understood — I won’t take that action.";
+      persistTurn(item.confirmPrompt, reply, item.agentLabel);
       const updated = prev.map((entry, i) =>
         i === index && entry.kind === "confirm"
           ? { ...entry, resolved: approved ? ("approved" as const) : ("cancelled" as const) }
@@ -83,7 +115,7 @@ export function CommandCenter() {
         {
           kind: "ai" as const,
           agentLabel: item.agentLabel,
-          text: approved ? item.doneLabel : "Understood — I won’t take that action.",
+          text: reply,
         },
       ];
     });
@@ -138,10 +170,10 @@ export function CommandCenter() {
       <section className="briefing panel">
         <p className="briefing-kicker">Atlas never sleeps</p>
         <h2>
-          {greeting}, {owner.name}.
+          {greeting}, {ownerName}.
         </h2>
         <p className="briefing-sub">
-          {owner.business} · {customEmployee.name} is your {customEmployee.role}
+          {businessName} · {aiName} is your {aiRole}
         </p>
         <ul className="briefing-list">
           {morningBriefing.map((item) => (
@@ -168,7 +200,11 @@ export function CommandCenter() {
             <p>
               Prefer outcomes over how-tos — try Atlas Actions for multi-step work that continues on
               every device.
+              {account
+                ? " Signed-in chats are saved to your AI workspace."
+                : " Sign in to save conversations."}
             </p>
+            {savedNote ? <p className="auth-success">{savedNote}</p> : null}
           </div>
           <button className={`btn ${listening ? "btn-primary" : "btn-outline"}`} type="button" onClick={onSpeakToggle}>
             {listening ? "Listening…" : "Speak"}
@@ -211,6 +247,7 @@ export function CommandCenter() {
               <div className="bubble bubble-ai" key={`a-${index}`}>
                 <div className="agent-tag">{message.agentLabel}</div>
                 {message.text}
+                <FeedbackToolbar target={message.text.slice(0, 80)} compact />
               </div>
             );
           })}

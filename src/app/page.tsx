@@ -14,8 +14,9 @@ export default function HomePage() {
           <a href="#mission">Mission</a>
           <a href="#command-language">Command Language</a>
           <a href="#governance">Trust</a>
-          <Link className="btn btn-primary" href="/onboarding">
-            Create your AI workforce
+          <Link href="/login">Sign in</Link>
+          <Link className="btn btn-primary" href="/signup">
+            Create account
           </Link>
         </div>
       </nav>
@@ -40,11 +41,11 @@ export default function HomePage() {
             beyond technology.
           </p>
           <div className="cta-row">
-            <Link className="btn btn-primary" href="/onboarding">
-              Build your workforce
+            <Link className="btn btn-primary" href="/signup">
+              Create your account
             </Link>
-            <Link className="btn btn-ghost" href="#mission">
-              Read the mission
+            <Link className="btn btn-ghost" href="/onboarding">
+              Build your workforce
             </Link>
           </div>
           <div className="exchange" aria-label="Atlas examples">

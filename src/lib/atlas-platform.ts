@@ -3,20 +3,56 @@ export type NavGroup = { label: string; items: NavItem[] };
 
 export const navGroups: NavGroup[] = [
   {
-    label: "Command",
+    label: "Frontend",
     items: [
-      { href: "/app", label: "Atlas", exact: true },
+      { href: "/app", label: "Dashboard", exact: true },
+      { href: "/app/appointments", label: "Calendar" },
+      { href: "/app/tax", label: "Tax Center" },
+      { href: "/app/chat", label: "AI Chat" },
+      { href: "/app/files", label: "Files" },
+      { href: "/app/settings", label: "Settings" },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      { href: "/app/setup", label: "First-time setup" },
+      { href: "/app/privacy", label: "Privacy center" },
+      { href: "/app/accessibility", label: "Accessibility" },
+      { href: "/app/testing", label: "Testing system" },
+      { href: "/app/flags", label: "Feature flags" },
+      { href: "/app/feedback", label: "Feedback" },
+      { href: "/app/sync", label: "Status & sync" },
+      { href: "/app/offline", label: "Offline" },
+      { href: "/app/support", label: "Support center" },
+      { href: "/app/admin", label: "Admin panel" },
+      { href: "/app/confirmations", label: "Confirmations" },
+      { href: "/app/connections", label: "Connection center" },
+      { href: "/app/contacts", label: "Contacts" },
+      { href: "/app/notes", label: "Quick capture" },
+      { href: "/app/data", label: "Import & export" },
+      { href: "/app/recovery", label: "Undo & recovery" },
+      { href: "/app/tasks", label: "Tasks" },
+      { href: "/app/architecture", label: "Architecture" },
+      { href: "/app/account", label: "Account Center" },
+      { href: "/app/security", label: "Secure database" },
       { href: "/app/actions", label: "Atlas Actions" },
       { href: "/app/executive", label: "Executive Dashboard" },
+      { href: "/app/memory", label: "AI Memory" },
+      { href: "/app/workflows", label: "Automation Builder" },
+      { href: "/app/voice", label: "Voice Everywhere" },
+    ],
+  },
+  {
+    label: "Command",
+    items: [
       { href: "/app/mission", label: "Atlas Mission" },
       { href: "/app/mission-control", label: "Mission Control" },
       { href: "/app/autonomous", label: "Autonomous Mode" },
       { href: "/app/os", label: "AI Operating System" },
       { href: "/app/computer", label: "AI Computer Control" },
       { href: "/app/brain", label: "Atlas Brain" },
-      { href: "/app/memory", label: "AI Memory" },
       { href: "/app/knowledge", label: "Knowledge Brain" },
-      { href: "/app/voice", label: "Voice Everywhere" },
     ],
   },
   {
@@ -54,6 +90,7 @@ export const navGroups: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/app/appointments", label: "Smart Calendar" },
+      { href: "/app/tasks", label: "Tasks" },
       { href: "/app/scheduling", label: "Intelligent Scheduling" },
       { href: "/app/routes", label: "Route Optimization" },
       { href: "/app/inventory", label: "AI Inventory" },
@@ -101,6 +138,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Platform",
     items: [
+      { href: "/app/account", label: "Account Center" },
       { href: "/app/employees", label: "AI Agents" },
       { href: "/app/digital-employees", label: "Digital Employees" },
       { href: "/app/dna", label: "Business DNA" },
