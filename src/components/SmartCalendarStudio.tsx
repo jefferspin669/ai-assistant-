@@ -3,25 +3,36 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
+  CALENDAR_LAYERS,
   HOURS,
   addDays,
+  analyzeWeek,
   buildSmartReminders,
   buildSuggestions,
+  buildWeatherInsights,
   categoryById,
   createCategory,
   createEvent,
+  daysUntil,
   detectConflicts,
   eventsOnDay,
+  filterEventsByLayers,
   findFreeGaps,
   formatDayLabel,
   formatTime,
+  goalLabel,
   loadCalendarState,
   moveEventTo,
+  pinnedDeadlines,
+  progressBar,
   saveCalendarState,
   startOfMonth,
   startOfWeek,
+  updateGoalProgress,
   type CalendarCategory,
   type CalendarEvent,
+  type CalendarGoal,
+  type CalendarLayerId,
   type CalendarView,
   type ScheduleSuggestion,
 } from "@/lib/smart-calendar";
@@ -45,6 +56,8 @@ export function SmartCalendarStudio() {
   const [ready, setReady] = useState(false);
   const [categories, setCategories] = useState<CalendarCategory[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [goals, setGoals] = useState<CalendarGoal[]>([]);
+  const [activeLayers, setActiveLayers] = useState<CalendarLayerId[]>([]);
   const [view, setView] = useState<CalendarView>("weekly");
   const [anchor, setAnchor] = useState(() => {
     const d = new Date();
@@ -57,6 +70,8 @@ export function SmartCalendarStudio() {
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("work");
   const [newHour, setNewHour] = useState(13);
+  const [newOutdoor, setNewOutdoor] = useState(false);
+  const [newPinned, setNewPinned] = useState(false);
   const [catLabel, setCatLabel] = useState("");
   const [catColor, setCatColor] = useState("#2f8f8a");
 
@@ -64,19 +79,42 @@ export function SmartCalendarStudio() {
     const state = loadCalendarState();
     setCategories(state.categories);
     setEvents(state.events);
+    setGoals(state.goals);
+    setActiveLayers(state.activeLayers);
     setNewCategory(state.categories[0]?.id || "work");
     setReady(true);
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    saveCalendarState({ categories, events });
-  }, [ready, categories, events]);
+    saveCalendarState({ categories, events, goals, activeLayers });
+  }, [ready, categories, events, goals, activeLayers]);
 
-  const conflicts = useMemo(() => detectConflicts(events), [events]);
-  const suggestions = useMemo(() => buildSuggestions(events, anchor), [events, anchor]);
-  const reminders = useMemo(() => buildSmartReminders(events), [events]);
-  const freeGaps = useMemo(() => findFreeGaps(events, anchor), [events, anchor]);
+  const visibleEvents = useMemo(
+    () => filterEventsByLayers(events, activeLayers),
+    [events, activeLayers],
+  );
+  const conflicts = useMemo(() => detectConflicts(visibleEvents), [visibleEvents]);
+  const suggestions = useMemo(() => buildSuggestions(visibleEvents, anchor), [visibleEvents, anchor]);
+  const reminders = useMemo(() => buildSmartReminders(visibleEvents), [visibleEvents]);
+  const freeGaps = useMemo(() => findFreeGaps(visibleEvents, anchor), [visibleEvents, anchor]);
+  const deadlines = useMemo(() => pinnedDeadlines(visibleEvents), [visibleEvents]);
+  const analysis = useMemo(() => analyzeWeek(visibleEvents, anchor), [visibleEvents, anchor]);
+  const weather = useMemo(() => buildWeatherInsights(visibleEvents), [visibleEvents]);
+  const visibleGoals = useMemo(
+    () => goals.filter((goal) => activeLayers.includes(goal.layerId)),
+    [goals, activeLayers],
+  );
+
+  function toggleLayer(layerId: CalendarLayerId) {
+    setActiveLayers((prev) => {
+      if (prev.includes(layerId)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((id) => id !== layerId);
+      }
+      return [...prev, layerId];
+    });
+  }
 
   function note(msg: string) {
     setFlash(msg);
@@ -157,10 +195,14 @@ export function SmartCalendarStudio() {
         categoryId: newCategory,
         start: start.toISOString(),
         end: end.toISOString(),
+        outdoor: newOutdoor,
+        pinnedDeadline: newPinned,
       }),
       ...prev,
     ]);
     setNewTitle("");
+    setNewOutdoor(false);
+    setNewPinned(false);
     note("Event added to Smart Calendar.");
   }
 
@@ -204,7 +246,7 @@ export function SmartCalendarStudio() {
   return (
     <AppShell
       title="Atlas Smart Calendar"
-      subtitle="An AI planner — color-coded time, conflict-aware scheduling, drag-and-drop, and smart reminders."
+      subtitle="Goals, pinned deadlines, calendar layers, AI time analysis, and weather-aware outdoor planning."
       action={
         <div className="cta-row">
           <button
@@ -253,7 +295,7 @@ export function SmartCalendarStudio() {
                 <h2>Daily · {formatDayLabel(anchor)}</h2>
                 <div className="sc-day-grid">
                   {HOURS.map((hour) => {
-                    const slotEvents = eventsOnDay(events, anchor).filter(
+                    const slotEvents = eventsOnDay(visibleEvents, anchor).filter(
                       (event) => new Date(event.start).getHours() === hour,
                     );
                     return (
@@ -293,7 +335,7 @@ export function SmartCalendarStudio() {
                     >
                       <header>{formatDayLabel(day)}</header>
                       <div className="sc-week-events">
-                        {eventsOnDay(events, day).map((event) => (
+                        {eventsOnDay(visibleEvents, day).map((event) => (
                           <EventChip key={event.id} event={event} />
                         ))}
                       </div>
@@ -327,7 +369,7 @@ export function SmartCalendarStudio() {
                       }}
                     >
                       <span>{day.getDate()}</span>
-                      {eventsOnDay(events, day)
+                      {eventsOnDay(visibleEvents, day)
                         .slice(0, 3)
                         .map((event) => (
                           <EventChip key={event.id} event={event} compact />
@@ -343,7 +385,7 @@ export function SmartCalendarStudio() {
                 <h2>Yearly · {anchor.getFullYear()}</h2>
                 <div className="sc-year-grid">
                   {yearMonths.map((month) => {
-                    const count = events.filter(
+                    const count = visibleEvents.filter(
                       (event) =>
                         new Date(event.start).getFullYear() === month.getFullYear() &&
                         new Date(event.start).getMonth() === month.getMonth(),
@@ -382,7 +424,7 @@ export function SmartCalendarStudio() {
                     >
                       <strong>{formatDayLabel(day)}</strong>
                       <div className="sc-timeline-track">
-                        {eventsOnDay(events, day).map((event) => {
+                        {eventsOnDay(visibleEvents, day).map((event) => {
                           const start = new Date(event.start);
                           const left = ((start.getHours() + start.getMinutes() / 60 - 7) / 12) * 100;
                           const width = (eventDurationMsHours(event) / 12) * 100;
@@ -417,7 +459,7 @@ export function SmartCalendarStudio() {
                 <h2>Agenda</h2>
                 <div className="sc-agenda">
                   {agendaDays.map((day) => {
-                    const dayEvents = eventsOnDay(events, day);
+                    const dayEvents = eventsOnDay(visibleEvents, day);
                     if (!dayEvents.length) return null;
                     return (
                       <div key={day.toISOString()} className="sc-agenda-day">
@@ -463,6 +505,130 @@ export function SmartCalendarStudio() {
           </div>
 
           <aside className="sc-side">
+            <section className="panel">
+              <h2>Calendar layers</h2>
+              <p className="panel-lead">Toggle calendars on or off to focus the planner.</p>
+              <div className="sc-layers">
+                {CALENDAR_LAYERS.map((layer) => {
+                  const on = activeLayers.includes(layer.id);
+                  return (
+                    <button
+                      key={layer.id}
+                      type="button"
+                      className={on ? "sc-layer on" : "sc-layer"}
+                      style={{ ["--sc-layer" as string]: layer.color }}
+                      onClick={() => toggleLayer(layer.id)}
+                    >
+                      <span />
+                      {layer.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>Goal calendar</h2>
+              <p className="panel-lead">Progress toward goals — not just events on a grid.</p>
+              <div className="sc-goals">
+                {visibleGoals.length === 0 ? (
+                  <p className="account-hint">Turn on related layers to see goals.</p>
+                ) : (
+                  visibleGoals.map((goal) => (
+                    <div key={goal.id} className="sc-goal">
+                      <div className="sc-goal-head">
+                        <strong>{goal.title}</strong>
+                        <span>{goalLabel(goal)}</span>
+                      </div>
+                      {goal.kind === "progress" ? (
+                        <div className="sc-goal-bar" aria-label={`${goal.progress}%`}>
+                          <code>{progressBar(goal.progress)}</code>
+                          <div className="cta-row">
+                            <button
+                              type="button"
+                              className="ghost-link"
+                              onClick={() =>
+                                setGoals((prev) => updateGoalProgress(prev, goal.id, goal.progress + 5))
+                              }
+                            >
+                              +5%
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="sc-goal-countdown">
+                          {goal.targetDate
+                            ? `${daysUntil(goal.targetDate)} days remaining`
+                            : "No date set"}
+                        </p>
+                      )}
+                      <small>{goal.detail}</small>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>Deadline tracker</h2>
+              <p className="panel-lead">Tax dates, payments, milestones, school work, renewals — pinned.</p>
+              <ul className="manage-list">
+                {deadlines.length === 0 ? (
+                  <li>No upcoming pinned deadlines on active layers.</li>
+                ) : (
+                  deadlines.map((event) => {
+                    const category = categoryById(categories, event.categoryId);
+                    return (
+                      <li key={event.id}>
+                        <div>
+                          <strong>{event.title}</strong>
+                          <small>
+                            {formatDayLabel(new Date(event.start))} · {category.label}
+                            {event.location ? ` · ${event.location}` : ""}
+                          </small>
+                        </div>
+                        <span className="badge warn">Pinned</span>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </section>
+
+            <section className="panel">
+              <h2>AI time analysis</h2>
+              <p className="panel-lead">{analysis.weekLabel}</p>
+              <ul className="sc-time-list">
+                {analysis.buckets.map((bucket) => (
+                  <li key={bucket.id}>
+                    <strong>{bucket.hours} hours</strong>
+                    <span>{bucket.label}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="sc-suggestions">
+                {analysis.suggestions.map((text) => (
+                  <div key={text} className="sc-suggestion">
+                    <p>{text}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>Weather integration</h2>
+              <ul className="manage-list">
+                {weather.map((item) => (
+                  <li key={item.id}>
+                    <div>
+                      <strong>{item.severity === "warn" ? "Advisory" : "Forecast"}</strong>
+                      <small>{item.text}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             <section className="panel">
               <h2>Color coding</h2>
               <p className="panel-lead">Atlas can auto-tag events — or invent your own colors.</p>
@@ -595,6 +761,22 @@ export function SmartCalendarStudio() {
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={newOutdoor}
+                    onChange={(e) => setNewOutdoor(e.target.checked)}
+                  />
+                  Outdoor event (weather-aware)
+                </label>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={newPinned}
+                    onChange={(e) => setNewPinned(e.target.checked)}
+                  />
+                  Pin as deadline
                 </label>
                 <button className="btn btn-dark" type="submit">
                   Add to {formatDayLabel(anchor)}

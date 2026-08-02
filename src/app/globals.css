@@ -2388,6 +2388,106 @@ button.linkish:hover {
   font-size: 0.92rem;
 }
 
+.sc-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.sc-layer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-weight: 650;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.sc-layer span {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--sc-layer);
+}
+
+.sc-layer.on {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--sc-layer) 55%, var(--line));
+  background: color-mix(in srgb, var(--sc-layer) 12%, var(--foam));
+}
+
+.sc-goals {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.65rem;
+}
+
+.sc-goal {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.75rem;
+  background: var(--paper);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sc-goal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.sc-goal-head span {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.sc-goal-bar code {
+  display: block;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  color: var(--teal-deep);
+}
+
+.sc-goal-countdown {
+  margin: 0;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.15rem;
+}
+
+.sc-goal small {
+  color: var(--ink-soft);
+}
+
+.sc-time-list {
+  list-style: none;
+  margin: 0.65rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.sc-time-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+
+.sc-time-list span {
+  color: var(--ink-soft);
+}
+
 @media (max-width: 1100px) {
   .sc-layout,
   .sc-week-grid {

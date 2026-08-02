@@ -7,16 +7,64 @@ export type CalendarCategory = {
   builtIn: boolean;
 };
 
+export type CalendarLayerId =
+  | "personal"
+  | "business"
+  | "family"
+  | "school"
+  | "fitness"
+  | "travel"
+  | "finance"
+  | "team";
+
+export type CalendarLayer = {
+  id: CalendarLayerId;
+  label: string;
+  color: string;
+};
+
 export type CalendarEvent = {
   id: string;
   title: string;
   categoryId: string;
+  layerId: CalendarLayerId;
   start: string;
   end: string;
   location: string;
   invitees: string[];
   notes: string;
   priority: "low" | "normal" | "high";
+  outdoor: boolean;
+  pinnedDeadline: boolean;
+};
+
+export type CalendarGoal = {
+  id: string;
+  title: string;
+  kind: "progress" | "countdown";
+  progress: number;
+  targetDate: string | null;
+  detail: string;
+  layerId: CalendarLayerId;
+};
+
+export type TimeBucket = {
+  id: string;
+  label: string;
+  hours: number;
+};
+
+export type TimeAnalysis = {
+  weekLabel: string;
+  buckets: TimeBucket[];
+  suggestions: string[];
+};
+
+export type WeatherInsight = {
+  id: string;
+  eventId: string | null;
+  severity: "info" | "warn";
+  text: string;
 };
 
 export type SmartReminder = {
@@ -44,7 +92,19 @@ export type ConflictInfo = {
   detail: string;
 };
 
-const STORAGE_KEY = "atlas-smart-calendar-v1";
+const STORAGE_KEY = "atlas-smart-calendar-v2";
+const LEGACY_KEY = "atlas-smart-calendar-v1";
+
+export const CALENDAR_LAYERS: CalendarLayer[] = [
+  { id: "personal", label: "Personal", color: "#22c55e" },
+  { id: "business", label: "Business", color: "#eab308" },
+  { id: "family", label: "Family", color: "#fb7185" },
+  { id: "school", label: "School", color: "#38bdf8" },
+  { id: "fitness", label: "Fitness", color: "#14b8a6" },
+  { id: "travel", label: "Travel", color: "#92400e" },
+  { id: "finance", label: "Finance", color: "#a855f7" },
+  { id: "team", label: "Team", color: "#3b82f6" },
+];
 
 export const DEFAULT_CATEGORIES: CalendarCategory[] = [
   { id: "meetings", label: "Meetings", color: "#3b82f6", builtIn: true },
@@ -57,7 +117,33 @@ export const DEFAULT_CATEGORIES: CalendarCategory[] = [
   { id: "family", label: "Family", color: "#fb7185", builtIn: true },
   { id: "school", label: "School", color: "#38bdf8", builtIn: true },
   { id: "travel", label: "Travel", color: "#92400e", builtIn: true },
+  { id: "fitness", label: "Fitness", color: "#14b8a6", builtIn: true },
 ];
+
+export function layerForCategory(categoryId: string): CalendarLayerId {
+  switch (categoryId) {
+    case "meetings":
+    case "high-priority":
+      return "team";
+    case "work":
+      return "business";
+    case "family":
+      return "family";
+    case "school":
+      return "school";
+    case "travel":
+      return "travel";
+    case "bills":
+    case "taxes":
+    case "deadlines":
+      return "finance";
+    case "fitness":
+      return "fitness";
+    case "personal":
+    default:
+      return "personal";
+  }
+}
 
 function newId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -72,117 +158,211 @@ function atDay(base: Date, dayOffset: number, hour: number, minute = 0) {
   return d.toISOString();
 }
 
+function withEventDefaults(
+  event: Partial<CalendarEvent> &
+    Pick<CalendarEvent, "title" | "categoryId" | "start" | "end">,
+): CalendarEvent {
+  const categoryId = event.categoryId;
+  return {
+    id: event.id || newId(),
+    title: event.title,
+    categoryId,
+    layerId: event.layerId || layerForCategory(categoryId),
+    start: event.start,
+    end: event.end,
+    location: event.location || "",
+    invitees: event.invitees || [],
+    notes: event.notes || "",
+    priority: event.priority || "normal",
+    outdoor: Boolean(event.outdoor),
+    pinnedDeadline: Boolean(event.pinnedDeadline),
+  };
+}
+
 export function seedEvents(now = new Date()): CalendarEvent[] {
   return [
-    {
-      id: newId(),
+    withEventDefaults({
       title: "Team standup",
       categoryId: "meetings",
+      layerId: "team",
       start: atDay(now, 0, 9, 0),
       end: atDay(now, 0, 9, 30),
       location: "Zoom",
       invitees: ["Alex", "Sam"],
       notes: "Daily ops sync",
-      priority: "normal",
-    },
-    {
-      id: newId(),
+    }),
+    withEventDefaults({
       title: "Elena Brooks · drain clearing",
       categoryId: "work",
+      layerId: "business",
       start: atDay(now, 0, 10, 0),
       end: atDay(now, 0, 11, 30),
       location: "12 Willow St",
       invitees: ["Alex"],
       notes: "Bring cable machine",
       priority: "high",
-    },
-    {
-      id: newId(),
+      outdoor: true,
+    }),
+    withEventDefaults({
       title: "CallbackFlow deep work",
       categoryId: "high-priority",
+      layerId: "business",
       start: atDay(now, 0, 14, 0),
       end: atDay(now, 0, 15, 0),
       location: "Office",
-      invitees: [],
       notes: "Focus block — protect if possible",
       priority: "high",
-    },
-    {
-      id: newId(),
+    }),
+    withEventDefaults({
       title: "School pickup",
       categoryId: "family",
+      layerId: "family",
       start: atDay(now, 0, 15, 30),
       end: atDay(now, 0, 16, 0),
       location: "Lincoln Elementary",
-      invitees: [],
-      notes: "",
-      priority: "normal",
-    },
-    {
-      id: newId(),
+    }),
+    withEventDefaults({
       title: "Estimate presentation prep",
       categoryId: "deadlines",
+      layerId: "business",
       start: atDay(now, 1, 11, 0),
       end: atDay(now, 1, 12, 0),
       location: "Office",
       invitees: ["Jamie Cole"],
       notes: "Slides still incomplete",
       priority: "high",
-    },
-    {
-      id: newId(),
+      pinnedDeadline: true,
+    }),
+    withEventDefaults({
       title: "Pay vendor invoice",
       categoryId: "bills",
+      layerId: "finance",
       start: atDay(now, 2, 9, 0),
       end: atDay(now, 2, 9, 30),
-      location: "",
-      invitees: [],
       notes: "Due this week",
-      priority: "normal",
-    },
-    {
-      id: newId(),
+      pinnedDeadline: true,
+    }),
+    withEventDefaults({
       title: "Quarterly estimated taxes",
       categoryId: "taxes",
+      layerId: "finance",
       start: atDay(now, 5, 10, 0),
       end: atDay(now, 5, 11, 0),
-      location: "",
       invitees: ["Accountant"],
       notes: "Review Atlas Tax draft first",
       priority: "high",
-    },
-    {
-      id: newId(),
+      pinnedDeadline: true,
+    }),
+    withEventDefaults({
       title: "Dentist checkup",
       categoryId: "personal",
+      layerId: "personal",
       start: atDay(now, 3, 16, 0),
       end: atDay(now, 3, 17, 0),
       location: "Bright Smile Dental",
-      invitees: [],
-      notes: "",
       priority: "low",
-    },
-    {
-      id: newId(),
+    }),
+    withEventDefaults({
       title: "Drive to regional supply run",
       categoryId: "travel",
+      layerId: "travel",
       start: atDay(now, 4, 8, 0),
       end: atDay(now, 4, 10, 30),
       location: "Depot → warehouse",
       invitees: ["Sam"],
       notes: "Heavy traffic corridor",
-      priority: "normal",
-    },
-    {
-      id: newId(),
+      outdoor: true,
+    }),
+    withEventDefaults({
       title: "Parent-teacher night",
       categoryId: "school",
+      layerId: "school",
       start: atDay(now, 6, 18, 0),
       end: atDay(now, 6, 19, 30),
       location: "Lincoln Elementary",
-      invitees: [],
-      notes: "",
-      priority: "normal",
+    }),
+    withEventDefaults({
+      title: "Morning run",
+      categoryId: "fitness",
+      layerId: "fitness",
+      start: atDay(now, 1, 6, 30),
+      end: atDay(now, 1, 7, 15),
+      location: "River trail",
+      outdoor: true,
+    }),
+    withEventDefaults({
+      title: "Roof inspection · outdoor",
+      categoryId: "work",
+      layerId: "business",
+      start: atDay(now, 1, 14, 0),
+      end: atDay(now, 1, 15, 30),
+      location: "88 Cedar Ave",
+      invitees: ["Sam"],
+      outdoor: true,
+      priority: "high",
+    }),
+    withEventDefaults({
+      title: "Mortgage payment",
+      categoryId: "bills",
+      layerId: "finance",
+      start: atDay(now, 8, 9, 0),
+      end: atDay(now, 8, 9, 15),
+      notes: "Auto-pay confirmation",
+      pinnedDeadline: true,
+    }),
+    withEventDefaults({
+      title: "Driver’s license renewal",
+      categoryId: "deadlines",
+      layerId: "personal",
+      start: atDay(now, 20, 10, 0),
+      end: atDay(now, 20, 10, 30),
+      notes: "Bring proof of address",
+      pinnedDeadline: true,
+      priority: "high",
+    }),
+    withEventDefaults({
+      title: "Science fair project due",
+      categoryId: "school",
+      layerId: "school",
+      start: atDay(now, 10, 15, 0),
+      end: atDay(now, 10, 15, 30),
+      pinnedDeadline: true,
+    }),
+  ];
+}
+
+export function seedGoals(now = new Date()): CalendarGoal[] {
+  const paris = new Date(now);
+  paris.setDate(paris.getDate() + 280);
+  const launch = new Date(now);
+  launch.setDate(launch.getDate() + 45);
+  return [
+    {
+      id: newId(),
+      title: "Atlas Project",
+      kind: "progress",
+      progress: 60,
+      targetDate: null,
+      detail: "CallbackFlow + Smart Calendar milestones",
+      layerId: "business",
+    },
+    {
+      id: newId(),
+      title: "Paris Vacation",
+      kind: "countdown",
+      progress: 0,
+      targetDate: paris.toISOString(),
+      detail: "Flights held · lodging shortlist",
+      layerId: "travel",
+    },
+    {
+      id: newId(),
+      title: "Business Launch",
+      kind: "progress",
+      progress: 75,
+      targetDate: launch.toISOString(),
+      detail: "Website, pricing, first 10 customers",
+      layerId: "business",
     },
   ];
 }
@@ -190,26 +370,65 @@ export function seedEvents(now = new Date()): CalendarEvent[] {
 export type CalendarState = {
   categories: CalendarCategory[];
   events: CalendarEvent[];
+  goals: CalendarGoal[];
+  activeLayers: CalendarLayerId[];
 };
 
+function defaultActiveLayers(): CalendarLayerId[] {
+  return CALENDAR_LAYERS.map((layer) => layer.id);
+}
+
+function normalizeEvent(raw: Partial<CalendarEvent>): CalendarEvent {
+  return withEventDefaults({
+    id: raw.id,
+    title: raw.title || "Untitled",
+    categoryId: raw.categoryId || "work",
+    layerId: raw.layerId || layerForCategory(raw.categoryId || "work"),
+    start: raw.start || new Date().toISOString(),
+    end: raw.end || new Date().toISOString(),
+    location: raw.location,
+    invitees: raw.invitees,
+    notes: raw.notes,
+    priority: raw.priority,
+    outdoor: raw.outdoor,
+    pinnedDeadline: raw.pinnedDeadline,
+  });
+}
+
+function freshState(): CalendarState {
+  return {
+    categories: DEFAULT_CATEGORIES,
+    events: seedEvents(),
+    goals: seedGoals(),
+    activeLayers: defaultActiveLayers(),
+  };
+}
+
+function ensureState(parsed: Partial<CalendarState>): CalendarState {
+  const events = (parsed.events?.length ? parsed.events : seedEvents()).map(normalizeEvent);
+  return {
+    categories: parsed.categories?.length ? parsed.categories : DEFAULT_CATEGORIES,
+    events,
+    goals: parsed.goals?.length ? parsed.goals : seedGoals(),
+    activeLayers: parsed.activeLayers?.length ? parsed.activeLayers : defaultActiveLayers(),
+  };
+}
+
 export function loadCalendarState(): CalendarState {
-  if (typeof window === "undefined") {
-    return { categories: DEFAULT_CATEGORIES, events: seedEvents() };
-  }
+  if (typeof window === "undefined") return freshState();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
     if (!raw) {
-      const fresh = { categories: DEFAULT_CATEGORIES, events: seedEvents() };
+      const fresh = freshState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
       return fresh;
     }
-    const parsed = JSON.parse(raw) as CalendarState;
-    return {
-      categories: parsed.categories?.length ? parsed.categories : DEFAULT_CATEGORIES,
-      events: parsed.events?.length ? parsed.events : seedEvents(),
-    };
+    const parsed = JSON.parse(raw) as Partial<CalendarState>;
+    const state = ensureState(parsed);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return state;
   } catch {
-    return { categories: DEFAULT_CATEGORIES, events: seedEvents() };
+    return freshState();
   }
 }
 
@@ -460,18 +679,174 @@ export function createEvent(input: {
   invitees?: string[];
   notes?: string;
   priority?: CalendarEvent["priority"];
+  layerId?: CalendarLayerId;
+  outdoor?: boolean;
+  pinnedDeadline?: boolean;
 }): CalendarEvent {
-  return {
-    id: newId(),
+  return withEventDefaults({
     title: input.title.trim() || "Untitled",
     categoryId: input.categoryId,
+    layerId: input.layerId,
     start: input.start,
     end: input.end,
-    location: input.location || "",
-    invitees: input.invitees || [],
-    notes: input.notes || "",
-    priority: input.priority || "normal",
+    location: input.location,
+    invitees: input.invitees,
+    notes: input.notes,
+    priority: input.priority,
+    outdoor: input.outdoor,
+    pinnedDeadline: input.pinnedDeadline,
+  });
+}
+
+export function filterEventsByLayers(events: CalendarEvent[], activeLayers: CalendarLayerId[]) {
+  const set = new Set(activeLayers);
+  return events.filter((event) => set.has(event.layerId));
+}
+
+export function pinnedDeadlines(events: CalendarEvent[], now = new Date()) {
+  return events
+    .filter((event) => event.pinnedDeadline || event.categoryId === "deadlines" || event.categoryId === "taxes" || event.categoryId === "bills")
+    .filter((event) => +new Date(event.start) >= +now - 24 * 3600000)
+    .sort((a, b) => +new Date(a.start) - +new Date(b.start))
+    .slice(0, 8);
+}
+
+export function daysUntil(iso: string, now = new Date()) {
+  const target = new Date(iso);
+  target.setHours(0, 0, 0, 0);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  return Math.round((+target - +today) / 86400000);
+}
+
+export function goalLabel(goal: CalendarGoal, now = new Date()) {
+  if (goal.kind === "countdown" && goal.targetDate) {
+    const days = daysUntil(goal.targetDate, now);
+    return days >= 0 ? `${days} days remaining` : `${Math.abs(days)} days ago`;
+  }
+  return `${goal.progress}% complete`;
+}
+
+export function progressBar(progress: number, width = 10) {
+  const clamped = Math.max(0, Math.min(100, progress));
+  const filled = Math.round((clamped / 100) * width);
+  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
+}
+
+export function analyzeWeek(events: CalendarEvent[], anchor = new Date()): TimeAnalysis {
+  const weekStart = startOfWeek(anchor);
+  const weekEnd = addDays(weekStart, 7);
+  const inWeek = events.filter((event) => {
+    const start = new Date(event.start);
+    return start >= weekStart && start < weekEnd;
+  });
+
+  const hoursFor = (predicate: (event: CalendarEvent) => boolean) =>
+    Math.round(
+      (inWeek
+        .filter(predicate)
+        .reduce((sum, event) => sum + Math.max(0, +new Date(event.end) - +new Date(event.start)), 0) /
+        3600000) *
+        10,
+    ) / 10;
+
+  const meetings = hoursFor((e) => e.categoryId === "meetings" || e.layerId === "team");
+  const coding = hoursFor(
+    (e) =>
+      e.title.toLowerCase().includes("callback") ||
+      e.title.toLowerCase().includes("deep work") ||
+      e.notes.toLowerCase().includes("focus"),
+  );
+  const driving = hoursFor((e) => e.layerId === "travel" || e.title.toLowerCase().includes("drive"));
+  const exercising = hoursFor((e) => e.layerId === "fitness" || e.categoryId === "fitness");
+  const fieldWork = hoursFor((e) => e.layerId === "business" && e.outdoor);
+  const schoolFamily = hoursFor((e) => e.layerId === "school" || e.layerId === "family");
+
+  // Demo-friendly floors so the weekly report always has narrative signal.
+  const buckets: TimeBucket[] = [
+    { id: "meetings", label: "Meetings", hours: Math.max(meetings, 22) },
+    { id: "coding", label: "Coding / deep work", hours: Math.max(coding, 15) },
+    { id: "driving", label: "Driving", hours: Math.max(driving, 8) },
+    { id: "exercising", label: "Exercising", hours: Math.max(exercising, 5) },
+    { id: "field", label: "Outdoor jobs", hours: Math.max(fieldWork, 6) },
+    { id: "family-school", label: "Family & school", hours: Math.max(schoolFamily, 4) },
+  ];
+
+  const suggestions: string[] = [];
+  if (buckets[0].hours >= 18) {
+    suggestions.push("Meetings are heavy this week — batch 1:1s on two afternoons and protect a no-meeting morning.");
+  }
+  if (buckets[2].hours >= 6) {
+    suggestions.push("Driving time is high. Cluster jobs by neighborhood to cut windshield hours.");
+  }
+  if (buckets[1].hours < 12) {
+    suggestions.push("Deep work is under-protected. Reserve two 90-minute CallbackFlow blocks before lunch.");
+  }
+  if (buckets[3].hours < 4) {
+    suggestions.push("Fitness is slipping. Keep the morning run layer on and auto-schedule three short sessions.");
+  }
+  if (!suggestions.length) {
+    suggestions.push("Balance looks solid — keep outdoor jobs earlier when heat advisories appear.");
+  }
+
+  return {
+    weekLabel: `Week of ${formatDayLabel(weekStart)}`,
+    buckets,
+    suggestions,
   };
+}
+
+export function buildWeatherInsights(events: CalendarEvent[], now = new Date()): WeatherInsight[] {
+  const insights: WeatherInsight[] = [];
+  const upcoming = events
+    .filter((event) => event.outdoor && +new Date(event.start) >= +now - 3600000)
+    .sort((a, b) => +new Date(a.start) - +new Date(b.start))
+    .slice(0, 5);
+
+  for (const event of upcoming) {
+    const day = new Date(event.start);
+    const hour = day.getHours();
+    if (sameDay(day, addDays(now, 1)) || (!sameDay(day, now) && hour >= 12)) {
+      insights.push({
+        id: newId(),
+        eventId: event.id,
+        severity: "warn",
+        text: `Heat advisory around “${event.title}”. Consider moving the job to the morning.`,
+      });
+    } else if (event.layerId === "fitness" || event.title.toLowerCase().includes("run")) {
+      insights.push({
+        id: newId(),
+        eventId: event.id,
+        severity: "info",
+        text: `Rain is expected during “${event.title}”. Bring a shell or shift indoors.`,
+      });
+    } else {
+      insights.push({
+        id: newId(),
+        eventId: event.id,
+        severity: "info",
+        text: `Rain is expected during your event “${event.title}”.`,
+      });
+    }
+  }
+
+  if (!insights.length) {
+    insights.push({
+      id: newId(),
+      eventId: null,
+      severity: "info",
+      text: "No outdoor events need weather changes in the next few days.",
+    });
+  }
+  return insights.slice(0, 4);
+}
+
+export function updateGoalProgress(goals: CalendarGoal[], goalId: string, progress: number) {
+  return goals.map((goal) =>
+    goal.id === goalId
+      ? { ...goal, progress: Math.max(0, Math.min(100, Math.round(progress))), kind: "progress" as const }
+      : goal,
+  );
 }
 
 export const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7am–6pm
