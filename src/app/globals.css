@@ -428,6 +428,182 @@ img {
   font-size: 0.92rem;
 }
 
+/* Auth + account */
+.auth-page {
+  min-height: 100svh;
+  background:
+    radial-gradient(700px 360px at 10% 0%, rgba(47, 143, 138, 0.16), transparent),
+    radial-gradient(700px 360px at 90% 10%, rgba(217, 164, 65, 0.14), transparent),
+    var(--paper);
+  padding: 2.5rem 0 4rem;
+}
+
+.auth-wrap {
+  max-width: 40rem;
+}
+
+.auth-wrap-narrow {
+  max-width: 28rem;
+}
+
+.auth-brand {
+  margin-bottom: 1.5rem;
+}
+
+.auth-brand h1 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0.55rem 0 0.65rem;
+}
+
+.auth-brand p {
+  color: var(--ink-soft);
+  margin: 0;
+  max-width: 34rem;
+}
+
+.auth-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.auth-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auth-actions p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.auth-error {
+  color: #9b2c2c;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.auth-success {
+  color: #1f6b57;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.account-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 1rem;
+}
+
+.account-layout .account-preview {
+  grid-column: 1 / -1;
+}
+
+.account-guest {
+  max-width: 36rem;
+}
+
+.account-guest p {
+  color: var(--ink-soft);
+  margin: 0.5rem 0 1.1rem;
+}
+
+.profit-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  margin: 0.85rem 0 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(232, 241, 240, 0.95), var(--foam));
+  border: 1px solid var(--line);
+}
+
+.profit-total span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.profit-total strong {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.55rem;
+  letter-spacing: -0.02em;
+}
+
+.profit-form {
+  margin-bottom: 1rem;
+}
+
+.profit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.profit-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.profit-list li > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.profit-list span {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.profit-list small {
+  color: var(--ink-soft);
+}
+
+.profit-empty {
+  color: var(--ink-soft);
+  border-top: none !important;
+  padding-top: 0.25rem !important;
+}
+
+.profit-pos {
+  color: #1f6b57;
+}
+
+.profit-neg {
+  color: #9b2c2c;
+}
+
+.account-hint {
+  margin: 0.9rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+  .auth-split,
+  .account-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Onboarding */
 .onboard {
   min-height: 100svh;

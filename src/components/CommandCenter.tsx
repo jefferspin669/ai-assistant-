@@ -1,12 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useAccount } from "@/components/AccountProvider";
 import {
   aiEmployees,
   commandSuggestions,
-  customEmployee,
   morningBriefing,
-  owner,
 } from "@/lib/data";
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
 
@@ -30,16 +29,24 @@ function timeGreeting() {
 }
 
 export function CommandCenter() {
+  const { ownerName, businessName, aiName, aiRole, ready } = useAccount();
   const greeting = useMemo(() => timeGreeting(), []);
+  const greetedRef = useRef(false);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
-  const [messages, setMessages] = useState<ChatItem[]>(() => [
-    {
-      kind: "ai",
-      agentLabel: "Atlas",
-      text: `${timeGreeting()}, ${owner.name}. Nothing else needs to be checked — here’s what already happened.`,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatItem[]>([]);
+
+  useEffect(() => {
+    if (!ready || greetedRef.current) return;
+    greetedRef.current = true;
+    setMessages([
+      {
+        kind: "ai",
+        agentLabel: "Atlas",
+        text: `${timeGreeting()}, ${ownerName}. Nothing else needs to be checked — here’s what already happened.`,
+      },
+    ]);
+  }, [ready, ownerName]);
 
   function pushResult(result: CommandResult, spoken: string) {
     const next: ChatItem[] = [{ kind: "user", text: spoken }];
@@ -138,10 +145,10 @@ export function CommandCenter() {
       <section className="briefing panel">
         <p className="briefing-kicker">Atlas never sleeps</p>
         <h2>
-          {greeting}, {owner.name}.
+          {greeting}, {ownerName}.
         </h2>
         <p className="briefing-sub">
-          {owner.business} · {customEmployee.name} is your {customEmployee.role}
+          {businessName} · {aiName} is your {aiRole}
         </p>
         <ul className="briefing-list">
           {morningBriefing.map((item) => (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAccount } from "@/components/AccountProvider";
 import { customEmployee } from "@/lib/data";
 import { navGroups } from "@/lib/atlas-platform";
 
@@ -17,6 +18,7 @@ export function AppShell({
   action?: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { account, aiName, ownerName } = useAccount();
 
   return (
     <div className="app-shell">
@@ -48,9 +50,14 @@ export function AppShell({
         </nav>
         <div className="sidebar-foot">
           <div className="ai-chip">
-            <strong>{customEmployee.name} is online</strong>
-            <span>Never sleeps · {customEmployee.languages.join(" · ")}</span>
+            <strong>{aiName} is online</strong>
+            <span>
+              {account ? `${ownerName} · saved account` : `Never sleeps · ${customEmployee.languages.join(" · ")}`}
+            </span>
           </div>
+          <Link href="/app/account" className="ghost-link">
+            {account ? "Edit account & AI name" : "Create account"}
+          </Link>
           <Link href="/onboarding" className="ghost-link">
             Customize your AI employee
           </Link>
