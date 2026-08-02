@@ -1,12 +1,21 @@
 /** Atlas Database schema — mirrors the product architecture tree. */
 
+/** `users` table */
 export type DbUser = {
   id: string;
   email: string;
-  name: string;
-  passwordHash: string;
-  createdAt: string;
-  updatedAt: string;
+  full_name: string;
+  profile_image: string | null;
+  timezone: string;
+  preferred_language: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Auth secrets — not part of the public `users` row. */
+export type DbUserCredential = {
+  user_id: string;
+  password_hash: string;
 };
 
 export type DbOrganization = {
@@ -119,6 +128,7 @@ export type DbNotification = {
 
 export type AtlasDatabase = {
   users: DbUser[];
+  user_credentials: DbUserCredential[];
   organizations: DbOrganization[];
   events: DbEvent[];
   tasks: DbTask[];

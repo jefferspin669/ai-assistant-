@@ -14,9 +14,11 @@ import type {
   DbTaxRecord,
   DbTransaction,
   DbUser,
+  DbUserCredential,
 } from "@/lib/db/schema";
 
-const DB_KEY = "atlas-database-v1";
+const DB_KEY = "atlas-database-v2";
+const LEGACY_DB_KEY = "atlas-database-v1";
 
 function newId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}_${crypto.randomUUID()}`;
@@ -30,6 +32,7 @@ function nowIso() {
 function emptyDb(): AtlasDatabase {
   return {
     users: [],
+    user_credentials: [],
     organizations: [],
     events: [],
     tasks: [],
@@ -43,6 +46,20 @@ function emptyDb(): AtlasDatabase {
   };
 }
 
+function normalizeUser(raw: Partial<DbUser> & { name?: string; createdAt?: string; updatedAt?: string }): DbUser {
+  const stamp = nowIso();
+  return {
+    id: raw.id || newId("user"),
+    email: raw.email || "demo@atlas.ai",
+    full_name: raw.full_name || raw.name || "Atlas User",
+    profile_image: raw.profile_image ?? null,
+    timezone: raw.timezone || "America/Chicago",
+    preferred_language: raw.preferred_language || "en",
+    created_at: raw.created_at || raw.createdAt || stamp,
+    updated_at: raw.updated_at || raw.updatedAt || stamp,
+  };
+}
+
 /** Seed a demo workspace so the architecture map and APIs have data. */
 export function seedDatabase(): AtlasDatabase {
   const userId = newId("user");
@@ -52,10 +69,17 @@ export function seedDatabase(): AtlasDatabase {
   const user: DbUser = {
     id: userId,
     email: "demo@atlas.ai",
-    name: "Atlas Demo",
-    passwordHash: "v1$seed$demo",
-    createdAt: stamp,
-    updatedAt: stamp,
+    full_name: "Atlas Demo",
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    created_at: stamp,
+    updated_at: stamp,
+  };
+
+  const credential: DbUserCredential = {
+    user_id: userId,
+    password_hash: "v1$seed$demo", // demo placeholder — signup/login write real hashes
   };
 
   const org: DbOrganization = {
@@ -198,6 +222,7 @@ export function seedDatabase(): AtlasDatabase {
 
   return {
     users: [user],
+    user_credentials: [credential],
     organizations: [org],
     events,
     tasks,
@@ -214,17 +239,37 @@ export function seedDatabase(): AtlasDatabase {
 export function loadDatabase(): AtlasDatabase {
   if (typeof window === "undefined") return seedDatabase();
   try {
-    const raw = localStorage.getItem(DB_KEY);
+    const raw = localStorage.getItem(DB_KEY) || localStorage.getItem(LEGACY_DB_KEY);
     if (!raw) {
       const seeded = seedDatabase();
       localStorage.setItem(DB_KEY, JSON.stringify(seeded));
       return seeded;
     }
-    const parsed = JSON.parse(raw) as Partial<AtlasDatabase>;
-    return {
+    type LegacyUser = Partial<DbUser> & {
+      name?: string;
+      passwordHash?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    };
+    const parsed = JSON.parse(raw) as Omit<Partial<AtlasDatabase>, "users"> & {
+      users?: LegacyUser[];
+    };
+    const legacyUsers = parsed.users || [];
+    const users = legacyUsers.map((user) => normalizeUser(user));
+    const legacyCredentials: DbUserCredential[] = legacyUsers
+      .filter((user): user is LegacyUser & { id: string; passwordHash: string } =>
+        Boolean(user.id && user.passwordHash),
+      )
+      .map((user) => ({
+        user_id: user.id,
+        password_hash: user.passwordHash,
+      }));
+    const state: AtlasDatabase = {
       ...emptyDb(),
       ...parsed,
-      users: parsed.users || [],
+      users,
+      user_credentials:
+        parsed.user_credentials?.length ? parsed.user_credentials : legacyCredentials,
       organizations: parsed.organizations || [],
       events: parsed.events || [],
       tasks: parsed.tasks || [],
@@ -236,6 +281,8 @@ export function loadDatabase(): AtlasDatabase {
       subscriptions: parsed.subscriptions || [],
       notifications: parsed.notifications || [],
     };
+    localStorage.setItem(DB_KEY, JSON.stringify(state));
+    return state;
   } catch {
     return seedDatabase();
   }

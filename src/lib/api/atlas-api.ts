@@ -55,12 +55,18 @@ export const authApi = {
         {
           id: userId,
           email,
-          name: input.name.trim() || "Atlas User",
-          passwordHash: hashPassword(input.password),
-          createdAt: stamp,
-          updatedAt: stamp,
+          full_name: input.name.trim() || "Atlas User",
+          profile_image: null,
+          timezone: "America/Chicago",
+          preferred_language: "en",
+          created_at: stamp,
+          updated_at: stamp,
         },
         ...data.users,
+      ],
+      user_credentials: [
+        { user_id: userId, password_hash: hashPassword(input.password) },
+        ...data.user_credentials,
       ],
       organizations: [
         {
@@ -87,13 +93,17 @@ export const authApi = {
     return ok({ userId, orgId });
   },
 
-  login(emailRaw: string, password: string): ApiResult<{ userId: string; name: string }> {
+  login(emailRaw: string, password: string): ApiResult<{ userId: string; full_name: string }> {
     const email = emailRaw.trim().toLowerCase();
-    const user = db().users.find((u) => u.email === email);
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    const data = db();
+    const user = data.users.find((u) => u.email === email);
+    const credential = user
+      ? data.user_credentials.find((c) => c.user_id === user.id)
+      : undefined;
+    if (!user || !credential || !verifyPassword(password, credential.password_hash)) {
       return err("Email or password doesn’t match.", 401);
     }
-    return ok({ userId: user.id, name: user.name });
+    return ok({ userId: user.id, full_name: user.full_name });
   },
 
   session(): ApiResult<{ users: number; orgs: number }> {
@@ -106,12 +116,34 @@ export const authApi = {
 
 export const usersApi = {
   list(): ApiResult<AtlasDatabase["users"]> {
-    return ok(db().users.map((u) => ({ ...u, passwordHash: u.passwordHash.startsWith("v1$") ? "v1$••••" : "••••" })));
+    return ok(db().users);
   },
   get(userId: string): ApiResult<AtlasDatabase["users"][number]> {
     const user = db().users.find((u) => u.id === userId);
     if (!user) return err("User not found.", 404);
-    return ok({ ...user, passwordHash: "v1$••••" });
+    return ok(user);
+  },
+  update(
+    userId: string,
+    patch: Partial<
+      Pick<AtlasDatabase["users"][number], "full_name" | "profile_image" | "timezone" | "preferred_language" | "email">
+    >,
+  ): ApiResult<AtlasDatabase["users"][number]> {
+    const data = db();
+    const existing = data.users.find((u) => u.id === userId);
+    if (!existing) return err("User not found.", 404);
+    const next = {
+      ...existing,
+      ...patch,
+      email: patch.email ? patch.email.trim().toLowerCase() : existing.email,
+      full_name: patch.full_name?.trim() || existing.full_name,
+      updated_at: nowIso(),
+    };
+    persist({
+      ...data,
+      users: data.users.map((u) => (u.id === userId ? next : u)),
+    });
+    return ok(next);
   },
 };
 

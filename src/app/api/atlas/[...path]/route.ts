@@ -49,6 +49,23 @@ async function handle(req: NextRequest, ctx: Ctx) {
   if (domain === "auth" && action === "login" && req.method === "POST") {
     return json(atlasApi.auth.login(String(body.email || ""), String(body.password || "")));
   }
+  if (domain === "users" && action && req.method === "POST") {
+    return json(
+      atlasApi.users.update(action, {
+        full_name: body.full_name != null ? String(body.full_name) : undefined,
+        email: body.email != null ? String(body.email) : undefined,
+        timezone: body.timezone != null ? String(body.timezone) : undefined,
+        preferred_language:
+          body.preferred_language != null ? String(body.preferred_language) : undefined,
+        profile_image:
+          body.profile_image === null
+            ? null
+            : body.profile_image != null
+              ? String(body.profile_image)
+              : undefined,
+      }),
+    );
+  }
   if (domain === "users") return json(atlasApi.users.list());
   if (domain === "businesses") return json(atlasApi.businesses.list());
   if (domain === "calendar") return json(atlasApi.calendar.listEvents());

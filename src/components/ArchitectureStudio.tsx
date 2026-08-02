@@ -114,6 +114,29 @@ export function ArchitectureStudio() {
         </section>
 
         <section className="panel">
+          <h2>users</h2>
+          <p className="panel-lead">Primary identity table (passwords live in user_credentials).</p>
+          <ul className="manage-list">
+            {[
+              "id",
+              "email",
+              "full_name",
+              "profile_image",
+              "timezone",
+              "preferred_language",
+              "created_at",
+              "updated_at",
+            ].map((column) => (
+              <li key={column}>
+                <div>
+                  <strong>{column}</strong>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel">
           <h2>HTTP API</h2>
           <p className="panel-lead">
             REST façade at <code>/api/atlas/*</code> — use the client API for durable browser state.
