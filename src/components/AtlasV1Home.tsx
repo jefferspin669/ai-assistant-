@@ -3,21 +3,22 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
+import { loadStarterDashboard, type StarterDashboard } from "@/lib/setup";
 import { loadTasks, taskCounts } from "@/lib/tasks";
 import { computeTaxEstimate, loadTaxTransactions, money } from "@/lib/tax-ledger";
 import { vaultStatus } from "@/lib/secure-store";
 
 const V1_SHIPPED = [
   { href: "/app", label: "Dashboard", detail: "Frontend home + Command Center" },
+  { href: "/app/setup", label: "First-time setup", detail: "Guided onboarding → starter dashboard" },
+  { href: "/app", label: "Global search", detail: "⌘K across events, receipts, chats, files" },
+  { href: "/app/data", label: "Import & export", detail: "ICS, CSV, Excel, accountant packs" },
+  { href: "/app/recovery", label: "Undo & recovery", detail: "Trash, backups, version history" },
   { href: "/app/appointments", label: "Calendar", detail: "Smart Calendar + color categories" },
   { href: "/app/tax", label: "Tax Center", detail: "Ledger + basic estimate" },
   { href: "/app/chat", label: "AI Chat", detail: "Conversations via Backend API → Database" },
   { href: "/app/files", label: "Files", detail: "Document uploads into Documents table" },
-  { href: "/app/settings", label: "Settings", detail: "Profile, notifications, billing" },
-  { href: "/app/architecture", label: "Architecture", detail: "Frontend · Backend API · Database map" },
   { href: "/app/tasks", label: "Tasks", detail: "Task board backed by Tasks table" },
-  { href: "/signup", label: "Authentication", detail: "Signup, login, logout, password reset" },
-  { href: "/app/security", label: "Secure database", detail: "Salted hashes + isolated vault" },
 ];
 
 const ROADMAP = [
@@ -33,6 +34,7 @@ export function AtlasV1Home() {
   const { account, ownerName, ready, logout } = useAccount();
   const [taskSummary, setTaskSummary] = useState({ open: 0, high: 0 });
   const [taxSummary, setTaxSummary] = useState({ owed: "$0", profit: "$0" });
+  const [starter, setStarter] = useState<StarterDashboard | null>(null);
 
   useEffect(() => {
     const tasks = loadTasks();
@@ -40,7 +42,8 @@ export function AtlasV1Home() {
     setTaskSummary({ open: counts.todo + counts.doing, high: counts.high });
     const estimate = computeTaxEstimate(loadTaxTransactions());
     setTaxSummary({ owed: money(estimate.totalEstimated), profit: money(estimate.taxableProfit) });
-  }, []);
+    setStarter(loadStarterDashboard(account?.id));
+  }, [account?.id]);
 
   const vaultCopy = useMemo(() => {
     const base = vaultStatus(Boolean(account), account?.hasPassword ? "v1$x$y" : null);
@@ -59,21 +62,36 @@ export function AtlasV1Home() {
   return (
     <div className="account-stack" style={{ marginBottom: "1rem" }}>
       <section className="panel sc-daily-plan">
-        <p className="briefing-kicker">Atlas v1 · first usable version</p>
+        <p className="briefing-kicker">
+          {starter ? "Starter dashboard · built from setup" : "Atlas v1 · first usable version"}
+        </p>
         <h2>
           {account ? `Welcome back, ${ownerName.split(" ")[0]}.` : "Your first working Atlas."}
         </h2>
         <p className="panel-lead">
-          Registration, dashboard, calendar, tasks, saved chats, files, tax tracking, and a secure
-          local vault — enough to run day one without every advanced module.
+          {starter
+            ? `${starter.accountType === "business" ? "Business" : "Personal"} workspace focused on ${starter.goals.slice(0, 2).join(" · ") || "your day-one goals"}.`
+            : "Registration, setup, global search, import/export, undo/recovery, calendar, tasks, chats, files, and tax — enough to run day one."}
         </p>
         <div className="cta-row">
           {account ? (
             <>
-              <Link className="btn btn-dark" href="/app/account">
-                Profile & settings
+              {!account.setup?.completed ? (
+                <Link className="btn btn-dark" href="/app/setup">
+                  Finish setup
+                </Link>
+              ) : (
+                <Link className="btn btn-dark" href="/app/appointments">
+                  Open calendar
+                </Link>
+              )}
+              <Link className="btn btn-outline" href="/app/data">
+                Import & export
               </Link>
-              <button type="button" className="btn btn-outline" onClick={() => logout()}>
+              <Link className="btn btn-outline" href="/app/recovery">
+                Undo & recovery
+              </Link>
+              <button type="button" className="ghost-link" onClick={() => logout()}>
                 Log out
               </button>
             </>
@@ -92,6 +110,21 @@ export function AtlasV1Home() {
           )}
         </div>
       </section>
+
+      {starter?.widgets?.length ? (
+        <section className="panel">
+          <h2>Your starter dashboard</h2>
+          <p className="panel-lead">Generated automatically when you finished first-time setup.</p>
+          <div className="starter-grid">
+            {starter.widgets.map((widget) => (
+              <Link key={widget.id} href={widget.href} className="starter-card">
+                <strong>{widget.title}</strong>
+                <span>{widget.detail}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="stat-grid metrics-dense">
         <div className="stat">

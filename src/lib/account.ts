@@ -292,6 +292,15 @@ export type ReliabilitySettings = {
   recoveredAt: string | null;
 };
 
+export type SetupProfile = {
+  completed: boolean;
+  completedAt: string | null;
+  accountType: "personal" | "business";
+  taxState: string;
+  goals: string[];
+  calendarColors: Record<string, string>;
+};
+
 export type WebhookEndpoint = {
   id: string;
   url: string;
@@ -410,6 +419,7 @@ export type UserAccount = {
   reliability: ReliabilitySettings;
   developer: DeveloperHub;
   analytics: AnalyticsSnapshot;
+  setup: SetupProfile;
   resetToken: string | null;
   resetExpiresAt: string | null;
   createdAt: string;
@@ -626,9 +636,13 @@ function defaultAppSettings(): AppSettings {
     },
     connectedApps: [
       { id: "google-calendar", name: "Google Calendar", connected: false, connectedAt: null },
+      { id: "outlook", name: "Outlook Calendar", connected: false, connectedAt: null },
+      { id: "apple-calendar", name: "Apple Calendar", connected: false, connectedAt: null },
       { id: "quickbooks", name: "QuickBooks", connected: false, connectedAt: null },
-      { id: "slack", name: "Slack", connected: false, connectedAt: null },
       { id: "stripe", name: "Stripe", connected: false, connectedAt: null },
+      { id: "gmail", name: "Gmail", connected: false, connectedAt: null },
+      { id: "slack", name: "Slack", connected: false, connectedAt: null },
+      { id: "bank", name: "Bank feed (CSV)", connected: false, connectedAt: null },
     ],
     billing: defaultBilling(),
     apiKeys: [],
@@ -701,6 +715,17 @@ function defaultReliability(): ReliabilitySettings {
     lastSyncedAt: nowIso(),
     lastError: null,
     recoveredAt: null,
+  };
+}
+
+function defaultSetupProfile(completed = true): SetupProfile {
+  return {
+    completed,
+    completedAt: completed ? nowIso() : null,
+    accountType: "business",
+    taxState: "TX",
+    goals: [],
+    calendarColors: {},
   };
 }
 
@@ -858,6 +883,9 @@ function ensureAccountShape(account: UserAccount): UserAccount {
       weekly: account.analytics?.weekly?.length ? account.analytics.weekly : defaultAnalytics().weekly,
       feedback: account.analytics?.feedback || [],
     },
+    setup: account.setup
+      ? { ...defaultSetupProfile(Boolean(account.setup.completed)), ...account.setup }
+      : defaultSetupProfile(true),
   };
 }
 
@@ -1075,6 +1103,7 @@ function migrateLegacy(raw: unknown): UserAccount | null {
     reliability: defaultReliability(),
     developer: defaultDeveloper(),
     analytics: defaultAnalytics(),
+    setup: defaultSetupProfile(true),
     resetToken: null,
     resetExpiresAt: null,
     createdAt: String(legacy.createdAt || nowIso()),
@@ -1328,6 +1357,7 @@ function createBaseAccount(input: {
     reliability: defaultReliability(),
     developer: defaultDeveloper(),
     analytics: defaultAnalytics(),
+    setup: defaultSetupProfile(false),
     resetToken: null,
     resetExpiresAt: null,
     createdAt: stamp,
@@ -2400,6 +2430,98 @@ export function revokeApiKey(keyId: string): Result {
       },
     };
     next = pushAudit(next, "API key revoked", keyId);
+    return next;
+  });
+}
+
+export function accountNeedsSetup(account: PublicAccount | UserAccount | null | undefined) {
+  return Boolean(account && !account.setup?.completed);
+}
+
+export function mutateAccountSetup(input: {
+  accountType: "personal" | "business";
+  businessName: string;
+  industry: string;
+  timezone: string;
+  taxState: string;
+  goals: string[];
+  calendarColors: Record<string, string>;
+  notifications: Partial<NotificationSettings>;
+  connectApps: string[];
+}): Result {
+  return mutate((account) => {
+    const stamp = nowIso();
+    const bizId = account.activeBusinessId;
+    const businesses = account.businesses.map((biz) =>
+      biz.id === bizId
+        ? {
+            ...biz,
+            name: input.businessName || biz.name,
+            industry: input.industry || biz.industry,
+          }
+        : biz,
+    );
+
+    const existingApps = account.appSettings.connectedApps;
+    const catalog = defaultAppSettings().connectedApps;
+    const mergedApps = catalog.map((app) => {
+      const prev = existingApps.find((a) => a.id === app.id);
+      const shouldConnect = input.connectApps.includes(app.id);
+      return {
+        ...app,
+        ...(prev || {}),
+        connected: shouldConnect,
+        connectedAt: shouldConnect ? prev?.connectedAt || stamp : null,
+      };
+    });
+
+    const codes =
+      account.security.recoveryCodes.length >= 6
+        ? account.security.recoveryCodes
+        : Array.from({ length: 8 }, () =>
+            `${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`.toUpperCase(),
+          );
+
+    let next: UserAccount = {
+      ...account,
+      personal: {
+        ...account.personal,
+        timezone: input.timezone || account.personal.timezone,
+        title: input.accountType === "personal" ? "Individual" : account.personal.title,
+      },
+      businesses,
+      notifications: {
+        ...account.notifications,
+        ...input.notifications,
+        categories: {
+          ...account.notifications.categories,
+          ...(input.notifications.categories || {}),
+        },
+      },
+      appSettings: {
+        ...account.appSettings,
+        connectedApps: mergedApps,
+      },
+      security: {
+        ...account.security,
+        recoveryCodes: codes,
+      },
+      setup: {
+        completed: true,
+        completedAt: stamp,
+        accountType: input.accountType,
+        taxState: input.taxState || "TX",
+        goals: input.goals,
+        calendarColors: input.calendarColors,
+      },
+    };
+    next = pushActivity(next, "Setup completed", `${input.accountType} · ${input.taxState}`);
+    next = pushAlert(
+      next,
+      "Starter dashboard ready",
+      "Atlas built your day-one dashboard from setup answers.",
+      "info",
+    );
     return next;
   });
 }

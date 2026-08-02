@@ -3507,3 +3507,222 @@ button.linkish:hover {
     max-width: none;
   }
 }
+
+/* ─── First-time setup · global search · starter dashboard ─────────────── */
+
+.app-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.setup-wizard {
+  display: grid;
+  gap: 1rem;
+}
+
+.setup-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mist);
+  overflow: hidden;
+  margin: 1rem 0 0.85rem;
+}
+
+.setup-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal-deep), var(--teal));
+  transition: width 220ms ease;
+}
+
+.setup-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.setup-colors input[type="color"] {
+  width: 100%;
+  height: 2.4rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--foam);
+}
+
+.setup-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.setup-codes code {
+  display: inline-block;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--mist);
+  font-size: 0.9rem;
+}
+
+.starter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.starter-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), var(--foam));
+  color: inherit;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.starter-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--teal);
+}
+
+.starter-card strong {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.starter-card span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.global-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: min(280px, 48vw);
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), var(--foam));
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-align: left;
+}
+
+.global-search-trigger kbd {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--mist);
+  color: var(--ink);
+}
+
+.global-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: start center;
+  padding: 10vh 1rem 1rem;
+}
+
+.global-search-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(18, 28, 30, 0.45);
+  cursor: pointer;
+}
+
+.global-search-panel {
+  position: relative;
+  width: min(720px, 100%);
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.global-search-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  background: var(--foam);
+}
+
+.global-search-hints p {
+  color: var(--ink-soft);
+  margin-bottom: 0.45rem;
+  font-size: 0.88rem;
+}
+
+.global-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: min(50vh, 420px);
+  overflow: auto;
+}
+
+.global-search-results a {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  color: inherit;
+  text-decoration: none;
+}
+
+.global-search-results a:hover {
+  border-color: var(--line);
+  background: var(--mist);
+}
+
+.global-search-source {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.68rem;
+  color: var(--teal-deep);
+}
+
+.global-search-results strong {
+  font-size: 0.98rem;
+}
+
+.global-search-results small,
+.global-search-results .muted,
+.muted {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 900px) {
+  .starter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .global-search-trigger {
+    min-width: 0;
+  }
+
+  .app-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -23,7 +23,8 @@ export default function SignupPage() {
   const [aiPersonality, setAiPersonality] = useState<(typeof personalities)[number]>("Friendly");
 
   useEffect(() => {
-    if (ready && account) router.replace("/app/account");
+    if (!ready || !account) return;
+    router.replace(account.setup?.completed ? "/app" : "/app/setup");
   }, [ready, account, router]);
 
   function onSubmit(e: FormEvent) {
@@ -33,7 +34,7 @@ export default function SignupPage() {
       email,
       password,
       ownerName,
-      businessName,
+      businessName: businessName.trim() || `${ownerName.trim().split(" ")[0] || "My"} Workspace`,
       industry,
       aiName,
       aiPersonality,
@@ -42,7 +43,7 @@ export default function SignupPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/account");
+    router.push("/app/setup");
   }
 
   function onOAuth(provider: OAuthProvider) {
@@ -52,7 +53,7 @@ export default function SignupPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/account");
+    router.push("/app/setup");
   }
 
   return (

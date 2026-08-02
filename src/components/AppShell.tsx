@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { useAccount } from "@/components/AccountProvider";
-import { customEmployee } from "@/lib/data";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { accountNeedsSetup } from "@/lib/account";
 import { navGroups } from "@/lib/atlas-platform";
+import { customEmployee } from "@/lib/data";
+import { ensureDailyBackup } from "@/lib/recovery";
 
 export function AppShell({
   title,
@@ -19,6 +23,12 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const { account, aiName, ownerName, ready, logout } = useAccount();
+  const needsSetup = accountNeedsSetup(account);
+
+  const accountId = account?.id;
+  useEffect(() => {
+    if (accountId) ensureDailyBackup();
+  }, [accountId]);
 
   return (
     <div className="app-shell">
@@ -67,8 +77,8 @@ export function AppShell({
               Log in
             </Link>
           )}
-          <Link href="/onboarding" className="ghost-link">
-            Customize your AI employee
+          <Link href="/app/setup" className="ghost-link">
+            First-time setup
           </Link>
         </div>
       </aside>
@@ -79,7 +89,10 @@ export function AppShell({
             <h1>{title}</h1>
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
-          {action}
+          <div className="app-top-actions">
+            <GlobalSearch />
+            {action}
+          </div>
         </header>
         <div className="app-content">
           {ready && !account ? (
@@ -97,6 +110,19 @@ export function AppShell({
                 </Link>
                 <Link className="ghost-link" href="/forgot-password">
                   Reset password
+                </Link>
+              </div>
+            </div>
+          ) : null}
+          {ready && needsSetup && pathname !== "/app/setup" ? (
+            <div className="tax-safety-banner" style={{ marginBottom: "1rem" }}>
+              <div className="tax-safety-banner-head">
+                <strong>Finish first-time setup</strong>
+                <span>Choose personal or business, tax state, goals, colors, and connected apps — Atlas builds your starter dashboard.</span>
+              </div>
+              <div className="cta-row">
+                <Link className="btn btn-dark" href="/app/setup">
+                  Continue setup
                 </Link>
               </div>
             </div>

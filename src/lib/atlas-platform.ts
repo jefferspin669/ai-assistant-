@@ -16,6 +16,9 @@ export const navGroups: NavGroup[] = [
   {
     label: "Platform",
     items: [
+      { href: "/app/setup", label: "First-time setup" },
+      { href: "/app/data", label: "Import & export" },
+      { href: "/app/recovery", label: "Undo & recovery" },
       { href: "/app/tasks", label: "Tasks" },
       { href: "/app/architecture", label: "Architecture" },
       { href: "/app/account", label: "Account Center" },

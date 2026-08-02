@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
-import type { OAuthProvider } from "@/lib/account";
+import type { OAuthProvider, PublicAccount } from "@/lib/account";
 
 const providers: OAuthProvider[] = ["google", "apple", "microsoft"];
+
+function nextPath(account: PublicAccount | null | undefined) {
+  return account && !account.setup?.completed ? "/app/setup" : "/app";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,7 +22,7 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
 
   useEffect(() => {
-    if (ready && account) router.replace("/app/account");
+    if (ready && account) router.replace(nextPath(account));
   }, [ready, account, router]);
 
   function onSubmit(e: FormEvent) {
@@ -33,7 +37,7 @@ export default function LoginPage() {
       setChallengeId(result.challengeId);
       return;
     }
-    router.push("/app/account");
+    router.push(nextPath("account" in result ? result.account : null));
   }
 
   function onVerify(e: FormEvent) {
@@ -45,7 +49,7 @@ export default function LoginPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/account");
+    router.push("/app");
   }
 
   function onOAuth(provider: OAuthProvider) {
@@ -55,7 +59,7 @@ export default function LoginPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/account");
+    router.push("/app/setup");
   }
 
   function onPasskey() {
@@ -69,7 +73,7 @@ export default function LoginPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/account");
+    router.push("/app");
   }
 
   return (
