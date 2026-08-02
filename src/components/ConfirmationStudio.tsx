@@ -11,6 +11,7 @@ import {
   type PendingConfirmation,
   type RiskyActionKind,
 } from "@/lib/confirmations";
+import { setSyncStatus } from "@/lib/sync-status";
 
 export function ConfirmationStudio() {
   const [items, setItems] = useState<PendingConfirmation[]>([]);
@@ -31,6 +32,7 @@ export function ConfirmationStudio() {
     const item = queueCatalogAction(kind);
     refresh();
     setSelected(item);
+    setSyncStatus("action_pending", `Confirm “${item.title}” before Atlas continues.`);
     setMessage(`Queued “${item.title}” — waiting for your confirmation.`);
   }
 
@@ -41,6 +43,10 @@ export function ConfirmationStudio() {
       setMessage(result.error);
       return;
     }
+    setSyncStatus(
+      approved ? "action_completed" : "saved",
+      result.item.resultNote || undefined,
+    );
     setMessage(result.item.resultNote || "");
     refresh();
   }

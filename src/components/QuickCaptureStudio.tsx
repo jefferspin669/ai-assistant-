@@ -11,6 +11,8 @@ import {
   type CaptureKind,
   type CaptureNote,
 } from "@/lib/quick-capture";
+import { enqueueOfflineChange, isOffline, refreshOfflineCache } from "@/lib/offline";
+import { runSaveCycle } from "@/lib/sync-status";
 
 export function QuickCaptureStudio() {
   const [notes, setNotes] = useState<CaptureNote[]>([]);
@@ -25,13 +27,20 @@ export function QuickCaptureStudio() {
     setNotes(loadCaptures());
   }, []);
 
-  function persist(next: CaptureNote[], note: string) {
+  async function persist(next: CaptureNote[], note: string) {
     saveCaptures(next);
     setNotes(next);
+    refreshOfflineCache();
+    if (isOffline()) {
+      enqueueOfflineChange(note);
+      setMessage(`${note} (queued offline)`);
+      return;
+    }
+    await runSaveCycle("Note");
     setMessage(note);
   }
 
-  function onCapture(e: FormEvent) {
+  async function onCapture(e: FormEvent) {
     e.preventDefault();
     const note = createCapture({
       kind,
@@ -53,7 +62,7 @@ export function QuickCaptureStudio() {
               .filter(Boolean)
           : undefined,
     });
-    persist([note, ...notes], `Saved ${kind} note.`);
+    await persist([note, ...notes], `Saved ${kind} note.`);
     setTitle("");
     setBody("");
     setLinkUrl("");

@@ -9,16 +9,16 @@ import { computeTaxEstimate, loadTaxTransactions, money } from "@/lib/tax-ledger
 import { vaultStatus } from "@/lib/secure-store";
 
 const V1_SHIPPED = [
+  { href: "/app/sync", label: "Status & sync", detail: "Saved · Saving · Synced · Offline…" },
+  { href: "/app/offline", label: "Offline support", detail: "Calendar, tasks, notes while offline" },
+  { href: "/app/admin", label: "Admin panel", detail: "Accounts, billing, health, suspend/restore" },
+  { href: "/app/support", label: "Support center", detail: "Help, tickets, friendly errors" },
   { href: "/app", label: "Dashboard", detail: "Customizable work / personal layouts" },
   { href: "/app/confirmations", label: "Confirmations", detail: "Risky actions wait for approval" },
   { href: "/app/connections", label: "Connection center", detail: "Google, Stripe, banks, Slack…" },
   { href: "/app/contacts", label: "Contacts", detail: "Customers, vendors, family, partners" },
   { href: "/app/notes", label: "Quick capture", detail: "Notes → tasks, events, customers" },
-  { href: "/app/setup", label: "First-time setup", detail: "Guided onboarding → starter dashboard" },
-  { href: "/app", label: "Global search", detail: "⌘K across events, receipts, chats, files" },
-  { href: "/app/data", label: "Import & export", detail: "ICS, CSV, Excel, accountant packs" },
   { href: "/app/recovery", label: "Undo & recovery", detail: "Trash, backups, version history" },
-  { href: "/app/appointments", label: "Calendar", detail: "Smart Calendar + color categories" },
 ];
 
 const ROADMAP = [

@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { SyncStatusBar } from "@/components/SyncStatusBar";
 import { accountNeedsSetup } from "@/lib/account";
 import { navGroups } from "@/lib/atlas-platform";
 import { customEmployee } from "@/lib/data";
+import { refreshOfflineCache } from "@/lib/offline";
 import { ensureDailyBackup } from "@/lib/recovery";
 
 export function AppShell({
@@ -28,6 +30,7 @@ export function AppShell({
   const accountId = account?.id;
   useEffect(() => {
     if (accountId) ensureDailyBackup();
+    refreshOfflineCache();
   }, [accountId]);
 
   return (
@@ -93,6 +96,7 @@ export function AppShell({
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
           <div className="app-top-actions">
+            <SyncStatusBar />
             <GlobalSearch />
             {action}
           </div>
