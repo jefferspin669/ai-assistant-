@@ -17,6 +17,11 @@ export const navGroups: NavGroup[] = [
     label: "Platform",
     items: [
       { href: "/app/setup", label: "First-time setup" },
+      { href: "/app/privacy", label: "Privacy center" },
+      { href: "/app/accessibility", label: "Accessibility" },
+      { href: "/app/testing", label: "Testing system" },
+      { href: "/app/flags", label: "Feature flags" },
+      { href: "/app/feedback", label: "Feedback" },
       { href: "/app/sync", label: "Status & sync" },
       { href: "/app/offline", label: "Offline" },
       { href: "/app/support", label: "Support center" },

@@ -4024,3 +4024,137 @@ button.linkish:hover {
     flex-direction: column;
   }
 }
+
+/* ─── Privacy · accessibility · feedback ─────────────────────────────── */
+
+.privacy-row span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.privacy-row small {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.a11y-cal-preview {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.a11y-cal-preview li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--foam);
+}
+
+.a11y-cal-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--sc-color) 18%, white);
+}
+
+.a11y-cal-swatch {
+  margin-left: auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 4px;
+  background: var(--sc-color);
+}
+
+.caption-bar {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  background: var(--mist);
+  font-size: 0.9rem;
+}
+
+.sc-event-icon {
+  display: inline-block;
+  min-width: 1em;
+}
+
+.sc-event small {
+  display: block;
+}
+
+.feedback-toolbar {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.feedback-toolbar.compact {
+  margin-top: 0.5rem;
+}
+
+.feedback-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.feedback-grid .btn {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.feedback-grid small {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+html[data-a11y-large-text="1"] {
+  font-size: 112.5%;
+}
+
+html[data-a11y-contrast="1"] {
+  --ink: #0a0a0a;
+  --ink-soft: #2a2a2a;
+  --line: #6b7280;
+  --foam: #ffffff;
+  --paper: #ffffff;
+}
+
+html[data-a11y-motion="reduce"] *,
+html[data-a11y-motion="reduce"] *::before,
+html[data-a11y-motion="reduce"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@media (max-width: 900px) {
+  .a11y-cal-preview,
+  .feedback-grid {
+    grid-template-columns: 1fr;
+  }
+}

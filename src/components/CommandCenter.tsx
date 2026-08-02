@@ -8,6 +8,7 @@ import {
   morningBriefing,
 } from "@/lib/data";
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
+import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 
 type ChatItem =
@@ -246,6 +247,7 @@ export function CommandCenter() {
               <div className="bubble bubble-ai" key={`a-${index}`}>
                 <div className="agent-tag">{message.agentLabel}</div>
                 {message.text}
+                <FeedbackToolbar target={message.text.slice(0, 80)} compact />
               </div>
             );
           })}

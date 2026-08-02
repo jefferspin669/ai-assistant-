@@ -253,6 +253,22 @@ export function SmartCalendarStudio() {
 
   function EventChip({ event, compact = false }: { event: CalendarEvent; compact?: boolean }) {
     const category = categoryById(categories, event.categoryId);
+    const icon =
+      (
+        {
+          meetings: "◎",
+          personal: "☺",
+          work: "▣",
+          deadlines: "⚑",
+          bills: "$",
+          taxes: "§",
+          "high-priority": "!",
+          family: "⌂",
+          school: "▤",
+          travel: "✈",
+          fitness: "✦",
+        } as Record<string, string>
+      )[category.id] || "•";
     return (
       <button
         type="button"
@@ -261,16 +277,20 @@ export function SmartCalendarStudio() {
         draggable
         onDragStart={() => setDragId(event.id)}
         onDragEnd={() => setDragId(null)}
-        title={`${event.title} · drag to reschedule`}
+        title={`${category.label}: ${event.title} · drag to reschedule`}
+        aria-label={`${category.label} event: ${event.title}`}
       >
-        <strong>{compact ? event.title : `${formatTime(event.start)} · ${event.title}`}</strong>
-        {!compact ? (
-          <small>
-            {category.label}
-            {event.location ? ` · ${event.location}` : ""}
-            {event.invitees.length ? ` · ${event.invitees.join(", ")}` : ""}
-          </small>
-        ) : null}
+        <strong>
+          <span className="sc-event-icon" aria-hidden>
+            {icon}
+          </span>{" "}
+          {compact ? event.title : `${formatTime(event.start)} · ${event.title}`}
+        </strong>
+        <small>
+          {category.label}
+          {!compact && event.location ? ` · ${event.location}` : ""}
+          {!compact && event.invitees.length ? ` · ${event.invitees.join(", ")}` : ""}
+        </small>
       </button>
     );
   }
@@ -497,8 +517,10 @@ export function SmartCalendarStudio() {
                               draggable
                               onDragStart={() => setDragId(event.id)}
                               onDragEnd={() => setDragId(null)}
+                              aria-label={`${category.label}: ${event.title}`}
+                              title={`${category.label}: ${event.title}`}
                             >
-                              {event.title}
+                              {category.label.slice(0, 1)} · {event.title}
                             </button>
                           );
                         })}

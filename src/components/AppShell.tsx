@@ -9,6 +9,7 @@ import { SyncStatusBar } from "@/components/SyncStatusBar";
 import { accountNeedsSetup } from "@/lib/account";
 import { navGroups } from "@/lib/atlas-platform";
 import { customEmployee } from "@/lib/data";
+import { applyAccessibility, loadAccessibility } from "@/lib/accessibility";
 import { refreshOfflineCache } from "@/lib/offline";
 import { ensureDailyBackup } from "@/lib/recovery";
 
@@ -31,6 +32,7 @@ export function AppShell({
   useEffect(() => {
     if (accountId) ensureDailyBackup();
     refreshOfflineCache();
+    applyAccessibility(loadAccessibility());
   }, [accountId]);
 
   return (

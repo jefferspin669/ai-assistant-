@@ -2734,6 +2734,23 @@ export function deletePrompt(promptId: string): Result {
   }));
 }
 
+export function clearConversationHistory(): Result {
+  return mutate((account) => {
+    let next: UserAccount = {
+      ...account,
+      aiWorkspace: {
+        ...account.aiWorkspace,
+        chats: [],
+        draftChatId: null,
+        draftText: "",
+      },
+    };
+    next = pushActivity(next, "Conversation history cleared", "Privacy center");
+    next = pushAlert(next, "History cleared", "Saved chats were removed from this account.", "info");
+    return next;
+  });
+}
+
 export function addGeneratedFile(title: string, kind: string, content: string): Result {
   return mutate((account) => {
     if (!title.trim() || !content.trim()) return "Title and content are required.";

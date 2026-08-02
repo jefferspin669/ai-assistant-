@@ -9,16 +9,16 @@ import { computeTaxEstimate, loadTaxTransactions, money } from "@/lib/tax-ledger
 import { vaultStatus } from "@/lib/secure-store";
 
 const V1_SHIPPED = [
+  { href: "/app/privacy", label: "Privacy center", detail: "Memory, sharing, export, deletion" },
+  { href: "/app/accessibility", label: "Accessibility", detail: "Large text, contrast, calendar labels" },
+  { href: "/app/testing", label: "Testing system", detail: "Login, tax, backup, security suites" },
+  { href: "/app/flags", label: "Feature flags", detail: "Beta calendar, tax calc, new dashboard" },
+  { href: "/app/feedback", label: "Feedback", detail: "Helpful / incorrect / undo Atlas" },
   { href: "/app/sync", label: "Status & sync", detail: "Saved · Saving · Synced · Offline…" },
   { href: "/app/offline", label: "Offline support", detail: "Calendar, tasks, notes while offline" },
   { href: "/app/admin", label: "Admin panel", detail: "Accounts, billing, health, suspend/restore" },
   { href: "/app/support", label: "Support center", detail: "Help, tickets, friendly errors" },
-  { href: "/app", label: "Dashboard", detail: "Customizable work / personal layouts" },
   { href: "/app/confirmations", label: "Confirmations", detail: "Risky actions wait for approval" },
-  { href: "/app/connections", label: "Connection center", detail: "Google, Stripe, banks, Slack…" },
-  { href: "/app/contacts", label: "Contacts", detail: "Customers, vendors, family, partners" },
-  { href: "/app/notes", label: "Quick capture", detail: "Notes → tasks, events, customers" },
-  { href: "/app/recovery", label: "Undo & recovery", detail: "Trash, backups, version history" },
 ];
 
 const ROADMAP = [
