@@ -3924,6 +3924,57 @@ button.linkish:hover {
   min-width: 0;
 }
 
+.dash-profile-panel {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--foam) 88%, var(--accent, #1d4e4a) 12%), var(--paper)),
+    var(--paper);
+  border-color: color-mix(in srgb, var(--line) 70%, var(--accent, #1d4e4a) 30%);
+}
+
+.dash-profile-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dash-profile-hero h2 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  letter-spacing: -0.02em;
+}
+
+.dash-profile-owner {
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.72em;
+}
+
+.dash-welcome-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.dash-welcome-hero::before {
+  content: "";
+  position: absolute;
+  inset: auto -10% -40% 40%;
+  height: 180%;
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent, #1d4e4a) 18%, transparent), transparent 65%);
+  pointer-events: none;
+}
+
+.dash-welcome-biz strong {
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .dash-profile-hero {
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 900px) {
   .connection-grid,
   .contact-linked {

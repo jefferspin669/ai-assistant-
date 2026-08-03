@@ -1,8 +1,10 @@
 export type TaxTxnKind = "income" | "expense";
+export type TaxBucket = "business" | "personal";
 
 export type TaxTransaction = {
   id: string;
   kind: TaxTxnKind;
+  bucket?: TaxBucket;
   label: string;
   amount: number;
   category: string;
@@ -21,6 +23,8 @@ export type TaxEstimateBreakdown = {
   selfEmployment: number;
   totalEstimated: number;
   effectiveRate: number;
+  businessExpenses: number;
+  personalExpenses: number;
 };
 
 const STORAGE_KEY = "atlas-tax-ledger-v1";
@@ -40,12 +44,20 @@ function nowIso() {
 }
 
 export function seedTaxTransactions(now = new Date()): TaxTransaction[] {
-  const d = (offset: number, label: string, kind: TaxTxnKind, amount: number, category: string) => {
+  const d = (
+    offset: number,
+    label: string,
+    kind: TaxTxnKind,
+    amount: number,
+    category: string,
+    bucket: TaxBucket = "business",
+  ) => {
     const date = new Date(now);
     date.setDate(date.getDate() + offset);
     return {
       id: newId(),
       kind,
+      bucket,
       label,
       amount,
       category,
@@ -63,7 +75,15 @@ export function seedTaxTransactions(now = new Date()): TaxTransaction[] {
     d(-10, "Truck fuel", "expense", 214, "Vehicle"),
     d(-5, "CallbackFlow consulting hours", "income", 2800, "Service income"),
     d(-2, "Software subscriptions", "expense", 96, "Software"),
+    d(-3, "Home office supplies", "expense", 48, "Office", "personal"),
   ];
+}
+
+function normalizeRow(row: TaxTransaction): TaxTransaction {
+  return {
+    ...row,
+    bucket: row.bucket === "personal" ? "personal" : "business",
+  };
 }
 
 export function loadTaxTransactions(): TaxTransaction[] {
@@ -76,7 +96,8 @@ export function loadTaxTransactions(): TaxTransaction[] {
       return seeded;
     }
     const parsed = JSON.parse(raw) as TaxTransaction[];
-    return Array.isArray(parsed) && parsed.length ? parsed : seedTaxTransactions();
+    if (!Array.isArray(parsed) || !parsed.length) return seedTaxTransactions();
+    return parsed.map(normalizeRow);
   } catch {
     return seedTaxTransactions();
   }
@@ -84,7 +105,7 @@ export function loadTaxTransactions(): TaxTransaction[] {
 
 export function saveTaxTransactions(rows: TaxTransaction[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows.map(normalizeRow)));
 }
 
 export function createTaxTransaction(input: {
@@ -92,6 +113,7 @@ export function createTaxTransaction(input: {
   label: string;
   amount: number;
   category: string;
+  bucket?: TaxBucket;
   date?: string;
   notes?: string;
   receiptName?: string | null;
@@ -99,6 +121,7 @@ export function createTaxTransaction(input: {
   return {
     id: newId(),
     kind: input.kind,
+    bucket: input.bucket === "personal" ? "personal" : "business",
     label: input.label.trim() || (input.kind === "income" ? "Income" : "Expense"),
     amount: Math.max(0, Number(input.amount) || 0),
     category: input.category.trim() || "General",
@@ -114,12 +137,18 @@ export function removeTaxTransaction(rows: TaxTransaction[], id: string) {
 }
 
 export function computeTaxEstimate(rows: TaxTransaction[]): TaxEstimateBreakdown {
-  const grossIncome = rows
+  // Business tax estimate: income + business expenses. Personal expenses tracked separately.
+  const businessRows = rows.filter((r) => r.bucket !== "personal");
+  const grossIncome = businessRows
     .filter((r) => r.kind === "income")
     .reduce((sum, r) => sum + r.amount, 0);
-  const expenses = rows
+  const businessExpenses = businessRows
     .filter((r) => r.kind === "expense")
     .reduce((sum, r) => sum + r.amount, 0);
+  const personalExpenses = rows
+    .filter((r) => r.bucket === "personal" && r.kind === "expense")
+    .reduce((sum, r) => sum + r.amount, 0);
+  const expenses = businessExpenses;
   const taxableProfit = Math.max(0, grossIncome - expenses);
   const federal = Math.round(taxableProfit * FEDERAL_RATE);
   const state = Math.round(taxableProfit * STATE_RATE);
@@ -135,6 +164,8 @@ export function computeTaxEstimate(rows: TaxTransaction[]): TaxEstimateBreakdown
     selfEmployment,
     totalEstimated,
     effectiveRate,
+    businessExpenses,
+    personalExpenses,
   };
 }
 

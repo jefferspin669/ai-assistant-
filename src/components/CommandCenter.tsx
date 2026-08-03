@@ -10,6 +10,7 @@ import {
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
+import { styleReplyWithFeedback } from "@/lib/feedback";
 
 type ChatItem =
   | { kind: "user"; text: string }
@@ -61,27 +62,28 @@ export function CommandCenter() {
   }
 
   function pushResult(result: CommandResult, spoken: string) {
+    const reply = styleReplyWithFeedback(result.reply);
     const next: ChatItem[] = [{ kind: "user", text: spoken }];
     if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
       const confirmation = requestConfirmation({
         kind: "other",
         title: result.confirmPrompt.replace(/\?$/, ""),
-        summary: result.reply,
+        summary: reply,
         details: [result.confirmPrompt, `Requested from Command Center: “${spoken}”`],
         impact: "Atlas will only continue after you confirm.",
         requestedBy: result.agentLabel,
       });
       next.push({
         kind: "confirm",
-        text: result.reply,
+        text: reply,
         agentLabel: result.agentLabel,
         confirmPrompt: result.confirmPrompt,
         doneLabel: result.doneLabel,
         confirmationId: confirmation.id,
       });
     } else {
-      next.push({ kind: "ai", text: result.reply, agentLabel: result.agentLabel });
-      persistTurn(spoken, result.reply, result.agentLabel);
+      next.push({ kind: "ai", text: reply, agentLabel: result.agentLabel });
+      persistTurn(spoken, reply, result.agentLabel);
     }
     setMessages((prev) => [...prev, ...next]);
   }

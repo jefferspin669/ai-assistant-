@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
+  addCustomConnection,
   connectionStats,
   connectService,
   disconnectService,
   loadConnections,
+  removeConnection,
   syncService,
+  updateConnection,
   type ServiceConnection,
 } from "@/lib/connections";
 
@@ -24,10 +27,26 @@ function healthLabel(health: ServiceConnection["health"]) {
   }
 }
 
+const CATEGORIES: ServiceConnection["category"][] = [
+  "identity",
+  "payments",
+  "banking",
+  "accounting",
+  "commerce",
+  "comms",
+  "storage",
+];
+
 export function ConnectionCenterStudio() {
   const [connections, setConnections] = useState<ServiceConnection[]>([]);
   const [message, setMessage] = useState("");
   const [accountDraft, setAccountDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editDetail, setEditDetail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState<ServiceConnection["category"]>("comms");
+  const [newDetail, setNewDetail] = useState("");
 
   useEffect(() => {
     setConnections(loadConnections());
@@ -40,10 +59,47 @@ export function ConnectionCenterStudio() {
     setMessage(note);
   }
 
+  function startEdit(conn: ServiceConnection) {
+    setEditingId(conn.id);
+    setEditLabel(conn.accountLabel || "");
+    setEditDetail(conn.detail);
+  }
+
+  function saveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editingId) return;
+    refresh(
+      updateConnection(editingId, {
+        accountLabel: editLabel,
+        detail: editDetail,
+        health: editLabel.trim() ? "healthy" : undefined,
+      }),
+      "Connection updated.",
+    );
+    setEditingId(null);
+  }
+
+  function onAddCustom(e: FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    refresh(
+      addCustomConnection({
+        name: newName,
+        category: newCategory,
+        detail: newDetail,
+        accountLabel: accountDraft || undefined,
+        connect: true,
+      }),
+      `Added “${newName.trim()}”.`,
+    );
+    setNewName("");
+    setNewDetail("");
+  }
+
   return (
     <AppShell
       title="Connection center"
-      subtitle="Manage Google, Microsoft, Stripe, banks, QuickBooks, and the rest of your stack in one place."
+      subtitle="Add, change, sync, or disconnect Google, Microsoft, Stripe, banks, and custom services."
     >
       <div className="stat-grid metrics-dense">
         <div className="stat">
@@ -70,24 +126,61 @@ export function ConnectionCenterStudio() {
         </div>
         <div className="stat">
           <span>Categories</span>
-          <strong>7</strong>
+          <strong>{CATEGORIES.length}</strong>
           <small>Identity → storage</small>
         </div>
       </div>
 
-      <section className="panel">
-        <h2>Connect an account</h2>
-        <div className="form-grid" style={{ maxWidth: 420 }}>
-          <label>
-            Account email / label
-            <input
-              value={accountDraft}
-              onChange={(e) => setAccountDraft(e.target.value)}
-              placeholder="you@business.com"
-            />
-          </label>
-        </div>
-      </section>
+      <div className="split">
+        <section className="panel">
+          <h2>Connect an account</h2>
+          <div className="form-grid">
+            <label>
+              Default account email / label
+              <input
+                value={accountDraft}
+                onChange={(e) => setAccountDraft(e.target.value)}
+                placeholder="you@business.com"
+              />
+            </label>
+          </div>
+          <p className="account-hint">Used when you Connect a service or add a custom one.</p>
+        </section>
+
+        <section className="panel">
+          <h2>Add a custom connection</h2>
+          <form className="form-grid" onSubmit={onAddCustom}>
+            <label>
+              Service name
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="Jobber" />
+            </label>
+            <label>
+              Category
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value as ServiceConnection["category"])}
+              >
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              What it does
+              <input
+                value={newDetail}
+                onChange={(e) => setNewDetail(e.target.value)}
+                placeholder="Field service jobs and invoices"
+              />
+            </label>
+            <button className="btn btn-dark" type="submit">
+              Add connection
+            </button>
+          </form>
+        </section>
+      </div>
 
       <div className="connection-grid">
         {connections.map((conn) => (
@@ -97,7 +190,9 @@ export function ConnectionCenterStudio() {
                 <p className="briefing-kicker">{conn.category}</p>
                 <h3>{conn.name}</h3>
               </div>
-              <span className={`badge ${conn.health === "healthy" ? "ok" : conn.health === "needs_attention" ? "warn" : ""}`}>
+              <span
+                className={`badge ${conn.health === "healthy" ? "ok" : conn.health === "needs_attention" ? "warn" : ""}`}
+              >
                 {healthLabel(conn.health)}
               </span>
             </header>
@@ -120,39 +215,78 @@ export function ConnectionCenterStudio() {
                 <dd>{healthLabel(conn.health)}</dd>
               </div>
             </dl>
-            <div className="cta-row">
-              {conn.connected ? (
-                <>
+
+            {editingId === conn.id ? (
+              <form className="form-grid" onSubmit={saveEdit} style={{ marginTop: "0.75rem" }}>
+                <label>
+                  Account label
+                  <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
+                </label>
+                <label>
+                  Detail
+                  <input value={editDetail} onChange={(e) => setEditDetail(e.target.value)} />
+                </label>
+                <div className="cta-row">
+                  <button className="btn btn-dark" type="submit">
+                    Save changes
+                  </button>
+                  <button className="btn btn-outline" type="button" onClick={() => setEditingId(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="cta-row">
+                {conn.connected ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => refresh(syncService(conn.id), `Synced ${conn.name}.`)}
+                    >
+                      Sync now
+                    </button>
+                    <button type="button" className="btn btn-outline" onClick={() => startEdit(conn)}>
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => refresh(disconnectService(conn.id), `Disconnected ${conn.name}.`)}
+                    >
+                      Disconnect
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-dark"
+                      onClick={() =>
+                        refresh(
+                          connectService(conn.id, accountDraft || undefined),
+                          `Connected ${conn.name}.`,
+                        )
+                      }
+                    >
+                      Connect
+                    </button>
+                    <button type="button" className="btn btn-outline" onClick={() => startEdit(conn)}>
+                      Change
+                    </button>
+                  </>
+                )}
+                {conn.id.startsWith("custom-") ? (
                   <button
                     type="button"
-                    className="btn btn-outline"
-                    onClick={() => refresh(syncService(conn.id), `Synced ${conn.name}.`)}
+                    className="ghost-link"
+                    onClick={() => refresh(removeConnection(conn.id), `Removed ${conn.name}.`)}
                   >
-                    Sync now
+                    Remove
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => refresh(disconnectService(conn.id), `Disconnected ${conn.name}.`)}
-                  >
-                    Disconnect
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-dark"
-                  onClick={() =>
-                    refresh(
-                      connectService(conn.id, accountDraft || undefined),
-                      `Connected ${conn.name}.`,
-                    )
-                  }
-                >
-                  Connect
-                </button>
-              )}
-            </div>
+                ) : null}
+              </div>
+            )}
           </article>
         ))}
       </div>
