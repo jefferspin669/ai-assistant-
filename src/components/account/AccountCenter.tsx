@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAccount } from "@/components/AccountProvider";
+import { useLanguage } from "@/components/LanguageProvider";
 import {
   DEMO_2FA_CODE,
   LANGUAGES,
@@ -117,6 +118,7 @@ export function AccountCenter() {
     deleteDevice,
     readAlerts,
   } = useAccount();
+  const { setLanguage: setUiLanguage, languages: uiLanguages } = useLanguage();
 
   const [section, setSection] = useState<Section>("overview");
   const [flash, setFlash] = useState("");
@@ -600,7 +602,12 @@ export function AccountCenter() {
                     language,
                     theme,
                   });
-                  result.ok ? note("Personal profile saved.") : fail(result.error);
+                  if (result.ok) {
+                    setUiLanguage(language);
+                    note("Personal profile saved — app language applied across pages.");
+                  } else {
+                    fail(result.error);
+                  }
                 }}
               >
                 <label>
@@ -629,10 +636,16 @@ export function AccountCenter() {
                 </label>
                 <label>
                   Language
-                  <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                    {LANGUAGES.map((lang) => (
+                  <select
+                    value={language}
+                    onChange={(e) => {
+                      setLanguage(e.target.value);
+                      setUiLanguage(e.target.value);
+                    }}
+                  >
+                    {(uiLanguages.length ? uiLanguages : LANGUAGES).map((lang) => (
                       <option key={lang.id} value={lang.id}>
-                        {lang.label}
+                        {"native" in lang ? `${lang.label} (${lang.native})` : lang.label}
                       </option>
                     ))}
                   </select>
