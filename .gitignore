@@ -1,6 +1,7 @@
 node_modules
 .next
 out
+.pages-build-stash
 build
 coverage
 *.log
