@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useAccount } from "@/components/AccountProvider";
+import { useLanguage } from "@/components/LanguageProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { SyncStatusBar } from "@/components/SyncStatusBar";
 import { accountNeedsSetup } from "@/lib/account";
@@ -26,6 +27,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const { account, aiName, ownerName, ready, logout } = useAccount();
+  const { language, setLanguage, languages, t, tNav, tTitle } = useLanguage();
   const needsSetup = accountNeedsSetup(account);
 
   const accountId = account?.id;
@@ -45,7 +47,7 @@ export function AppShell({
         <nav className="sidebar-nav">
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
-              <div className="nav-group-label">{group.label}</div>
+              <div className="nav-group-label">{tNav(group.label)}</div>
               {group.items.map((item) => {
                 const active = item.exact
                   ? pathname === item.href
@@ -56,7 +58,7 @@ export function AppShell({
                     href={item.href}
                     className={active ? "nav-item active" : "nav-item"}
                   >
-                    {item.label}
+                    {tNav(item.label)}
                   </Link>
                 );
               })}
@@ -64,29 +66,47 @@ export function AppShell({
           ))}
         </nav>
         <div className="sidebar-foot">
+          <label className="language-switcher">
+            <span>{t("shell.language", "Language")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              aria-label={t("shell.language", "Language")}
+            >
+              {languages.map((lang) => (
+                <option key={lang.id} value={lang.id}>
+                  {lang.native}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="ai-chip">
-            <strong>{aiName} is online</strong>
+            <strong>
+              {aiName} {t("shell.online", "is online")}
+            </strong>
             <span>
-              {account ? `${ownerName} · saved account` : `Never sleeps · ${customEmployee.languages.join(" · ")}`}
+              {account
+                ? `${ownerName} · ${t("shell.savedAccount", "saved account")}`
+                : `Never sleeps · ${customEmployee.languages.join(" · ")}`}
             </span>
           </div>
           <Link href="/app/account" className="ghost-link">
-            {account ? "Account Center" : "Create account"}
+            {account ? t("shell.account", "Account Center") : t("shell.createAccount", "Create account")}
           </Link>
           {account ? (
             <button type="button" className="ghost-link" onClick={() => logout()}>
-              Log out
+              {t("shell.logout", "Log out")}
             </button>
           ) : (
             <Link href="/login" className="ghost-link">
-              Log in
+              {t("shell.login", "Log in")}
             </Link>
           )}
           <Link href="/app/setup" className="ghost-link">
-            First-time setup
+            {t("shell.setup", "First-time setup")}
           </Link>
           <Link href="/app/notes" className="ghost-link">
-            Quick capture
+            {t("shell.capture", "Quick capture")}
           </Link>
         </div>
       </aside>
@@ -94,7 +114,7 @@ export function AppShell({
       <div className="app-main">
         <header className="app-top">
           <div>
-            <h1>{title}</h1>
+            <h1>{tTitle(title)}</h1>
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
           <div className="app-top-actions">
@@ -107,18 +127,18 @@ export function AppShell({
           {ready && !account ? (
             <div className="tax-safety-banner" style={{ marginBottom: "1rem" }}>
               <div className="tax-safety-banner-head">
-                <strong>Guest mode</strong>
-                <span>Create an account to save chats, files, and password-protected vault data.</span>
+                <strong>{t("shell.guest", "Guest mode")}</strong>
+                <span>{t("shell.guestHint")}</span>
               </div>
               <div className="cta-row">
                 <Link className="btn btn-dark" href="/signup">
-                  Register
+                  {t("shell.register", "Register")}
                 </Link>
                 <Link className="btn btn-outline" href="/login">
-                  Log in
+                  {t("shell.login", "Log in")}
                 </Link>
                 <Link className="ghost-link" href="/forgot-password">
-                  Reset password
+                  {t("shell.reset", "Reset password")}
                 </Link>
               </div>
             </div>
@@ -126,12 +146,12 @@ export function AppShell({
           {ready && needsSetup && pathname !== "/app/setup" ? (
             <div className="tax-safety-banner" style={{ marginBottom: "1rem" }}>
               <div className="tax-safety-banner-head">
-                <strong>Finish first-time setup</strong>
-                <span>Choose personal or business, tax state, goals, colors, and connected apps — Atlas builds your starter dashboard.</span>
+                <strong>{t("shell.finishSetup", "Finish first-time setup")}</strong>
+                <span>{t("shell.finishSetupHint")}</span>
               </div>
               <div className="cta-row">
                 <Link className="btn btn-dark" href="/app/setup">
-                  Continue setup
+                  {t("shell.continueSetup", "Continue setup")}
                 </Link>
               </div>
             </div>
