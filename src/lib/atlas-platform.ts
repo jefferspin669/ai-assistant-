@@ -34,6 +34,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/recovery", label: "Undo & recovery" },
       { href: "/app/tasks", label: "Tasks" },
       { href: "/app/architecture", label: "Architecture" },
+      { href: "/app/backend", label: "Backend" },
       { href: "/app/account", label: "Account Center" },
       { href: "/app/security", label: "Secure database" },
       { href: "/app/actions", label: "Atlas Actions" },

@@ -732,6 +732,23 @@ export function loadCalendarState(): CalendarState {
 export function saveCalendarState(state: CalendarState) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) => pushWorkspace("calendar", state));
+}
+
+export async function hydrateCalendarState(): Promise<CalendarState> {
+  if (typeof window === "undefined") return freshState();
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<Partial<CalendarState>>("calendar");
+    if (remote && Array.isArray(remote.events)) {
+      const state = ensureState(remote);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return state;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadCalendarState();
 }
 
 export function categoryById(categories: CalendarCategory[], id: string) {

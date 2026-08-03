@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import {
   FEEDBACK_ACTIONS,
+  hydrateFeedback,
   loadFeedback,
   loadFeedbackPrefs,
   submitFeedback,
@@ -25,7 +26,15 @@ export function FeedbackStudio() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    void hydrateFeedback().then((next) => {
+      if (cancelled) return;
+      setEntries(next.entries);
+      setPrefs(next.prefs);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

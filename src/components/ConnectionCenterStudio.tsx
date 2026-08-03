@@ -6,7 +6,7 @@ import {
   connectionStats,
   connectService,
   disconnectService,
-  loadConnections,
+  hydrateConnections,
   syncService,
   type ServiceConnection,
 } from "@/lib/connections";
@@ -30,7 +30,13 @@ export function ConnectionCenterStudio() {
   const [accountDraft, setAccountDraft] = useState("");
 
   useEffect(() => {
-    setConnections(loadConnections());
+    let cancelled = false;
+    void hydrateConnections().then((next) => {
+      if (!cancelled) setConnections(next);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const stats = connectionStats(connections);
