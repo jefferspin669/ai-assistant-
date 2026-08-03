@@ -161,12 +161,34 @@ function applyLearning(kind: FeedbackKind, note: string) {
   return next;
 }
 
+/** Shape Command Center replies using learned feedback prefs. */
+export function styleReplyWithFeedback(reply: string): string {
+  const prefs = loadFeedbackPrefs();
+  let out = reply.trim();
+  if (prefs.preferShorterAnswers && out.length > 180) {
+    const first = out.split(/(?<=[.!?])\s+/)[0];
+    if (first && first.length >= 40) out = first;
+  }
+  if (prefs.avoidGuessingCategories && /personal|work|categor/i.test(out)) {
+    out = `${out} (I’ll ask before guessing Work vs Personal next time.)`;
+  }
+  return out;
+}
+
 export function submitFeedback(input: {
   kind: FeedbackKind;
   target?: string;
   note?: string;
 }): { ok: true; entry: FeedbackEntry; message: string } | { ok: false; error: string } {
   const note = (input.note || "").trim();
+
+  if (input.kind === "report_problem" && note.length < 8) {
+    return { ok: false, error: "Add a few details about the problem so Atlas can learn." };
+  }
+  if (input.kind === "suggest_better" && note.length < 4) {
+    return { ok: false, error: "Tell Atlas what the better answer should have been." };
+  }
+
   let applied = "Saved for this user’s future experience.";
 
   if (input.kind === "undo_action") {
@@ -201,6 +223,24 @@ export function submitFeedback(input: {
         ? "Thanks — Atlas will keep this style for you."
         : input.kind === "undo_action"
           ? applied
-          : `Got it — ${applied}`,
+          : input.kind === "report_problem"
+            ? "Problem logged with your details — Atlas will be more careful."
+            : `Got it — ${applied}`,
   };
+}
+
+export function removeFeedback(id: string): FeedbackEntry[] {
+  const next = loadFeedback().filter((entry) => entry.id !== id);
+  saveFeedback(next);
+  return next;
+}
+
+export function clearFeedbackLearnedNote(index: number): FeedbackPrefs {
+  const prefs = loadFeedbackPrefs();
+  const next = {
+    ...prefs,
+    learnedNotes: prefs.learnedNotes.filter((_, i) => i !== index),
+  };
+  savePrefs(next);
+  return next;
 }

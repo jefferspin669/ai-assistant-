@@ -8,6 +8,7 @@ import {
   money,
   removeTaxTransaction,
   saveTaxTransactions,
+  type TaxBucket,
   type TaxTransaction,
   type TaxTxnKind,
 } from "@/lib/tax-ledger";
@@ -15,12 +16,14 @@ import {
 export function TaxLedgerPanel() {
   const [ready, setReady] = useState(false);
   const [rows, setRows] = useState<TaxTransaction[]>([]);
-  const [kind, setKind] = useState<TaxTxnKind>("income");
+  const [kind, setKind] = useState<TaxTxnKind>("expense");
+  const [bucket, setBucket] = useState<TaxBucket>("business");
   const [label, setLabel] = useState("");
-  const [amount, setAmount] = useState("500");
-  const [category, setCategory] = useState("Service income");
+  const [amount, setAmount] = useState("85");
+  const [category, setCategory] = useState("Supplies");
   const [receiptName, setReceiptName] = useState<string | null>(null);
   const [flash, setFlash] = useState("");
+  const [filter, setFilter] = useState<"all" | TaxBucket>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +43,7 @@ export function TaxLedgerPanel() {
   }, [ready, rows]);
 
   const estimate = useMemo(() => computeTaxEstimate(rows), [rows]);
+  const visible = filter === "all" ? rows : rows.filter((row) => row.bucket === filter);
 
   function onAdd(e: FormEvent) {
     e.preventDefault();
@@ -51,6 +55,7 @@ export function TaxLedgerPanel() {
     setRows((prev) => [
       createTaxTransaction({
         kind,
+        bucket,
         label,
         amount: value,
         category,
@@ -60,7 +65,11 @@ export function TaxLedgerPanel() {
     ]);
     setLabel("");
     setReceiptName(null);
-    setFlash(kind === "income" ? "Income recorded." : "Expense recorded.");
+    setFlash(
+      kind === "income"
+        ? `${bucket === "personal" ? "Personal" : "Business"} income recorded.`
+        : `${bucket === "personal" ? "Personal" : "Business"} expense recorded.`,
+    );
   }
 
   function onReceipt(file: File | null) {
@@ -90,7 +99,7 @@ export function TaxLedgerPanel() {
         <p className="briefing-kicker">Basic tax estimate</p>
         <h2>Planning estimate from your ledger</h2>
         <p className="panel-lead">
-          Demo rates only (federal 22% · state 5% · SE 15.3%). Not filing advice — review before you pay.
+          Business income & expenses drive the estimate. Personal expenses stay tracked separately.
         </p>
         <div className="stat-grid metrics-dense">
           <div className="stat">
@@ -98,17 +107,17 @@ export function TaxLedgerPanel() {
             <strong>{money(estimate.grossIncome)}</strong>
           </div>
           <div className="stat">
-            <span>Expenses</span>
-            <strong>{money(estimate.expenses)}</strong>
+            <span>Business expenses</span>
+            <strong>{money(estimate.businessExpenses)}</strong>
           </div>
           <div className="stat">
-            <span>Taxable profit</span>
-            <strong>{money(estimate.taxableProfit)}</strong>
+            <span>Personal expenses</span>
+            <strong>{money(estimate.personalExpenses)}</strong>
           </div>
           <div className="stat">
             <span>Est. tax owed</span>
             <strong>{money(estimate.totalEstimated)}</strong>
-            <small>{estimate.effectiveRate}% effective</small>
+            <small>{estimate.effectiveRate}% effective · profit {money(estimate.taxableProfit)}</small>
           </div>
         </div>
         <ul className="sc-plan-list">
@@ -126,10 +135,26 @@ export function TaxLedgerPanel() {
 
       <div className="split">
         <section className="panel">
-          <h2>Income & expense tracking</h2>
-          <p className="panel-lead">Saved on this device — feeds the estimate above.</p>
+          <div className="train-head">
+            <div>
+              <h2>Income & expense tracking</h2>
+              <p className="panel-lead">Saved on this device — feeds the estimate above.</p>
+            </div>
+            <div className="cta-row">
+              {(["all", "business", "personal"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={filter === item ? "training-tab active" : "training-tab"}
+                  onClick={() => setFilter(item)}
+                >
+                  {item === "all" ? "All" : item === "business" ? "Business" : "Personal"}
+                </button>
+              ))}
+            </div>
+          </div>
           <ul className="manage-list">
-            {rows.map((row) => (
+            {visible.map((row) => (
               <li key={row.id}>
                 <div>
                   <strong>
@@ -137,7 +162,7 @@ export function TaxLedgerPanel() {
                     {money(row.amount)} · {row.label}
                   </strong>
                   <small>
-                    {row.date} · {row.category}
+                    {row.bucket} · {row.date} · {row.category}
                     {row.receiptName ? ` · receipt ${row.receiptName}` : ""}
                   </small>
                 </div>
@@ -154,13 +179,21 @@ export function TaxLedgerPanel() {
         </section>
 
         <section className="panel">
-          <h2>Add transaction</h2>
+          <h2>Add expense or income</h2>
+          <p className="panel-lead">Choose Business or Personal for every transaction.</p>
           <form className="form-grid" onSubmit={onAdd}>
             <label>
               Type
               <select value={kind} onChange={(e) => setKind(e.target.value as TaxTxnKind)}>
-                <option value="income">Income</option>
                 <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </label>
+            <label>
+              For
+              <select value={bucket} onChange={(e) => setBucket(e.target.value as TaxBucket)}>
+                <option value="business">Business</option>
+                <option value="personal">Personal</option>
               </select>
             </label>
             <label>
@@ -191,7 +224,7 @@ export function TaxLedgerPanel() {
               />
             </label>
             <button className="btn btn-dark" type="submit">
-              Save {kind}
+              Save {bucket} {kind}
             </button>
           </form>
         </section>

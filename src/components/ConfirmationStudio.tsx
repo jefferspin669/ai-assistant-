@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   RISKY_ACTION_CATALOG,
+  addCustomConfirmation,
+  clearResolvedConfirmations,
   hydrateConfirmations,
   loadConfirmations,
   pendingCount,
   queueCatalogAction,
+  removeConfirmation,
   resolveConfirmation,
   type PendingConfirmation,
   type RiskyActionKind,
@@ -18,11 +21,23 @@ export function ConfirmationStudio() {
   const [items, setItems] = useState<PendingConfirmation[]>([]);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<PendingConfirmation | null>(null);
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [details, setDetails] = useState("");
+  const [impact, setImpact] = useState("");
 
-  function refresh() {
+  function refresh(preferredId?: string) {
     const next = loadConfirmations();
     setItems(next);
-    setSelected((prev) => next.find((i) => i.id === prev?.id) || next.find((i) => i.status === "pending") || next[0] || null);
+    setSelected((prev) => {
+      const id = preferredId || prev?.id;
+      return (
+        (id ? next.find((i) => i.id === id) : null) ||
+        next.find((i) => i.status === "pending") ||
+        next[0] ||
+        null
+      );
+    });
   }
 
   useEffect(() => {
@@ -39,8 +54,7 @@ export function ConfirmationStudio() {
 
   function queue(kind: RiskyActionKind) {
     const item = queueCatalogAction(kind);
-    refresh();
-    setSelected(item);
+    refresh(item.id);
     setSyncStatus("action_pending", `Confirm “${item.title}” before Atlas continues.`);
     setMessage(`Queued “${item.title}” — waiting for your confirmation.`);
   }
@@ -52,12 +66,21 @@ export function ConfirmationStudio() {
       setMessage(result.error);
       return;
     }
-    setSyncStatus(
-      approved ? "action_completed" : "saved",
-      result.item.resultNote || undefined,
-    );
+    setSyncStatus(approved ? "action_completed" : "saved", result.item.resultNote || undefined);
     setMessage(result.item.resultNote || "");
-    refresh();
+    refresh(result.item.id);
+  }
+
+  function onAddCustom(e: FormEvent) {
+    e.preventDefault();
+    const item = addCustomConfirmation({ title, summary, details, impact });
+    setTitle("");
+    setSummary("");
+    setDetails("");
+    setImpact("");
+    refresh(item.id);
+    setSyncStatus("action_pending", `Confirm “${item.title}” before Atlas continues.`);
+    setMessage(`Added “${item.title}” to the confirmation queue.`);
   }
 
   const pending = items.filter((i) => i.status === "pending");
@@ -65,7 +88,7 @@ export function ConfirmationStudio() {
   return (
     <AppShell
       title="Confirmation system"
-      subtitle="Atlas never runs risky actions immediately — you see exactly what will happen first."
+      subtitle="Atlas never runs risky actions immediately — review, confirm, cancel, or add your own checks."
     >
       <div className="stat-grid metrics-dense">
         <div className="stat">
@@ -107,6 +130,43 @@ export function ConfirmationStudio() {
               </li>
             ))}
           </ul>
+
+          <h3 style={{ marginTop: "1.1rem" }}>Add your own confirmation</h3>
+          <form className="form-grid" onSubmit={onAddCustom}>
+            <label>
+              Title
+              <input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Refund customer" />
+            </label>
+            <label>
+              What will happen
+              <input
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                required
+                placeholder="Issue a $240 refund to Elena Brooks"
+              />
+            </label>
+            <label>
+              Details (one per line)
+              <textarea
+                rows={3}
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                placeholder={"Amount: $240\nMethod: original card"}
+              />
+            </label>
+            <label>
+              Impact
+              <input
+                value={impact}
+                onChange={(e) => setImpact(e.target.value)}
+                placeholder="Money leaves Stripe balance after approval"
+              />
+            </label>
+            <button className="btn btn-dark" type="submit">
+              Add to queue
+            </button>
+          </form>
         </section>
 
         <section className="panel confirm-review">
@@ -143,13 +203,30 @@ export function ConfirmationStudio() {
               )}
             </>
           ) : (
-            <p className="panel-lead">Queue an action to preview the confirmation screen.</p>
+            <p className="panel-lead">Queue an action or add your own to preview the confirmation screen.</p>
           )}
         </section>
       </div>
 
       <section className="panel">
-        <h2>Confirmation history</h2>
+        <div className="train-head">
+          <div>
+            <h2>Confirmation history</h2>
+          </div>
+          {items.some((i) => i.status !== "pending") ? (
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                clearResolvedConfirmations();
+                refresh();
+                setMessage("Cleared resolved confirmations.");
+              }}
+            >
+              Clear resolved
+            </button>
+          ) : null}
+        </div>
         <ul className="manage-list">
           {items.length ? (
             items.map((item) => (
@@ -162,9 +239,22 @@ export function ConfirmationStudio() {
                     {item.summary} · {new Date(item.createdAt).toLocaleString()}
                   </span>
                 </div>
-                <button type="button" className="btn btn-outline" onClick={() => setSelected(item)}>
-                  View
-                </button>
+                <div className="cta-row">
+                  <button type="button" className="btn btn-outline" onClick={() => setSelected(item)}>
+                    Check
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-link"
+                    onClick={() => {
+                      removeConfirmation(item.id);
+                      refresh();
+                      setMessage(`Removed “${item.title}”.`);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             ))
           ) : (

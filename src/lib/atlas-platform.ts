@@ -90,9 +90,8 @@ export const navGroups: NavGroup[] = [
   {
     label: "Operations",
     items: [
-      { href: "/app/appointments", label: "Smart Calendar" },
+      { href: "/app/appointments", label: "Calendar" },
       { href: "/app/tasks", label: "Tasks" },
-      { href: "/app/scheduling", label: "Intelligent Scheduling" },
       { href: "/app/routes", label: "Route Optimization" },
       { href: "/app/inventory", label: "AI Inventory" },
       { href: "/app/purchasing", label: "Purchasing AI" },
@@ -2958,7 +2957,7 @@ export const intelligenceScore = {
       title: "Fill Tuesday gaps from the waitlist",
       detail: "Empty Tuesday slots are capping growth and revenue trends.",
       impact: "+2 to +4 pts",
-      href: "/app/scheduling",
+      href: "/app/appointments",
     },
     {
       title: "Keep ETA texts on for long-wait recovery",
@@ -3759,7 +3758,7 @@ export const simulatorScenarios = [
 export const operatingSystemApps = [
   { name: "Email", href: "/app/documents", detail: "Inbox drafts + follow-ups" },
   { name: "Phone", href: "/app/phone", detail: "Live lines + missed-call recovery" },
-  { name: "Calendar", href: "/app/scheduling", detail: "Jobs, routes, availability" },
+  { name: "Calendar", href: "/app/appointments", detail: "Jobs, routes, availability" },
   { name: "CRM", href: "/app/customers", detail: "Profiles, timelines, notes" },
   { name: "Inventory", href: "/app/inventory", detail: "Parts, reorder, equipment" },
   { name: "Invoices", href: "/app/payments", detail: "Billing, deposits, reminders" },

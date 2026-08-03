@@ -23,6 +23,7 @@ import {
   categoryById,
   createCategory,
   createEvent,
+  deleteEvent,
   daysUntil,
   detectConflicts,
   eventsOnDay,
@@ -254,7 +255,12 @@ export function SmartCalendarStudio() {
     setNewTitle("");
     setNewOutdoor(false);
     setNewPinned(false);
-    note("Event added to Smart Calendar.");
+    note("Event added to calendar.");
+  }
+
+  function removeEvent(id: string, title?: string) {
+    setEvents((prev) => deleteEvent(prev, id));
+    note(title ? `Deleted “${title}”.` : "Event deleted.");
   }
 
   function EventChip({ event, compact = false }: { event: CalendarEvent; compact?: boolean }) {
@@ -276,28 +282,43 @@ export function SmartCalendarStudio() {
         } as Record<string, string>
       )[category.id] || "•";
     return (
-      <button
-        type="button"
+      <div
         className={`sc-event${compact ? " compact" : ""}${dragId === event.id ? " dragging" : ""}`}
         style={{ ["--sc-color" as string]: category.color }}
         draggable
         onDragStart={() => setDragId(event.id)}
         onDragEnd={() => setDragId(null)}
         title={`${category.label}: ${event.title} · drag to reschedule`}
-        aria-label={`${category.label} event: ${event.title}`}
       >
-        <strong>
-          <span className="sc-event-icon" aria-hidden>
-            {icon}
-          </span>{" "}
-          {compact ? event.title : `${formatTime(event.start)} · ${event.title}`}
-        </strong>
-        <small>
-          {category.label}
-          {!compact && event.location ? ` · ${event.location}` : ""}
-          {!compact && event.invitees.length ? ` · ${event.invitees.join(", ")}` : ""}
-        </small>
-      </button>
+        <button
+          type="button"
+          className="sc-event-main"
+          aria-label={`${category.label} event: ${event.title}`}
+        >
+          <strong>
+            <span className="sc-event-icon" aria-hidden>
+              {icon}
+            </span>{" "}
+            {compact ? event.title : `${formatTime(event.start)} · ${event.title}`}
+          </strong>
+          <small>
+            {category.label}
+            {!compact && event.location ? ` · ${event.location}` : ""}
+            {!compact && event.invitees.length ? ` · ${event.invitees.join(", ")}` : ""}
+          </small>
+        </button>
+        <button
+          type="button"
+          className="sc-event-delete"
+          aria-label={`Delete ${event.title}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            removeEvent(event.id, event.title);
+          }}
+        >
+          Delete
+        </button>
+      </div>
     );
   }
 
@@ -308,7 +329,7 @@ export function SmartCalendarStudio() {
 
   if (!ready) {
     return (
-      <AppShell title="Atlas Smart Calendar" subtitle="Loading your AI planner…">
+      <AppShell title="Calendar" subtitle="Loading your planner…">
         <div className="panel">Loading…</div>
       </AppShell>
     );
@@ -316,8 +337,8 @@ export function SmartCalendarStudio() {
 
   return (
     <AppShell
-      title="Atlas Smart Calendar"
-      subtitle="Voice commands, daily planning, shared calendars, pattern intelligence, and a searchable Life Timeline."
+      title="Calendar"
+      subtitle="One calendar — add and delete events anytime. Voice, planning, shared calendars, and Life Timeline included."
       action={
         <div className="cta-row">
           <button
@@ -884,7 +905,7 @@ export function SmartCalendarStudio() {
                   Add to {formatDayLabel(anchor)}
                 </button>
               </form>
-              <p className="account-hint">Tip: drag any event onto another day or hour to reschedule.</p>
+              <p className="account-hint">Tip: drag to reschedule. Use Delete on any event to remove it.</p>
             </section>
           </aside>
         </div>
