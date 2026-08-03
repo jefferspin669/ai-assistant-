@@ -1992,6 +1992,14 @@ button.linkish:hover {
   font-size: 0.94rem;
 }
 
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table tr.row-active td {
+  background: rgba(47, 143, 138, 0.08);
+}
+
 .table th,
 .table td {
   text-align: left;

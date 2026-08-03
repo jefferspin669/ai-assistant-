@@ -1,221 +1,234 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { meetingLibrary } from "@/lib/atlas-platform";
+import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  createMeeting,
+  endMeetingCapture,
+  loadMeetings,
+  saveMeetings,
+  startMeetingCapture,
+  type UserMeeting,
+} from "@/lib/surface-workspace";
 
-type Mode = "summary" | "notes" | "decisions" | "tasks" | "deadlines";
-
-const modes: { id: Mode; label: string }[] = [
-  { id: "summary", label: "Summary" },
-  { id: "notes", label: "Notes" },
-  { id: "decisions", label: "Decisions" },
-  { id: "tasks", label: "Tasks" },
-  { id: "deadlines", label: "Deadlines" },
-];
-
-export function MeetingStudio() {
-  const [meetingId, setMeetingId] = useState<string>(meetingLibrary[0].id);
-  const [mode, setMode] = useState<Mode>("summary");
-  const [recording, setRecording] = useState(false);
-  const [joined, setJoined] = useState(false);
-  const [recapSent, setRecapSent] = useState<Record<string, boolean>>({});
-  const [doneTasks, setDoneTasks] = useState<Record<string, boolean>>({});
+export function MeetingStudio({
+  newSignal = 0,
+  focusId,
+}: {
+  newSignal?: number;
+  focusId?: string;
+}) {
+  const [meetings, setMeetings] = useState<UserMeeting[]>([]);
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState("");
+  const [platform, setPlatform] = useState("Zoom");
+  const [attendees, setAttendees] = useState("Jeff, Sam, Emma");
   const [note, setNote] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const meeting = useMemo(
-    () => meetingLibrary.find((item) => item.id === meetingId) ?? meetingLibrary[0],
-    [meetingId],
-  );
+  useEffect(() => {
+    const loaded = loadMeetings();
+    setMeetings(loaded);
+    const preferred = focusId && loaded.some((m) => m.id === focusId) ? focusId : loaded[0]?.id ?? null;
+    setMeetingId(preferred);
+    setShowForm(loaded.length === 0);
+    setReady(true);
+  }, [focusId]);
 
-  const recapDone = recapSent[meeting.id] ?? meeting.recapSent;
+  useEffect(() => {
+    if (newSignal <= 0) return;
+    setShowForm(true);
+  }, [newSignal]);
 
-  function toggleRecord() {
-    if (recording) {
-      setRecording(false);
-      setNote("Recording stopped. Atlas refreshed notes, decisions, tasks, deadlines, and summary.");
-      setMode("summary");
-      return;
-    }
-    setRecording(true);
-    setJoined(true);
-    setNote(`Joined ${meeting.platform}. Recording… Atlas is capturing the conversation live.`);
+  const meeting = meetings.find((item) => item.id === meetingId) ?? null;
+
+  function persist(next: UserMeeting[], selectId?: string | null) {
+    setMeetings(next);
+    saveMeetings(next);
+    if (selectId !== undefined) setMeetingId(selectId);
+  }
+
+  function onCreate(e: FormEvent) {
+    e.preventDefault();
+    const created = createMeeting({ title, platform, attendees });
+    const next = [created, ...meetings];
+    persist(next, created.id);
+    setShowForm(false);
+    setTitle("");
+    setNote(`Meeting “${created.title}” created. Open its page to start.`);
+  }
+
+  function startMeeting() {
+    if (!meeting) return;
+    const updated = startMeetingCapture(meeting);
+    persist(
+      meetings.map((item) => (item.id === meeting.id ? updated : item)),
+      updated.id,
+    );
+    setNote(`Joined ${updated.platform}. Recording… Atlas is capturing live.`);
+  }
+
+  function stopMeeting() {
+    if (!meeting) return;
+    const updated = endMeetingCapture(meeting);
+    persist(
+      meetings.map((item) => (item.id === meeting.id ? updated : item)),
+      updated.id,
+    );
+    setNote("Recording stopped. Notes, decisions, tasks, and deadlines refreshed.");
+  }
+
+  function removeMeeting(id: string) {
+    const next = meetings.filter((item) => item.id !== id);
+    persist(next, next[0]?.id ?? null);
+    if (next.length === 0) setShowForm(true);
+    setNote("Meeting removed.");
   }
 
   return (
     <div className="training-studio">
+      {showForm ? (
+        <section className="panel">
+          <h2>New meeting</h2>
+          <p className="panel-lead">Add a meeting — each one gets its own page when you start it.</p>
+          <form className="form-grid" onSubmit={onCreate}>
+            <label>
+              Title
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Weekly ops standup"
+                required
+              />
+            </label>
+            <label>
+              Platform
+              <select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                <option>Zoom</option>
+                <option>Google Meet</option>
+                <option>Teams</option>
+                <option>Phone</option>
+              </select>
+            </label>
+            <label>
+              Attendees
+              <input
+                value={attendees}
+                onChange={(e) => setAttendees(e.target.value)}
+                placeholder="Jeff, Sam, Emma"
+              />
+            </label>
+            <button className="btn btn-dark" type="submit">
+              Add meeting
+            </button>
+            {meetings.length > 0 ? (
+              <button className="btn btn-outline" type="button" onClick={() => setShowForm(false)}>
+                Cancel
+              </button>
+            ) : null}
+          </form>
+        </section>
+      ) : null}
+
       <div className="hub-employee-row" role="group" aria-label="Choose meeting">
-        {meetingLibrary.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={meetingId === item.id ? "hub-employee active" : "hub-employee"}
-            onClick={() => {
-              setMeetingId(item.id);
-              setMode("summary");
-              setNote(null);
-            }}
-          >
-            <strong>{item.title}</strong>
-            <span>{item.recorded}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="stat-grid metrics-dense">
-        <div className="stat">
-          <span>Notes</span>
-          <strong>{meeting.notes.length}</strong>
-          <small>Captured</small>
-        </div>
-        <div className="stat">
-          <span>Decisions</span>
-          <strong>{meeting.decisions.length}</strong>
-          <small>Agreed</small>
-        </div>
-        <div className="stat">
-          <span>Tasks</span>
-          <strong>{meeting.tasks.length}</strong>
-          <small>Assigned</small>
-        </div>
-        <div className="stat">
-          <span>Deadlines</span>
-          <strong>{meeting.deadlines.length}</strong>
-          <small>Tracked</small>
-        </div>
-      </div>
-
-      <div className="train-actions" style={{ marginTop: 0 }}>
-        <button
-          className="btn btn-outline"
-          type="button"
-          onClick={() => {
-            setJoined(true);
-            setNote(`Atlas joined ${meeting.platform} · ${meeting.joinUrl}`);
-          }}
-        >
-          {joined ? `In ${meeting.platform}` : `Join ${meeting.platform}`}
+        {!ready ? <p className="muted-line">Loading…</p> : null}
+        {ready && meetings.length === 0 ? (
+          <p className="muted-line">No meetings yet. Add your first one above.</p>
+        ) : (
+          meetings.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={meetingId === item.id ? "hub-employee active" : "hub-employee"}
+              onClick={() => {
+                setMeetingId(item.id);
+                setNote(null);
+              }}
+            >
+              <strong>{item.title}</strong>
+              <span>
+                {item.status} · {item.platform}
+              </span>
+            </button>
+          ))
+        )}
+        <button className="hub-employee" type="button" onClick={() => setShowForm(true)}>
+          <strong>+ New</strong>
+          <span>Create meeting</span>
         </button>
-        <button
-          className={`btn ${recording ? "btn-outline" : "btn-dark"}`}
-          type="button"
-          onClick={toggleRecord}
-        >
-          {recording ? "Stop recording" : "Start recording"}
-        </button>
-        <button
-          className="btn btn-outline"
-          type="button"
-          onClick={() => {
-            setRecapSent((prev) => ({ ...prev, [meeting.id]: true }));
-            setNote(
-              `Recap emailed to ${meeting.attendees.join(", ")} with summary, decisions, and assigned tasks.`,
-            );
-          }}
-        >
-          {recapDone ? "Recap sent" : "Email meeting recap"}
-        </button>
-        {recording ? <span className="badge warn">Live</span> : null}
-      </div>
-      {note ? <p className="muted-line">{note}</p> : null}
-
-      <div className="training-tabs" role="tablist" aria-label="Meeting assistant outputs">
-        {modes.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={mode === item.id}
-            className={mode === item.id ? "training-tab active" : "training-tab"}
-            onClick={() => setMode(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
       </div>
 
-      {mode === "summary" ? (
-        <section className="panel">
-          <h2>Summary · {meeting.title}</h2>
-          <div className="memory-card">
-            <div className="label">Atlas summary</div>
-            <p>{meeting.summary}</p>
+      {meeting ? (
+        <>
+          <div className="stat-grid metrics-dense">
+            <div className="stat">
+              <span>Notes</span>
+              <strong>{meeting.notes.length}</strong>
+              <small>Captured</small>
+            </div>
+            <div className="stat">
+              <span>Decisions</span>
+              <strong>{meeting.decisions.length}</strong>
+              <small>Agreed</small>
+            </div>
+            <div className="stat">
+              <span>Tasks</span>
+              <strong>{meeting.tasks.length}</strong>
+              <small>Assigned</small>
+            </div>
+            <div className="stat">
+              <span>Status</span>
+              <strong>{meeting.status}</strong>
+              <small>{meeting.recorded}</small>
+            </div>
           </div>
-          <p className="panel-lead" style={{ marginTop: "1rem", marginBottom: 0 }}>
-            Recorded {meeting.recorded}. Notes, decisions, tasks, and deadlines were generated
-            automatically.
-          </p>
-        </section>
-      ) : null}
 
-      {mode === "notes" ? (
-        <section className="panel">
-          <h2>Notes</h2>
-          <div className="list">
-            {meeting.notes.map((item) => (
-              <div className="list-row" key={item}>
-                <span className="badge">Note</span>
-                <p>{item}</p>
-              </div>
-            ))}
+          <div className="train-actions">
+            {meeting.status !== "live" ? (
+              <button className="btn btn-dark" type="button" onClick={startMeeting}>
+                Start meeting
+              </button>
+            ) : (
+              <button className="btn btn-outline" type="button" onClick={stopMeeting}>
+                Stop recording
+              </button>
+            )}
+            <Link className="btn btn-outline" href={`/app/meetings/${meeting.id}`}>
+              Open meeting page
+            </Link>
+            <button className="btn btn-outline" type="button" onClick={() => removeMeeting(meeting.id)}>
+              Remove
+            </button>
+            {meeting.status === "live" ? <span className="badge warn">Live</span> : null}
           </div>
-        </section>
-      ) : null}
+          {note ? <p className="muted-line">{note}</p> : null}
 
-      {mode === "decisions" ? (
-        <section className="panel">
-          <h2>Decisions</h2>
-          <div className="list">
-            {meeting.decisions.map((item) => (
-              <div className="list-row" key={item}>
-                <span className="badge ok">Decision</span>
-                <p>{item}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {mode === "tasks" ? (
-        <section className="panel">
-          <h2>Tasks</h2>
-          <div className="list">
-            {meeting.tasks.map((task) => {
-              const key = `${meeting.id}:${task.task}`;
-              return (
-                <label className="quality-check-row" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(doneTasks[key])}
-                    onChange={(e) =>
-                      setDoneTasks((prev) => ({ ...prev, [key]: e.target.checked }))
-                    }
-                  />
-                  <span>
-                    <strong>{task.task}</strong>
-                    <span className="muted-line">
-                      {task.owner} · due {task.due}
-                      {doneTasks[key] ? " · done" : ""}
-                    </span>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      {mode === "deadlines" ? (
-        <section className="panel">
-          <h2>Deadlines</h2>
-          <div className="list">
-            {meeting.deadlines.map((deadline) => (
-              <div className="list-row" key={deadline.label}>
-                <span className="badge warn">{deadline.due}</span>
-                <p>{deadline.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          <section className="panel">
+            <h2>{meeting.title}</h2>
+            <p className="panel-lead">
+              {meeting.platform} · {meeting.attendees.join(", ")} · {meeting.joinUrl}
+            </p>
+            <div className="memory-card">
+              <div className="label">Atlas summary</div>
+              <p>{meeting.summary}</p>
+            </div>
+            {meeting.notes.length > 0 ? (
+              <>
+                <h3 style={{ marginTop: "1rem" }}>Notes</h3>
+                <ul className="plain-list">
+                  {meeting.notes.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="muted-line" style={{ marginTop: "1rem" }}>
+                Start the meeting to generate notes and follow-ups.
+              </p>
+            )}
+          </section>
+        </>
       ) : null}
     </div>
   );
