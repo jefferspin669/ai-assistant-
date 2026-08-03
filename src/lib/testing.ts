@@ -4,7 +4,7 @@ import { loadConnections } from "@/lib/connections";
 import { loadDashboardLayout } from "@/lib/dashboard-layout";
 import { loadFeatureFlags } from "@/lib/feature-flags";
 import { loadOfflineCache } from "@/lib/offline";
-import { restoreBackup, listBackups, recordBackup } from "@/lib/recovery";
+import { listBackups, recordBackup } from "@/lib/recovery";
 import { loadCalendarState } from "@/lib/smart-calendar";
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
@@ -67,7 +67,12 @@ function runLogin(): TestResult[] {
   const account = getCurrentAccount();
   return [
     result("login", "Session readable", true, account ? `Signed in as ${account.email}` : "Guest mode OK for public pages"),
-    result("login", "Setup flag present", Boolean(account?.setup), account ? `setup.completed=${account.setup.completed}` : "No account — skipped deep check"),
+    result(
+      "login",
+      "Setup flag present",
+      !account || Boolean(account.setup),
+      account ? `setup.completed=${account.setup.completed}` : "No account — skipped deep check",
+    ),
     result("login", "Password vault shape", !account || account.hasPassword || Object.keys(account.oauth).length > 0, "Has password or OAuth link"),
   ];
 }
@@ -123,14 +128,18 @@ function runTax(): TestResult[] {
 }
 
 function runBackup(): TestResult[] {
-  recordBackup("full", "Pre-test backup");
+  // Dry-run: verify backup APIs without restoring (restore pollutes undo / recovery).
+  const before = listBackups().length;
+  recordBackup("full", "Pre-test backup (dry run)");
   const backups = listBackups();
   const latest = backups[0];
-  const restored = latest ? restoreBackup(latest.id) : { ok: false as const, error: "No backup" };
+  const created = Boolean(latest) && backups.length >= before;
+  const labelOk = Boolean(latest?.label);
+  const offline = Boolean(loadOfflineCache());
   return [
-    result("backup", "Backup created", Boolean(latest), latest ? latest.label : "missing"),
-    result("backup", "Restore succeeds", restored.ok, restored.ok ? restored.message : restored.error),
-    result("backup", "Offline cache present", Boolean(loadOfflineCache()), "Offline bundle readable"),
+    result("backup", "Backup created", created, latest ? latest.label : "missing"),
+    result("backup", "Backup metadata readable", labelOk, latest ? `id=${latest.id.slice(0, 8)}…` : "no backup"),
+    result("backup", "Offline cache present", offline, "Offline bundle readable"),
   ];
 }
 
@@ -171,8 +180,7 @@ export function runSuite(id: TestSuiteId): TestResult[] {
   return RUNNERS[id]();
 }
 
-export function runAllSuites(): SuiteRun {
-  const results = SUITE_META.flatMap((suite) => runSuite(suite.id));
+function persistRun(results: TestResult[]): SuiteRun {
   const run: SuiteRun = {
     id: newId(),
     at: nowIso(),
@@ -185,6 +193,16 @@ export function runAllSuites(): SuiteRun {
     localStorage.setItem(HISTORY_KEY, JSON.stringify([run, ...prev].slice(0, 20)));
   }
   return run;
+}
+
+/** Run one suite and append to history (so History counter updates). */
+export function runAndRecordSuite(id: TestSuiteId): SuiteRun {
+  return persistRun(runSuite(id));
+}
+
+export function runAllSuites(): SuiteRun {
+  const results = SUITE_META.flatMap((suite) => runSuite(suite.id));
+  return persistRun(results);
 }
 
 export function loadTestHistory(): SuiteRun[] {
