@@ -995,6 +995,10 @@ export function createEvent(input: {
   });
 }
 
+export function deleteEvent(events: CalendarEvent[], id: string) {
+  return events.filter((event) => event.id !== id);
+}
+
 export function filterEventsByLayers(events: CalendarEvent[], activeLayers: CalendarLayerId[]) {
   const set = new Set(activeLayers);
   return events.filter((event) => set.has(event.layerId));

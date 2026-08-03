@@ -1,17 +1,24 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   boardAdvisors,
   boardReplyForQuestion,
   boardTopics,
 } from "@/lib/atlas-platform";
+import {
+  createBoardDecision,
+  loadBoardDecisions,
+  saveBoardDecisions,
+  type BoardDecision,
+} from "@/lib/ops-workspace";
 
-type Mode = "chamber" | "ask" | "roster";
+type Mode = "chamber" | "ask" | "decisions" | "roster";
 
 const modes: { id: Mode; label: string }[] = [
   { id: "chamber", label: "Board chamber" },
   { id: "ask", label: "Ask the board" },
+  { id: "decisions", label: "Your decisions" },
   { id: "roster", label: "Advisors" },
 ];
 
@@ -21,7 +28,7 @@ function stanceTone(stance: string) {
   return "";
 }
 
-export function BoardAdvisorStudio() {
+export function BoardAdvisorStudio({ newSignal = 0 }: { newSignal?: number }) {
   const [mode, setMode] = useState<Mode>("chamber");
   const [topicId, setTopicId] = useState<string>(boardTopics[0].id);
   const [input, setInput] = useState("Should we open another location?");
@@ -30,19 +37,33 @@ export function BoardAdvisorStudio() {
     null,
   );
   const [visibleCount, setVisibleCount] = useState<number>(boardTopics[0].voices.length);
+  const [decisions, setDecisions] = useState<BoardDecision[]>([]);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDecisions(loadBoardDecisions());
+  }, []);
+
+  useEffect(() => {
+    if (newSignal <= 0) return;
+    setMode("ask");
+    setInput("");
+    setNote("Describe a decision for the board to debate — then save it.");
+  }, [newSignal]);
 
   const active = useMemo(() => {
     if (customTopic) return customTopic;
     return boardTopics.find((topic) => topic.id === topicId) ?? boardTopics[0];
   }, [customTopic, topicId]);
 
+  function persist(next: BoardDecision[]) {
+    setDecisions(next);
+    saveBoardDecisions(next);
+  }
+
   function runDeliberation(question: string) {
     const topic = boardReplyForQuestion(question.trim() || boardTopics[0].question);
-    setCustomTopic(
-      boardTopics.some((item) => item.id === topic.id)
-        ? null
-        : topic,
-    );
+    setCustomTopic(boardTopics.some((item) => item.id === topic.id) ? null : topic);
     if (boardTopics.some((item) => item.id === topic.id)) {
       setTopicId(topic.id);
     }
@@ -64,6 +85,26 @@ export function BoardAdvisorStudio() {
     runDeliberation(input);
   }
 
+  function saveDecision() {
+    const decision = createBoardDecision({
+      question: active.question,
+      summary: active.summary,
+      voices: active.voices.map((voice) => ({
+        advisor: voice.advisor,
+        stance: voice.stance,
+        say: voice.say,
+      })),
+    });
+    persist([decision, ...decisions]);
+    setMode("decisions");
+    setNote(`Saved decision: “${decision.question}”.`);
+  }
+
+  function removeDecision(id: string) {
+    persist(decisions.filter((item) => item.id !== id));
+    setNote("Decision removed.");
+  }
+
   return (
     <div className="training-studio">
       <div className="stat-grid metrics-dense">
@@ -73,9 +114,9 @@ export function BoardAdvisorStudio() {
           <small>Specialist viewpoints</small>
         </div>
         <div className="stat">
-          <span>Open topics</span>
-          <strong>{boardTopics.length}</strong>
-          <small>Ready for debate</small>
+          <span>Saved decisions</span>
+          <strong>{decisions.length}</strong>
+          <small>Yours to keep or delete</small>
         </div>
         <div className="stat">
           <span>Style</span>
@@ -103,12 +144,15 @@ export function BoardAdvisorStudio() {
           </button>
         ))}
       </div>
+      {note ? <p className="muted-line">{note}</p> : null}
 
       {mode === "chamber" ? (
         <div className="split">
           <section className="panel">
             <h2>Imagine your own board of advisors</h2>
-            <p className="panel-lead">Different AI experts discuss decisions — balanced viewpoints, not a single answer.</p>
+            <p className="panel-lead">
+              Different AI experts discuss decisions — balanced viewpoints, not a single answer.
+            </p>
             <div className="list">
               {boardTopics.map((topic) => (
                 <button
@@ -140,6 +184,9 @@ export function BoardAdvisorStudio() {
               >
                 {deliberating ? "Deliberating…" : "Re-run deliberation"}
               </button>
+              <button className="btn btn-outline" type="button" onClick={saveDecision}>
+                Save decision
+              </button>
             </div>
           </section>
 
@@ -154,86 +201,82 @@ export function BoardAdvisorStudio() {
                 <div className="bubble bubble-ai board-voice" key={voice.advisor}>
                   <div className="board-voice-head">
                     <strong>{voice.advisor}</strong>
-                    <span className={`badge${stanceTone(voice.stance) === "ok" ? " ok" : stanceTone(voice.stance) === "warn" ? " warn" : ""}`}>
+                    <span
+                      className={`badge${stanceTone(voice.stance) === "ok" ? " ok" : stanceTone(voice.stance) === "warn" ? " warn" : ""}`}
+                    >
                       {voice.stance}
                     </span>
                   </div>
-                  <p>“{voice.say}”</p>
+                  <p>{voice.say}</p>
                 </div>
               ))}
-              {deliberating && visibleCount < active.voices.length ? (
-                <div className="bubble bubble-ai">Advisors are weighing in…</div>
-              ) : null}
             </div>
-            {!deliberating && visibleCount >= active.voices.length ? (
-              <p className="muted-line" style={{ marginTop: "0.85rem" }}>
-                Consensus: {active.summary}
-              </p>
+            {!deliberating && visibleCount > 0 ? (
+              <div className="memory-card" style={{ marginTop: "1rem" }}>
+                <div className="label">Board summary</div>
+                <p>{active.summary}</p>
+              </div>
             ) : null}
           </section>
         </div>
       ) : null}
 
       {mode === "ask" ? (
-        <div className="split">
-          <section className="panel">
-            <h2>Ask the board</h2>
-            <p className="panel-lead">Put a decision in front of Operations, Finance, Marketing, Risk, and CEO AI.</p>
-            <form onSubmit={onAsk} className="train-form">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Should we open another location?"
-              />
-              <button className="btn btn-dark" type="submit">
-                Deliberate
-              </button>
-            </form>
-            <div className="list" style={{ marginTop: "1rem" }}>
-              {boardTopics.map((topic) => (
-                <div className="list-row" key={topic.id}>
-                  <span className="badge">Try</span>
+        <section className="panel">
+          <h2>New decision</h2>
+          <p className="panel-lead">Ask the board anything — then save or delete the result.</p>
+          <form className="train-form" onSubmit={onAsk}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Should we hire an apprentice this quarter?"
+              required
+            />
+            <button className="btn btn-dark" type="submit" disabled={deliberating}>
+              {deliberating ? "Deliberating…" : "Ask board"}
+            </button>
+          </form>
+        </section>
+      ) : null}
+
+      {mode === "decisions" ? (
+        <section className="panel">
+          <h2>Your decisions</h2>
+          {decisions.length === 0 ? (
+            <p className="muted-line">No saved decisions yet. Ask the board and click Save decision.</p>
+          ) : (
+            <div className="list">
+              {decisions.map((item) => (
+                <div className="list-row" key={item.id}>
+                  <span className="badge ok">Saved</span>
+                  <div style={{ flex: 1 }}>
+                    <p>
+                      <strong>{item.question}</strong>
+                    </p>
+                    <small className="muted-line">{item.summary}</small>
+                  </div>
                   <button
                     type="button"
-                    className="linkish"
-                    onClick={() => {
-                      setInput(topic.question);
-                      runDeliberation(topic.question);
-                    }}
+                    className="ghost-link"
+                    onClick={() => removeDecision(item.id)}
                   >
-                    {topic.question}
+                    Delete
                   </button>
                 </div>
               ))}
             </div>
-          </section>
-          <section className="panel">
-            <h2>Why this is different</h2>
-            <div className="list">
-              {[
-                "Multiple expert lenses, not one chatbot reply",
-                "Supportive and caution signals shown side by side",
-                "CEO AI synthesizes a recommendation after debate",
-                "Ties into Digital Twin, Score, and Project Manager",
-              ].map((item) => (
-                <div className="list-row" key={item}>
-                  <span className="badge ok">Board</span>
-                  <p>{item}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
+          )}
+        </section>
       ) : null}
 
       {mode === "roster" ? (
         <section className="panel">
           <h2>Advisor roster</h2>
-          <div className="create-type-grid">
+          <div className="employee-grid">
             {boardAdvisors.map((advisor) => (
-              <div className="store-card" key={advisor.id} style={{ cursor: "default" }}>
+              <div className="store-card" key={advisor.name} style={{ cursor: "default" }}>
                 <h3>{advisor.name}</h3>
-                <p className="muted-line">{advisor.focus}</p>
+                <p>{advisor.focus}</p>
               </div>
             ))}
           </div>
