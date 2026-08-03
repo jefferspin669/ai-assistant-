@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 import { workflowPalette, workflowTemplates } from "@/lib/atlas-platform";
 import {
   createEmptyWorkflow,
@@ -15,14 +10,7 @@ import {
   type WorkflowStep,
 } from "@/lib/user-workspace";
 
-export type WorkflowStudioHandle = {
-  newWorkflow: () => void;
-};
-
-export const WorkflowStudio = forwardRef<WorkflowStudioHandle>(function WorkflowStudio(
-  _props,
-  ref,
-) {
+export function WorkflowStudio({ newSignal = 0 }: { newSignal?: number }) {
   const [workflows, setWorkflows] = useState<UserWorkflow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -64,7 +52,18 @@ export const WorkflowStudio = forwardRef<WorkflowStudioHandle>(function Workflow
     setNote("Blank automation created. Add steps from the palette — nothing is preloaded.");
   }
 
-  useImperativeHandle(ref, () => ({ newWorkflow }));
+  useEffect(() => {
+    if (newSignal <= 0) return;
+    const wf = createEmptyWorkflow(`Workflow ${Date.now().toString().slice(-4)}`);
+    setWorkflows((prev) => {
+      const next = [wf, ...prev];
+      saveWorkflows(next);
+      return next;
+    });
+    setSelectedId(wf.id);
+    setNameDraft(wf.name);
+    setNote("Blank automation created. Add steps from the palette — nothing is preloaded.");
+  }, [newSignal]);
 
   function addStep(kind: string, label: string) {
     if (!selected) {
@@ -316,4 +315,4 @@ export const WorkflowStudio = forwardRef<WorkflowStudioHandle>(function Workflow
       </div>
     </div>
   );
-});
+}

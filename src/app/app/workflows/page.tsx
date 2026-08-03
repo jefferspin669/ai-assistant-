@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useLanguage } from "@/components/LanguageProvider";
-import { WorkflowStudio, type WorkflowStudioHandle } from "@/components/WorkflowStudio";
+import { WorkflowStudio } from "@/components/WorkflowStudio";
 
 export default function WorkflowsPage() {
-  const studioRef = useRef<WorkflowStudioHandle>(null);
+  const [newSignal, setNewSignal] = useState(0);
   const { tAction } = useLanguage();
 
   return (
@@ -17,13 +17,13 @@ export default function WorkflowsPage() {
         <button
           className="btn btn-dark"
           type="button"
-          onClick={() => studioRef.current?.newWorkflow()}
+          onClick={() => setNewSignal((n) => n + 1)}
         >
           {tAction("New workflow")}
         </button>
       }
     >
-      <WorkflowStudio ref={studioRef} />
+      <WorkflowStudio newSignal={newSignal} />
     </AppShell>
   );
 }

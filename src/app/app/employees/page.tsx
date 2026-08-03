@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { AgentStudio, type AgentStudioHandle } from "@/components/AgentStudio";
+import { AgentStudio } from "@/components/AgentStudio";
 import { useLanguage } from "@/components/LanguageProvider";
 
 export default function EmployeesPage() {
-  const studioRef = useRef<AgentStudioHandle>(null);
+  const [launchSignal, setLaunchSignal] = useState(0);
   const { tAction } = useLanguage();
 
   return (
@@ -17,13 +17,13 @@ export default function EmployeesPage() {
         <button
           className="btn btn-dark"
           type="button"
-          onClick={() => studioRef.current?.openLaunch()}
+          onClick={() => setLaunchSignal((n) => n + 1)}
         >
           {tAction("Launch goal")}
         </button>
       }
     >
-      <AgentStudio ref={studioRef} />
+      <AgentStudio launchSignal={launchSignal} />
     </AppShell>
   );
 }

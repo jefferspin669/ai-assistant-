@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  FormEvent,
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useState,
-} from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { teamAi } from "@/lib/data";
 import {
   loadAgentGoals,
@@ -30,11 +23,7 @@ const suggestions = [
   "Fix long-wait quality issues.",
 ];
 
-export type AgentStudioHandle = {
-  openLaunch: () => void;
-};
-
-export const AgentStudio = forwardRef<AgentStudioHandle>(function AgentStudio(_props, ref) {
+export function AgentStudio({ launchSignal = 0 }: { launchSignal?: number }) {
   const [mode, setMode] = useState<Mode>("goals");
   const [goals, setGoals] = useState<AgentGoal[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -50,12 +39,11 @@ export const AgentStudio = forwardRef<AgentStudioHandle>(function AgentStudio(_p
     setReady(true);
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    openLaunch: () => {
-      setMode("run");
-      setNote("Describe a goal and press Launch — Atlas will complete work, not just answer.");
-    },
-  }));
+  useEffect(() => {
+    if (launchSignal <= 0) return;
+    setMode("run");
+    setNote("Describe a goal and press Launch — Atlas will complete work, not just answer.");
+  }, [launchSignal]);
 
   const selected = useMemo(
     () => goals.find((goal) => goal.id === selectedId) ?? null,
@@ -305,4 +293,4 @@ export const AgentStudio = forwardRef<AgentStudioHandle>(function AgentStudio(_p
       ) : null}
     </div>
   );
-});
+}
