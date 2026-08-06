@@ -105,7 +105,25 @@ export function loadTaxTransactions(): TaxTransaction[] {
 
 export function saveTaxTransactions(rows: TaxTransaction[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows.map(normalizeRow)));
+  const normalized = rows.map(normalizeRow);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) => pushWorkspace("tax", normalized));
+}
+
+export async function hydrateTaxTransactions(): Promise<TaxTransaction[]> {
+  if (typeof window === "undefined") return seedTaxTransactions();
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<TaxTransaction[]>("tax");
+    if (Array.isArray(remote) && remote.length) {
+      const normalized = remote.map(normalizeRow);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      return normalized;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadTaxTransactions();
 }
 
 export function createTaxTransaction(input: {

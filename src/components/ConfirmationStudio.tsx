@@ -6,6 +6,7 @@ import {
   RISKY_ACTION_CATALOG,
   addCustomConfirmation,
   clearResolvedConfirmations,
+  hydrateConfirmations,
   loadConfirmations,
   pendingCount,
   queueCatalogAction,
@@ -40,7 +41,15 @@ export function ConfirmationStudio() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    void hydrateConfirmations().then((next) => {
+      if (cancelled) return;
+      setItems(next);
+      setSelected(next.find((i) => i.status === "pending") || next[0] || null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function queue(kind: RiskyActionKind) {

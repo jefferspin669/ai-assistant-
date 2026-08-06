@@ -154,6 +154,24 @@ export function loadConnections(): ServiceConnection[] {
 export function saveConnections(items: ServiceConnection[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) =>
+    pushWorkspace("connections", items),
+  );
+}
+
+export async function hydrateConnections(): Promise<ServiceConnection[]> {
+  if (typeof window === "undefined") return seedConnections();
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<ServiceConnection[]>("connections");
+    if (Array.isArray(remote) && remote.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      return remote;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadConnections();
 }
 
 export function connectService(id: string, accountLabel?: string): ServiceConnection[] {

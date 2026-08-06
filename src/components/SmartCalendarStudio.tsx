@@ -32,7 +32,7 @@ import {
   formatDayLabel,
   formatTime,
   goalLabel,
-  loadCalendarState,
+  hydrateCalendarState,
   moveEventTo,
   pinnedDeadlines,
   progressBar,
@@ -97,17 +97,23 @@ export function SmartCalendarStudio() {
   const [catColor, setCatColor] = useState("#2f8f8a");
 
   useEffect(() => {
-    const state = loadCalendarState();
-    setCategories(state.categories);
-    setEvents(state.events);
-    setGoals(state.goals);
-    setActiveLayers(state.activeLayers);
-    setSharedMembers(state.sharedMembers);
-    setSharedRequests(state.sharedRequests);
-    setLifeTimeline(state.lifeTimeline);
-    setPostponedTasks(state.postponedTasks);
-    setNewCategory(state.categories[0]?.id || "work");
-    setReady(true);
+    let cancelled = false;
+    void hydrateCalendarState().then((state) => {
+      if (cancelled) return;
+      setCategories(state.categories);
+      setEvents(state.events);
+      setGoals(state.goals);
+      setActiveLayers(state.activeLayers);
+      setSharedMembers(state.sharedMembers);
+      setSharedRequests(state.sharedRequests);
+      setLifeTimeline(state.lifeTimeline);
+      setPostponedTasks(state.postponedTasks);
+      setNewCategory(state.categories[0]?.id || "work");
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

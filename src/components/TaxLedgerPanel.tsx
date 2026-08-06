@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   computeTaxEstimate,
   createTaxTransaction,
-  loadTaxTransactions,
+  hydrateTaxTransactions,
   money,
   removeTaxTransaction,
   saveTaxTransactions,
@@ -26,8 +26,15 @@ export function TaxLedgerPanel() {
   const [filter, setFilter] = useState<"all" | TaxBucket>("all");
 
   useEffect(() => {
-    setRows(loadTaxTransactions());
-    setReady(true);
+    let cancelled = false;
+    void hydrateTaxTransactions().then((next) => {
+      if (cancelled) return;
+      setRows(next);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

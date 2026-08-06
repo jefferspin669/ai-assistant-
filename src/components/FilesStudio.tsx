@@ -2,63 +2,61 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { atlasApi } from "@/lib/api/atlas-api";
+import { apiGet, apiSend } from "@/lib/backend/client";
 import type { DbDocument } from "@/lib/db/schema";
-
-async function fileToText(file: File, maxBytes = 900_000): Promise<string | null> {
-  if (file.size > maxBytes) return null;
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
 
 export function FilesStudio() {
   const [docs, setDocs] = useState<DbDocument[]>([]);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [flash, setFlash] = useState("");
+  const [error, setError] = useState("");
 
-  function refresh() {
-    const result = atlasApi.files.list();
+  async function refresh() {
+    const result = await apiGet<DbDocument[]>("/api/files");
     if (result.ok) setDocs(result.data);
+    else setError(result.error);
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, []);
 
   async function onUpload(e: FormEvent) {
     e.preventDefault();
-    const users = atlasApi.users.list();
-    const orgs = atlasApi.businesses.list();
-    const userId = users.ok && users.data[0] ? users.data[0].id : "user_demo";
-    const orgId = orgs.ok && orgs.data[0] ? orgs.data[0].id : "org_demo";
-    const result = atlasApi.files.upload({
-      userId,
-      orgId,
+    setError("");
+    const result = await apiSend<DbDocument>("/api/files/upload", "POST", {
       title: title || "Untitled",
       content: content || "Empty document",
       kind: "file",
     });
     if (!result.ok) {
-      setFlash(result.error);
+      setError(result.error);
       return;
     }
     setTitle("");
     setContent("");
-    setFlash(`Uploaded “${result.data.title}” to Documents.`);
-    refresh();
+    setFlash(`Uploaded “${result.data.title}” — saved on the Atlas backend.`);
+    await refresh();
+  }
+
+  async function onDelete(id: string) {
+    const result = await apiSend<{ id: string }>(`/api/files/${id}`, "DELETE");
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setFlash("Document deleted from backend.");
+    await refresh();
   }
 
   return (
     <AppShell
       title="Files"
-      subtitle="Backend API · Files — documents stored in the Atlas database."
+      subtitle="Backend API · Files — documents persist in `.data/atlas-db.json` on the server."
     >
       {flash ? <p className="auth-success">{flash}</p> : null}
+      {error ? <p className="auth-error">{error}</p> : null}
       <div className="split">
         <section className="panel">
           <h2>Documents</h2>
@@ -74,6 +72,9 @@ export function FilesStudio() {
                     </strong>
                     <small>Updated {new Date(doc.updatedAt).toLocaleString()}</small>
                   </div>
+                  <button type="button" className="ghost-link" onClick={() => void onDelete(doc.id)}>
+                    Delete
+                  </button>
                 </li>
               ))
             )}
@@ -85,31 +86,14 @@ export function FilesStudio() {
           <form className="form-grid" onSubmit={onUpload}>
             <label>
               Title
-              <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} />
             </label>
             <label>
-              File
-              <input
-                type="file"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const data = await fileToText(file);
-                  if (!data) {
-                    setFlash("File too large for the demo vault (~900KB max).");
-                    return;
-                  }
-                  setTitle((prev) => prev || file.name);
-                  setContent(`File: ${file.name}\n\n${data}`);
-                }}
-              />
-            </label>
-            <label>
-              Content / notes
-              <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} />
+              Content
+              <textarea rows={6} value={content} onChange={(e) => setContent(e.target.value)} />
             </label>
             <button className="btn btn-dark" type="submit">
-              Save to database
+              Save to backend
             </button>
           </form>
         </section>

@@ -116,6 +116,24 @@ export function loadConfirmations(): PendingConfirmation[] {
 export function saveConfirmations(items: PendingConfirmation[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 80)));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) =>
+    pushWorkspace("confirmations", items.slice(0, 80)),
+  );
+}
+
+export async function hydrateConfirmations(): Promise<PendingConfirmation[]> {
+  if (typeof window === "undefined") return [];
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<PendingConfirmation[]>("confirmations");
+    if (Array.isArray(remote)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote.slice(0, 80)));
+      return remote;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadConfirmations();
 }
 
 export function requestConfirmation(input: {

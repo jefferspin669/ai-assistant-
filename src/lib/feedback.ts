@@ -61,6 +61,9 @@ export function loadFeedback(): FeedbackEntry[] {
 function saveFeedback(items: FeedbackEntry[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 100)));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) =>
+    pushWorkspace("feedback", items.slice(0, 100)),
+  );
 }
 
 export function loadFeedbackPrefs(): FeedbackPrefs {
@@ -102,6 +105,34 @@ export function loadFeedbackPrefs(): FeedbackPrefs {
 function savePrefs(prefs: FeedbackPrefs) {
   if (typeof window === "undefined") return;
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) =>
+    pushWorkspace("feedback-prefs", prefs),
+  );
+}
+
+export async function hydrateFeedback(): Promise<{
+  entries: FeedbackEntry[];
+  prefs: FeedbackPrefs;
+}> {
+  if (typeof window === "undefined") {
+    return { entries: [], prefs: loadFeedbackPrefs() };
+  }
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const [entries, prefs] = await Promise.all([
+      pullWorkspace<FeedbackEntry[]>("feedback"),
+      pullWorkspace<FeedbackPrefs>("feedback-prefs"),
+    ]);
+    if (Array.isArray(entries)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, 100)));
+    }
+    if (prefs && typeof prefs === "object") {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    }
+  } catch {
+    /* fall through */
+  }
+  return { entries: loadFeedback(), prefs: loadFeedbackPrefs() };
 }
 
 function applyLearning(kind: FeedbackKind, note: string) {

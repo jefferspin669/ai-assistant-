@@ -6,6 +6,7 @@ import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import {
   FEEDBACK_ACTIONS,
   clearFeedbackLearnedNote,
+  hydrateFeedback,
   loadFeedback,
   loadFeedbackPrefs,
   removeFeedback,
@@ -29,7 +30,15 @@ export function FeedbackStudio() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    void hydrateFeedback().then((next) => {
+      if (cancelled) return;
+      setEntries(next.entries);
+      setPrefs(next.prefs);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function onReportProblem(e: FormEvent) {

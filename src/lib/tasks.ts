@@ -109,6 +109,22 @@ export function loadTasks(): AtlasTask[] {
 export function saveTasks(tasks: AtlasTask[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) => pushWorkspace("tasks", tasks));
+}
+
+export async function hydrateTasks(): Promise<AtlasTask[]> {
+  if (typeof window === "undefined") return seedTasks();
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<AtlasTask[]>("tasks");
+    if (Array.isArray(remote) && remote.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      return remote;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadTasks();
 }
 
 export function createTask(input: {

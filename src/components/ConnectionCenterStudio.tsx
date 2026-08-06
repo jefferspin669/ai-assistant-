@@ -7,7 +7,7 @@ import {
   connectionStats,
   connectService,
   disconnectService,
-  loadConnections,
+  hydrateConnections,
   removeConnection,
   syncService,
   updateConnection,
@@ -49,7 +49,13 @@ export function ConnectionCenterStudio() {
   const [newDetail, setNewDetail] = useState("");
 
   useEffect(() => {
-    setConnections(loadConnections());
+    let cancelled = false;
+    void hydrateConnections().then((next) => {
+      if (!cancelled) setConnections(next);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const stats = connectionStats(connections);
