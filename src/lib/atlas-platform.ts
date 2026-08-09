@@ -123,6 +123,23 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Executive Suite",
+    items: [
+      { href: "/app/capital", label: "Capital Allocation" },
+      { href: "/app/ma-intelligence", label: "M&A Intelligence" },
+      { href: "/app/boardroom", label: "Boardroom Mode" },
+      { href: "/app/risk-radar", label: "Global Risk Radar" },
+      { href: "/app/talent-map", label: "Executive Talent Map" },
+      { href: "/app/reputation-command", label: "Reputation Command" },
+      { href: "/app/intel-room", label: "Private Intelligence Room" },
+      { href: "/app/succession", label: "Succession Planner" },
+      { href: "/app/legacy", label: "Legacy & Long-Term" },
+      { href: "/app/deal-rooms", label: "Confidential Deal Rooms" },
+      { href: "/app/crisis", label: "Crisis Simulation" },
+      { href: "/app/negotiation", label: "Negotiation War Room" },
+    ],
+  },
+  {
     label: "Create & automate",
     items: [
       { href: "/app/documents", label: "Document Builder" },

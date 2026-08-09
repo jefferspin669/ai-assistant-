@@ -1,0 +1,1122 @@
+// Executive Suite — data + helpers for the enterprise/large-private-company modules.
+// Everything here is mock/demo data. No backend calls; studios import typed fixtures
+// and lightweight query helpers from this file.
+
+export type Tone = "" | "ok" | "warn" | "bad";
+
+/* ------------------------------------------------------------------ */
+/* 1. Capital Allocation Engine                                        */
+/* ------------------------------------------------------------------ */
+
+export type CapitalTierId = "1m" | "10m" | "100m";
+
+export type CapitalTier = {
+  id: CapitalTierId;
+  label: string;
+  amount: number;
+  horizon: string;
+  posture: string;
+};
+
+export const capitalTiers: CapitalTier[] = [
+  { id: "1m", label: "Next $1M", amount: 1_000_000, horizon: "This quarter", posture: "Bolt-on, fast-payback moves" },
+  { id: "10m", label: "Next $10M", amount: 10_000_000, horizon: "12–18 months", posture: "Balanced growth + resilience" },
+  { id: "100m", label: "Next $100M", amount: 100_000_000, horizon: "3–5 years", posture: "Platform bets + structural leverage" },
+];
+
+export type CapitalOption = {
+  id: string;
+  label: string;
+  note: string;
+  // allocation % keyed by tier
+  alloc: Record<CapitalTierId, number>;
+  roi: Record<CapitalTierId, string>;
+  risk: Tone;
+};
+
+export const capitalOptions: CapitalOption[] = [
+  {
+    id: "expansion",
+    label: "Expansion (new markets/capacity)",
+    note: "Two metro launches + a second line in the Ohio plant.",
+    alloc: { "1m": 22, "10m": 26, "100m": 30 },
+    roi: { "1m": "1.9x / 3 yr", "10m": "2.4x / 4 yr", "100m": "3.1x / 5 yr" },
+    risk: "warn",
+  },
+  {
+    id: "acquisitions",
+    label: "Acquisitions (M&A)",
+    note: "Tuck-in competitors and one adjacent-category platform target.",
+    alloc: { "1m": 5, "10m": 18, "100m": 28 },
+    roi: { "1m": "n/a", "10m": "2.2x / 4 yr", "100m": "2.8x / 5 yr" },
+    risk: "bad",
+  },
+  {
+    id: "debt",
+    label: "Debt payoff",
+    note: "Retire the 9.4% floating tranche before the next reset.",
+    alloc: { "1m": 18, "10m": 12, "100m": 8 },
+    roi: { "1m": "9.4% guaranteed", "10m": "9.4% guaranteed", "100m": "9.4% guaranteed" },
+    risk: "ok",
+  },
+  {
+    id: "hiring",
+    label: "Hiring (talent)",
+    note: "Senior sales, two SREs, and a corp-dev lead.",
+    alloc: { "1m": 20, "10m": 14, "100m": 9 },
+    roi: { "1m": "2.6x / 2 yr", "10m": "2.3x / 3 yr", "100m": "2.0x / 3 yr" },
+    risk: "warn",
+  },
+  {
+    id: "rnd",
+    label: "R&D / product",
+    note: "Ship the AI platform tier and automate the field-ops stack.",
+    alloc: { "1m": 15, "10m": 14, "100m": 12 },
+    roi: { "1m": "2.1x / 3 yr", "10m": "2.9x / 4 yr", "100m": "3.6x / 5 yr" },
+    risk: "warn",
+  },
+  {
+    id: "buybacks",
+    label: "Buybacks / distributions",
+    note: "Return capital to owners; tender minority holders.",
+    alloc: { "1m": 5, "10m": 6, "100m": 5 },
+    roi: { "1m": "EPS accretive", "10m": "EPS accretive", "100m": "EPS accretive" },
+    risk: "ok",
+  },
+  {
+    id: "realestate",
+    label: "Real estate",
+    note: "Own the two leased distribution hubs; lock rent inflation.",
+    alloc: { "1m": 5, "10m": 5, "100m": 5 },
+    roi: { "1m": "1.4x / 5 yr", "10m": "1.6x / 6 yr", "100m": "1.8x / 7 yr" },
+    risk: "ok",
+  },
+  {
+    id: "reserves",
+    label: "Reserves / war chest",
+    note: "Dry powder for a downturn or an opportunistic deal.",
+    alloc: { "1m": 10, "10m": 5, "100m": 3 },
+    roi: { "1m": "Optionality", "10m": "Optionality", "100m": "Optionality" },
+    risk: "ok",
+  },
+];
+
+export const capitalRationale: Record<CapitalTierId, string> = {
+  "1m": "At $1M, protect the balance sheet and buy quick paybacks. Retiring high-rate debt and hiring revenue-generating leaders beats illiquid bets. Keep 10% in reserve.",
+  "10m": "At $10M, tilt toward durable growth: expansion and R&D compound, with a first real M&A allocation for tuck-ins. Keep debt payoff as the risk-free floor.",
+  "100m": "At $100M, make platform bets. Expansion and acquisitions dominate because they change the company's structural position; R&D funds the moat. Reserves shrink as you deploy at scale.",
+};
+
+export function capitalPlan(tier: CapitalTierId) {
+  const t = capitalTiers.find((x) => x.id === tier) ?? capitalTiers[0];
+  const rows = capitalOptions
+    .map((o) => ({
+      id: o.id,
+      label: o.label,
+      note: o.note,
+      pct: o.alloc[tier],
+      dollars: Math.round((o.alloc[tier] / 100) * t.amount),
+      roi: o.roi[tier],
+      risk: o.risk,
+    }))
+    .sort((a, b) => b.pct - a.pct);
+  return { tier: t, rows, rationale: capitalRationale[tier] };
+}
+
+export function formatUSD(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. M&A Intelligence                                                 */
+/* ------------------------------------------------------------------ */
+
+export type AcquisitionTarget = {
+  id: string;
+  name: string;
+  sector: string;
+  revenue: string;
+  ebitda: string;
+  ask: string;
+  fit: number;
+  stage: string;
+  thesis: string;
+  synergies: { label: string; value: string }[];
+  redFlags: { label: string; severity: Tone }[];
+  diligence: { item: string; status: "Done" | "In progress" | "Open" }[];
+  integration: string[];
+};
+
+export const acquisitionTargets: AcquisitionTarget[] = [
+  {
+    id: "northwind",
+    name: "Northwind Field Services",
+    sector: "Adjacent — commercial HVAC",
+    revenue: "$42M",
+    ebitda: "$7.1M (17%)",
+    ask: "$58M (8.2x)",
+    fit: 86,
+    stage: "IOI submitted",
+    thesis: "Adds commercial accounts and 140 technicians in two metros we already serve residentially. Cross-sell + route density.",
+    synergies: [
+      { label: "Route density savings", value: "$2.4M/yr" },
+      { label: "Cross-sell to our base", value: "$5.1M/yr" },
+      { label: "Back-office consolidation", value: "$1.8M/yr" },
+      { label: "Purchasing leverage", value: "$0.9M/yr" },
+    ],
+    redFlags: [
+      { label: "Owner is 68% of key relationships", severity: "bad" },
+      { label: "3 fleet leases expire in 8 months", severity: "warn" },
+      { label: "No CRM — data is in spreadsheets", severity: "warn" },
+    ],
+    diligence: [
+      { item: "Quality of earnings", status: "Done" },
+      { item: "Customer concentration", status: "In progress" },
+      { item: "Fleet & equipment audit", status: "In progress" },
+      { item: "Employment / non-competes", status: "Open" },
+      { item: "Environmental / permits", status: "Open" },
+    ],
+    integration: [
+      "Retain owner 12 months on earnout tied to relationship transfer.",
+      "Migrate to Atlas CRM in first 90 days; freeze spreadsheet workflows.",
+      "Consolidate dispatch into our two nearest hubs by day 120.",
+      "Unify branding after retention milestones, not before.",
+    ],
+  },
+  {
+    id: "brightpath",
+    name: "BrightPath Software",
+    sector: "Vertical SaaS — scheduling",
+    revenue: "$18M ARR",
+    ebitda: "-$2.3M (growth)",
+    ask: "$96M (5.3x ARR)",
+    fit: 71,
+    stage: "Management call",
+    thesis: "Owns the scheduling layer thousands of SMBs already use. Buying the roadmap and the install base instead of rebuilding.",
+    synergies: [
+      { label: "Kill our build cost", value: "$6M avoided" },
+      { label: "Attach our AI tier", value: "$9M/yr TAM" },
+      { label: "Reduce churn w/ bundle", value: "3 pts" },
+    ],
+    redFlags: [
+      { label: "Burn rate needs our balance sheet", severity: "warn" },
+      { label: "Two founders may exit post-close", severity: "bad" },
+      { label: "Tech stack overlaps 40% with ours", severity: "warn" },
+    ],
+    diligence: [
+      { item: "Code & security review", status: "In progress" },
+      { item: "ARR / cohort retention", status: "Done" },
+      { item: "Founder retention terms", status: "Open" },
+      { item: "IP ownership chain", status: "Open" },
+    ],
+    integration: [
+      "Keep product independent for 2 quarters; no forced replatform.",
+      "Founder earnout on net-revenue retention, not logos.",
+      "Attach AI tier to existing base within 60 days of close.",
+    ],
+  },
+  {
+    id: "coastal",
+    name: "Coastal Home Group",
+    sector: "Roll-up — residential services",
+    revenue: "$71M",
+    ebitda: "$9.6M (14%)",
+    ask: "$74M (7.7x)",
+    fit: 63,
+    stage: "Teaser only",
+    thesis: "Scale play in the Southeast. Attractive multiple but margins trail ours and culture is unknown.",
+    synergies: [
+      { label: "Regional overhead cut", value: "$3.2M/yr" },
+      { label: "Pricing to our benchmark", value: "$4.4M/yr" },
+    ],
+    redFlags: [
+      { label: "Margins 400bps below ours", severity: "warn" },
+      { label: "Pending wage-and-hour suit", severity: "bad" },
+      { label: "High tech-turnover (34%)", severity: "bad" },
+    ],
+    diligence: [
+      { item: "Litigation review", status: "Open" },
+      { item: "Margin bridge analysis", status: "Open" },
+      { item: "Culture / turnover audit", status: "Open" },
+    ],
+    integration: [
+      "Do not close until wage suit is quantified and escrowed.",
+      "90-day margin plan before any rebrand spend.",
+      "Retention bonuses for top 15% of technicians.",
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* 3. Boardroom Mode                                                   */
+/* ------------------------------------------------------------------ */
+
+export const boardPacket = [
+  { section: "CEO letter", detail: "Quarter in one page: beat plan on revenue, missed on margin, one strategic pivot.", status: "Draft ready" },
+  { section: "Financial results", detail: "Revenue $214M (+18% YoY), EBITDA 19.2%, net cash $63M, DSO down 4 days.", status: "Locked" },
+  { section: "Strategy update", detail: "AI platform tier live; two M&A processes active; expansion into two metros.", status: "Draft ready" },
+  { section: "Risk & compliance", detail: "Cyber posture, one open regulatory item, litigation summary.", status: "Needs input" },
+  { section: "Talent & org", detail: "Two VP hires, succession bench refresh, attrition at 11%.", status: "Draft ready" },
+  { section: "Capital plan", detail: "Proposed $40M deployment across expansion, M&A, and debt payoff.", status: "For approval" },
+];
+
+export const boardRisks = [
+  { title: "Customer concentration", detail: "Top 3 accounts are 22% of revenue; one is up for rebid in Q3.", severity: "warn" as Tone },
+  { title: "Integration execution", detail: "Two acquisitions in flight strain the ops bench simultaneously.", severity: "warn" as Tone },
+  { title: "Cyber exposure", detail: "Vendor breach upstream; our exposure contained but under review.", severity: "bad" as Tone },
+  { title: "Margin compression", detail: "Wage inflation outpacing price increases in two regions.", severity: "warn" as Tone },
+];
+
+export const boardCommitments = [
+  { from: "Q1 board", owner: "CEO", item: "Present formal capital allocation framework", status: "Done" as const },
+  { from: "Q1 board", owner: "CFO", item: "Refinance the 9.4% floating tranche", status: "In progress" as const },
+  { from: "Q4 board", owner: "CEO", item: "Build a named CEO-successor bench of 2", status: "In progress" as const },
+  { from: "Q4 board", owner: "COO", item: "Reduce technician attrition below 12%", status: "Done" as const },
+  { from: "Q1 board", owner: "CISO", item: "Complete third-party pen test + remediation", status: "At risk" as const },
+];
+
+export type BoardQuestion = {
+  keywords: string[];
+  question: string;
+  answer: string;
+  followups: string[];
+};
+
+export const boardQuestions: BoardQuestion[] = [
+  {
+    keywords: ["margin", "profit", "ebitda"],
+    question: "Why did margin miss while revenue beat?",
+    answer:
+      "Two regions absorbed wage inflation ahead of price increases, and we front-loaded integration costs on Northwind. Both are timing, not structural: price actions land next quarter and integration spend is non-recurring. Underlying margin ex-integration was up 60bps.",
+    followups: ["Show the margin bridge ex-integration.", "When do the price increases fully annualize?"],
+  },
+  {
+    keywords: ["acquisition", "m&a", "integration", "deal"],
+    question: "Can the org absorb two acquisitions at once?",
+    answer:
+      "We staggered the closings by a quarter and stood up a dedicated integration office reporting to the COO. Northwind is people-heavy with a retention-based earnout; BrightPath stays independent for two quarters. The risk is real, which is why we capped concurrent integrations at two.",
+    followups: ["Who leads the integration office?", "What's the trigger to pause the second deal?"],
+  },
+  {
+    keywords: ["cyber", "security", "breach"],
+    question: "What is our real cyber exposure after the vendor incident?",
+    answer:
+      "The upstream breach did not reach our systems; we rotated credentials, isolated the vendor connection, and engaged outside IR to confirm no lateral movement. Open item is finishing the third-party pen test remediation, which is behind and now has an executive owner and a hard date.",
+    followups: ["What's the remediation date?", "Is customer data ever exposed in this vendor path?"],
+  },
+  {
+    keywords: ["succession", "ceo", "key person"],
+    question: "If you were hit by a bus, what happens Monday?",
+    answer:
+      "The COO is the named interim with signing authority already documented. We have two internal CEO-track candidates on 18-month development plans and one external benchmark relationship. Key-person insurance is in place. The gap we're closing is a deeper CFO bench.",
+    followups: ["Who are the two internal candidates?", "When is the successor ready without 'interim'?"],
+  },
+  {
+    keywords: ["cash", "capital", "buyback", "debt", "dividend"],
+    question: "Why deploy capital into M&A instead of returning it?",
+    answer:
+      "Our incremental ROIC on tuck-ins is 2.2–2.8x over four years versus a buyback that's EPS-accretive but doesn't change our structural position. We still retire the high-rate debt tranche first as the risk-free floor, and keep reserves for optionality. Distributions scale once the platform bets mature.",
+    followups: ["Show ROIC by deployment bucket.", "What's the hurdle rate you reject deals below?"],
+  },
+];
+
+export function boardAnswer(input: string): BoardQuestion {
+  const q = input.toLowerCase();
+  const hit = boardQuestions.find((b) => b.keywords.some((k) => q.includes(k)));
+  return (
+    hit ?? {
+      keywords: [],
+      question: input,
+      answer:
+        "That's a fair question. Here's the honest version: give me the specific metric or scenario and I'll walk the board through the numbers, the risk, and the mitigation rather than the spin. Atlas has the underlying data ready to pull.",
+      followups: ["Ask about margin, M&A, cyber, succession, or capital.", "Request the supporting exhibit."],
+    }
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Global Risk Radar                                                */
+/* ------------------------------------------------------------------ */
+
+export type RiskCategoryId =
+  | "supply"
+  | "regulatory"
+  | "currency"
+  | "geopolitical"
+  | "cyber"
+  | "market";
+
+export const riskCategories: { id: RiskCategoryId; label: string }[] = [
+  { id: "supply", label: "Supply chain" },
+  { id: "regulatory", label: "Regulatory" },
+  { id: "currency", label: "Currency" },
+  { id: "geopolitical", label: "Geopolitical" },
+  { id: "cyber", label: "Cybersecurity" },
+  { id: "market", label: "Market shifts" },
+];
+
+export type RadarSignal = {
+  id: string;
+  category: RiskCategoryId;
+  title: string;
+  company: string;
+  region: string;
+  severity: Tone;
+  trend: "Rising" | "Stable" | "Easing";
+  detail: string;
+  action: string;
+};
+
+export const radarSignals: RadarSignal[] = [
+  { id: "s1", category: "supply", title: "Compressor lead times doubling", company: "Summit Home Services", region: "Southeast Asia", severity: "bad", trend: "Rising", detail: "Primary compressor supplier quoting 16-week lead times amid port congestion.", action: "Dual-source now; pre-buy one quarter of safety stock." },
+  { id: "s2", category: "supply", title: "Single-source PCB dependency", company: "BrightPath (target)", region: "Taiwan", severity: "warn", trend: "Stable", detail: "One fab supplies 90% of controller boards.", action: "Qualify a second fab before close." },
+  { id: "r1", category: "regulatory", title: "New refrigerant phase-down", company: "Summit Home Services", region: "United States", severity: "warn", trend: "Rising", detail: "EPA schedule accelerates HFC phase-down; inventory becomes non-compliant in 2027.", action: "Transition SKUs; sell through legacy stock this year." },
+  { id: "r2", category: "regulatory", title: "Data-privacy rule change", company: "Atlas Platform", region: "EU", severity: "warn", trend: "Rising", detail: "Tighter cross-border data rules affect the SaaS tier.", action: "Regionalize data residency; legal review of DPAs." },
+  { id: "c1", category: "currency", title: "USD strength vs. supplier FX", company: "Group", region: "Global", severity: "ok", trend: "Easing", detail: "Dollar strength lowers imported COGS but hurts any export pricing.", action: "Lock forward contracts on Q4 component buys." },
+  { id: "c2", category: "currency", title: "Peso volatility on nearshoring", company: "Coastal (target)", region: "Mexico", severity: "warn", trend: "Rising", detail: "Nearshoring plan exposed to peso swings.", action: "Natural hedge via local revenue; cap unhedged exposure." },
+  { id: "g1", category: "geopolitical", title: "Strait shipping risk", company: "Group", region: "Middle East", severity: "warn", trend: "Rising", detail: "Rerouting adds 10–14 days and freight cost to two SKUs.", action: "Shift to alternate lanes; raise safety stock on affected SKUs." },
+  { id: "g2", category: "geopolitical", title: "Export-control expansion", company: "Atlas Platform", region: "APAC", severity: "warn", trend: "Stable", detail: "Potential controls on advanced compute could affect AI tier costs.", action: "Diversify cloud regions; model a compute-cost shock." },
+  { id: "cy1", category: "cyber", title: "Upstream vendor breach", company: "Group", region: "Global", severity: "bad", trend: "Rising", detail: "A shared vendor was breached; our exposure contained but under review.", action: "Finish pen-test remediation; rotate all vendor credentials." },
+  { id: "cy2", category: "cyber", title: "Phishing spike on finance team", company: "Summit Home Services", region: "United States", severity: "warn", trend: "Rising", detail: "Targeted invoice-fraud attempts up 3x this month.", action: "Enforce payment call-backs; hardware keys for finance." },
+  { id: "m1", category: "market", title: "Rate-driven demand softening", company: "Group", region: "United States", severity: "warn", trend: "Rising", detail: "Higher rates cool big-ticket replacement demand; repair mix rising.", action: "Push maintenance plans and financing; protect repair capacity." },
+  { id: "m2", category: "market", title: "Competitor price war", company: "Coastal (target)", region: "Southeast", severity: "warn", trend: "Stable", detail: "A PE-backed roll-up is buying share on price.", action: "Compete on speed and reliability, not price; watch churn." },
+];
+
+export function radarByCategory(cat: RiskCategoryId | "all") {
+  return cat === "all" ? radarSignals : radarSignals.filter((s) => s.category === cat);
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Executive Talent Map                                             */
+/* ------------------------------------------------------------------ */
+
+export type Leader = {
+  id: string;
+  name: string;
+  role: string;
+  strength: number; // 0-100
+  load: number; // 0-100 (higher = more overloaded)
+  flightRisk: Tone;
+  successionReady: string;
+  keyPerson: boolean;
+  note: string;
+};
+
+export const leaders: Leader[] = [
+  { id: "coo", name: "Dana Whitfield", role: "COO", strength: 92, load: 88, flightRisk: "warn", successionReady: "Interim-CEO ready", keyPerson: true, note: "Strongest operator; carrying both integrations. Overloaded — offload one integration." },
+  { id: "cfo", name: "Marcus Lee", role: "CFO", strength: 84, load: 71, flightRisk: "ok", successionReady: "Ready in 12 mo (external bench thin)", keyPerson: true, note: "Owns lender relationships single-handedly — a key-person dependency to diversify." },
+  { id: "cro", name: "Priya Nair", role: "Chief Revenue Officer", strength: 88, load: 64, flightRisk: "warn", successionReady: "CEO-track (18-mo plan)", keyPerson: false, note: "High-potential CEO candidate; retention package due for refresh." },
+  { id: "cto", name: "Sam Rivera", role: "CTO", strength: 79, load: 82, flightRisk: "bad", successionReady: "No named backup", keyPerson: true, note: "Holds core architecture knowledge; no #2. Highest single-point-of-failure risk." },
+  { id: "ciso", name: "Elena Brooks", role: "CISO", strength: 81, load: 90, flightRisk: "warn", successionReady: "Deputy in development", keyPerson: false, note: "Stretched by the vendor incident; needs a deputy funded now." },
+  { id: "chro", name: "Tom Alvarez", role: "CHRO", strength: 73, load: 55, flightRisk: "ok", successionReady: "Solid bench", keyPerson: false, note: "Stable. Best-developed succession bench in the company." },
+];
+
+export const leadershipGaps = [
+  { area: "CFO successor", detail: "External bench is thin; a single-person lender relationship is unhedged.", severity: "warn" as Tone },
+  { area: "CTO #2 / architecture backup", detail: "No named backup for core architecture — highest key-person risk.", severity: "bad" as Tone },
+  { area: "Corp-dev leadership", detail: "M&A pace outstrips a dedicated corp-dev leader; deals run through the CEO.", severity: "warn" as Tone },
+  { area: "Regional GM depth", detail: "Expansion into two metros lacks a proven GM in one.", severity: "warn" as Tone },
+];
+
+/* ------------------------------------------------------------------ */
+/* 6. Reputation Command Center                                        */
+/* ------------------------------------------------------------------ */
+
+export type ReputationIssue = {
+  id: string;
+  type: "Press" | "Sentiment" | "Executive" | "Lawsuit" | "Viral" | "Brand";
+  headline: string;
+  source: string;
+  severity: Tone;
+  reach: string;
+  status: "Watching" | "Escalated" | "Contained";
+  summary: string;
+  responses: { label: string; detail: string }[];
+};
+
+export const reputationIssues: ReputationIssue[] = [
+  {
+    id: "rep1",
+    type: "Viral",
+    headline: "Technician video complaint trending locally",
+    source: "TikTok / local news pickup",
+    severity: "bad",
+    reach: "~380K views, rising",
+    status: "Escalated",
+    summary: "A customer's video alleges a botched install and rude service. Facts partly disputed; the customer is real and reachable.",
+    responses: [
+      { label: "Make it right, publicly", detail: "Personal call from the GM, full redo at no charge, and a short factual public reply. Fastest de-escalation." },
+      { label: "Correct the record", detail: "Post the service timeline and photos only if legally cleared; risk of looking defensive." },
+      { label: "Go quiet + monitor", detail: "Only if legal exposure is high; costs goodwill and lets the narrative set." },
+    ],
+  },
+  {
+    id: "rep2",
+    type: "Lawsuit",
+    headline: "Wage-and-hour suit at acquisition target",
+    source: "Court filing (public)",
+    severity: "bad",
+    reach: "Trade press likely",
+    status: "Watching",
+    summary: "Pending suit at Coastal Home Group could attach to us post-close if not escrowed and disclosed.",
+    responses: [
+      { label: "Quantify + escrow", detail: "Hold purchase price in escrow against the liability; disclose in the deal narrative proactively." },
+      { label: "Walk if unbounded", detail: "If the exposure can't be capped, pause the deal rather than inherit an open-ended liability." },
+    ],
+  },
+  {
+    id: "rep3",
+    type: "Sentiment",
+    headline: "CSAT dip after pricing change",
+    source: "Reviews + NPS verbatims",
+    severity: "warn",
+    reach: "Customer base",
+    status: "Watching",
+    summary: "Net sentiment down 6 points since the maintenance-plan price change; complaints cluster on communication, not price.",
+    responses: [
+      { label: "Fix the message", detail: "Re-explain the value and grandfather loyal customers for one cycle." },
+      { label: "Targeted make-goods", detail: "Offer a value add to the most vocal detractors before it spreads." },
+    ],
+  },
+  {
+    id: "rep4",
+    type: "Executive",
+    headline: "CRO profiled positively in trade outlet",
+    source: "Industry publication",
+    severity: "ok",
+    reach: "Industry audience",
+    status: "Contained",
+    summary: "Favorable profile of the CRO strengthens recruiting and the CEO-successor narrative. Amplify carefully.",
+    responses: [
+      { label: "Amplify", detail: "Share through owned channels; use in recruiting for the two open GM roles." },
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* 7. Private Intelligence Room                                        */
+/* ------------------------------------------------------------------ */
+
+export type IntelAnswer = {
+  question: string;
+  headline: string;
+  internal: string[];
+  external: string[];
+  synthesis: string;
+  confidence: string;
+};
+
+export const intelQuestions: IntelAnswer[] = [
+  {
+    question: "What could hurt us in the next 24 months?",
+    headline: "Three structural threats, ranked by expected damage",
+    internal: [
+      "Customer concentration: top 3 accounts = 22% of revenue; one rebids in Q3.",
+      "Key-person risk: CTO has no named backup for core architecture.",
+      "Integration load: two acquisitions strain the ops bench at once.",
+    ],
+    external: [
+      "A PE-backed roll-up is buying regional share on price.",
+      "Rate environment cools big-ticket replacement demand.",
+      "HFC refrigerant phase-down makes current inventory non-compliant by 2027.",
+    ],
+    synthesis:
+      "The highest-expected-damage path is a lost anchor account colliding with an over-stretched ops bench during integration. Mitigate by locking the Q3 rebid early, capping concurrent integrations at two, and funding a CTO deputy now. The refrigerant and rate risks are known and plannable.",
+    confidence: "High on internal, Medium on external timing",
+  },
+  {
+    question: "Where are we quietly winning?",
+    headline: "Two compounding advantages the market underrates",
+    internal: [
+      "Route density in two metros gives us a structural cost edge rivals can't match.",
+      "AI platform tier attach rate is climbing faster than plan (churn down 3 pts).",
+    ],
+    external: [
+      "Competitors are buying share on price and eroding their own margins.",
+      "Customers increasingly choose speed/reliability over lowest price.",
+    ],
+    synthesis:
+      "Our density + AI attach create a reliability moat that competitors are funding a price war instead of building. Lean into speed guarantees and the AI bundle; don't chase price.",
+    confidence: "High",
+  },
+  {
+    question: "If a recession hit in 6 months, how exposed are we?",
+    headline: "Resilient on cash, exposed on big-ticket demand mix",
+    internal: [
+      "Net cash $63M and a war-chest reserve; the 9.4% floating tranche is the main drag.",
+      "Repair/maintenance revenue is countercyclical and growing as a mix.",
+    ],
+    external: [
+      "Replacement (big-ticket) demand is the first to soften with rates.",
+      "Labor market loosening would ease wage inflation — a partial offset.",
+    ],
+    synthesis:
+      "A downturn hurts replacement revenue but helps our repair/maintenance mix and wage costs. Retire the floating debt now, push maintenance-plan penetration, and keep reserves. We'd be a net share-gainer if we hold capacity while price-cutters retrench.",
+    confidence: "Medium-High",
+  },
+];
+
+export function intelAnswer(input: string): IntelAnswer {
+  const q = input.toLowerCase();
+  if (q.includes("win") || q.includes("advantage") || q.includes("strength"))
+    return intelQuestions[1];
+  if (q.includes("recession") || q.includes("downturn") || q.includes("cash"))
+    return intelQuestions[2];
+  return intelQuestions[0];
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. Succession Planner                                               */
+/* ------------------------------------------------------------------ */
+
+export type SuccessionScenarioId = "steps-away" | "sells" | "dies" | "hands-control";
+
+export type SuccessionScenario = {
+  id: SuccessionScenarioId;
+  label: string;
+  readiness: number; // 0-100
+  monday: string;
+  cascade: { area: string; effect: string; severity: Tone }[];
+  plan: string[];
+};
+
+export const successionScenarios: SuccessionScenario[] = [
+  {
+    id: "steps-away",
+    label: "Founder steps back to Chair",
+    readiness: 74,
+    monday: "COO becomes interim CEO with documented signing authority; founder moves to Chair and stays on key relationships.",
+    cascade: [
+      { area: "Operations", effect: "Smooth — COO already runs day-to-day.", severity: "ok" },
+      { area: "Customer relationships", effect: "Top accounts still lean on founder; needs a 12-month handoff.", severity: "warn" },
+      { area: "Corp-dev / M&A", effect: "Deals route through founder — a gap until corp-dev lead is hired.", severity: "warn" },
+      { area: "Culture", effect: "Stable if founder stays visible as Chair.", severity: "ok" },
+    ],
+    plan: [
+      "Formalize the Chair/CEO split of authority in writing.",
+      "Run a structured 12-month relationship handoff on top accounts.",
+      "Hire the corp-dev lead before the founder disengages from deals.",
+    ],
+  },
+  {
+    id: "sells",
+    label: "Founder sells the company",
+    readiness: 61,
+    monday: "Sale process triggers management retention, buyer diligence, and employee uncertainty; leadership must hold the team.",
+    cascade: [
+      { area: "Talent retention", effect: "Flight risk spikes without retention packages locked pre-announcement.", severity: "bad" },
+      { area: "Valuation", effect: "Key-person concentration (CTO, CFO) discounts the multiple.", severity: "warn" },
+      { area: "Customers", effect: "Anchor accounts want continuity assurances during transition.", severity: "warn" },
+      { area: "Deal readiness", effect: "QoE and clean data rooms shorten diligence and lift price.", severity: "ok" },
+    ],
+    plan: [
+      "Lock leadership + key-tech retention before any process goes live.",
+      "Close the CTO backup gap to remove a valuation discount.",
+      "Prepare a clean data room and quality-of-earnings in advance.",
+    ],
+  },
+  {
+    id: "dies",
+    label: "Founder dies / sudden incapacity",
+    readiness: 68,
+    monday: "Interim-CEO clause activates immediately; key-person insurance funds stability; board convenes within 24 hours.",
+    cascade: [
+      { area: "Control / signing", effect: "COO has pre-authorized authority — no operational freeze.", severity: "ok" },
+      { area: "Ownership / estate", effect: "Shares pass per estate plan; trust governance must be current.", severity: "warn" },
+      { area: "Relationships", effect: "Founder-held accounts and lender ties at risk without redundancy.", severity: "bad" },
+      { area: "Morale", effect: "Shock event — needs immediate, honest internal communication.", severity: "warn" },
+    ],
+    plan: [
+      "Keep the interim-CEO clause and signing authority continuously current.",
+      "Maintain key-person insurance sized to transition costs.",
+      "Ensure the estate/trust plan and share-transfer mechanics are up to date.",
+      "Pre-draft the internal and customer communications.",
+    ],
+  },
+  {
+    id: "hands-control",
+    label: "Founder hands control to an executive",
+    readiness: 79,
+    monday: "Named successor (CRO or COO) assumes CEO with a planned announcement; founder supports the transition publicly.",
+    cascade: [
+      { area: "Leadership", effect: "Two viable internal candidates on development plans.", severity: "ok" },
+      { area: "Team dynamics", effect: "The non-chosen candidate is a retention risk — manage actively.", severity: "warn" },
+      { area: "Strategy continuity", effect: "Successor co-owns the current plan; low disruption.", severity: "ok" },
+      { area: "Board confidence", effect: "Board wants a visible runway before the title changes.", severity: "warn" },
+    ],
+    plan: [
+      "Pick a successor 18 months before the handoff and make it visible.",
+      "Give the runner-up an expanded mandate to retain them.",
+      "Stage authority transfer in milestones the board can watch.",
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* 9. Legacy & Long-Term Planning                                      */
+/* ------------------------------------------------------------------ */
+
+export const legacyMission = {
+  statement: "Build the most trusted home-services platform in America and keep it owner-operated for a generation.",
+  horizon: "25-year intent",
+  values: ["Owner-operated", "Customer-for-life", "Community-anchored", "Debt-conservative"],
+};
+
+export const foundations = [
+  { name: "Summit Community Foundation", focus: "Trades scholarships + veteran hiring", committed: "$12M endowment", annual: "$900K/yr grants", status: "Active" },
+  { name: "Founder's Donor-Advised Fund", focus: "Local youth + housing", committed: "$6M", annual: "$450K/yr", status: "Active" },
+];
+
+export const philanthropyGoals = [
+  { goal: "Fund 500 trade scholarships", progress: 62 },
+  { goal: "Hire 250 veterans across the group", progress: 41 },
+  { goal: "Endow the foundation to self-sustaining", progress: 78 },
+];
+
+export const ownershipStructure = [
+  { holder: "Founder & family trust", stake: "71%", note: "Voting control; generational transfer plan in place." },
+  { holder: "Employee stock (ESOP-style pool)", stake: "14%", note: "Broadening ownership to retain operators." },
+  { holder: "Early minority investors", stake: "11%", note: "Tender option modeled at the $100M tier." },
+  { holder: "Board & advisors", stake: "4%", note: "Aligned long-term incentives." },
+];
+
+export const generationalGoals = [
+  { horizon: "5 years", goal: "Cross $500M revenue while owner-operated; foundation self-sustaining." },
+  { horizon: "10 years", goal: "Second-generation family member or internal CEO fully leading; ESOP pool at 20%." },
+  { horizon: "25 years", goal: "Most-trusted national platform; endowment funds community mission independent of the business." },
+];
+
+/* ------------------------------------------------------------------ */
+/* 10. Confidential Deal Rooms                                         */
+/* ------------------------------------------------------------------ */
+
+export type DealRoom = {
+  id: string;
+  name: string;
+  type: "Acquisition" | "Lawsuit" | "Financing" | "Restructuring";
+  classification: "Restricted" | "Highly confidential";
+  status: string;
+  members: string[];
+  documents: { name: string; state: "Reviewed" | "Pending" | "Flagged" }[];
+  aiActivity: string[];
+  nextStep: string;
+};
+
+export const dealRooms: DealRoom[] = [
+  {
+    id: "proj-north",
+    name: "Project Northwind",
+    type: "Acquisition",
+    classification: "Highly confidential",
+    status: "IOI submitted · diligence 40%",
+    members: ["CEO", "CFO", "COO", "Corp-dev lead", "Outside counsel"],
+    documents: [
+      { name: "Quality of earnings", state: "Reviewed" },
+      { name: "Customer concentration analysis", state: "Pending" },
+      { name: "Fleet lease schedule", state: "Flagged" },
+      { name: "Draft purchase agreement", state: "Pending" },
+    ],
+    aiActivity: [
+      "Flagged owner-relationship concentration as a deal-critical risk.",
+      "Modeled 3 earnout structures; recommended relationship-transfer milestones.",
+      "Extracted lease expirations into the risk register automatically.",
+    ],
+    nextStep: "Close QoE follow-ups and finalize earnout terms before LOI.",
+  },
+  {
+    id: "matter-coastal",
+    name: "Matter — Coastal Wage Suit",
+    type: "Lawsuit",
+    classification: "Restricted",
+    status: "Pre-close liability review",
+    members: ["CEO", "General Counsel", "CFO", "Outside litigation counsel"],
+    documents: [
+      { name: "Complaint & docket", state: "Reviewed" },
+      { name: "Exposure quantification", state: "Pending" },
+      { name: "Escrow term sheet", state: "Pending" },
+    ],
+    aiActivity: [
+      "Summarized the docket and comparable settlements.",
+      "Estimated an exposure range to size the escrow.",
+      "Drafted the disclosure narrative for the deal room next door.",
+    ],
+    nextStep: "Quantify exposure; require escrow before the acquisition proceeds.",
+  },
+  {
+    id: "proj-refi",
+    name: "Project Refinance",
+    type: "Financing",
+    classification: "Restricted",
+    status: "Lender term sheets in",
+    members: ["CFO", "CEO", "Treasury", "Bank syndicate"],
+    documents: [
+      { name: "9.4% tranche payoff analysis", state: "Reviewed" },
+      { name: "Comparative term sheets", state: "Reviewed" },
+      { name: "Covenant model", state: "Pending" },
+    ],
+    aiActivity: [
+      "Compared three term sheets on all-in cost and covenant headroom.",
+      "Stress-tested covenants against a recession scenario.",
+    ],
+    nextStep: "Select lender; retire the floating tranche before the next reset.",
+  },
+  {
+    id: "proj-reorg",
+    name: "Project Meridian",
+    type: "Restructuring",
+    classification: "Highly confidential",
+    status: "Org design draft",
+    members: ["CEO", "COO", "CHRO", "Outside advisor"],
+    documents: [
+      { name: "Integration office design", state: "Pending" },
+      { name: "Regional overhead plan", state: "Flagged" },
+      { name: "Retention budget", state: "Pending" },
+    ],
+    aiActivity: [
+      "Modeled overhead consolidation savings by region.",
+      "Flagged technician-retention risk in the overhead plan.",
+    ],
+    nextStep: "Fund retention before announcing any regional consolidation.",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* 11. Crisis Simulation                                               */
+/* ------------------------------------------------------------------ */
+
+export type CrisisId =
+  | "cyberattack"
+  | "factory"
+  | "scandal"
+  | "recession"
+  | "supplier"
+  | "lawsuit";
+
+export type CrisisScenario = {
+  id: CrisisId;
+  label: string;
+  trigger: string;
+  operational: { area: string; effect: string; severity: Tone }[];
+  financial: { metric: string; impact: string; tone: Tone }[];
+  timeline: { window: string; event: string }[];
+  playbook: string[];
+  resilience: number; // 0-100 preparedness
+};
+
+export const crisisScenarios: CrisisScenario[] = [
+  {
+    id: "cyberattack",
+    label: "Ransomware / cyberattack",
+    trigger: "Attackers encrypt dispatch and billing systems; demand payment.",
+    operational: [
+      { area: "Dispatch", effect: "Fall back to manual dispatch; ~30% throughput for 48h.", severity: "bad" },
+      { area: "Billing", effect: "Invoicing frozen; cash collection delayed ~1 week.", severity: "warn" },
+      { area: "Customer trust", effect: "Notification obligations if any PII touched.", severity: "warn" },
+    ],
+    financial: [
+      { metric: "Revenue (2 wks)", impact: "-$1.9M deferred", tone: "warn" },
+      { metric: "IR + recovery cost", impact: "-$0.6M", tone: "bad" },
+      { metric: "Cyber insurance", impact: "+ covers ~70% after retention", tone: "ok" },
+    ],
+    timeline: [
+      { window: "Hour 0–4", event: "Isolate systems, activate IR retainer, notify insurer & counsel." },
+      { window: "Day 1–2", event: "Manual ops; restore from immutable backups; do not pay." },
+      { window: "Day 3–7", event: "Rebuild, rotate credentials, staged restore, customer comms." },
+      { window: "Week 2+", event: "Post-incident review; close the vendor-access gap for good." },
+    ],
+    playbook: [
+      "Do not pay; restore from tested immutable backups.",
+      "Activate the pre-signed IR retainer and notify the insurer immediately.",
+      "Run manual dispatch playbook to keep revenue moving.",
+    ],
+    resilience: 66,
+  },
+  {
+    id: "factory",
+    label: "Factory / hub shutdown",
+    trigger: "Fire forces the primary distribution hub offline for 3 weeks.",
+    operational: [
+      { area: "Fulfillment", effect: "Reroute to secondary hub; +10–14 day lead times.", severity: "bad" },
+      { area: "Field ops", effect: "Parts shortages delay ~15% of jobs.", severity: "warn" },
+      { area: "Labor", effect: "Temporary reassignment of hub staff.", severity: "ok" },
+    ],
+    financial: [
+      { metric: "Revenue (3 wks)", impact: "-$3.1M", tone: "bad" },
+      { metric: "Expediting/freight", impact: "-$0.7M", tone: "warn" },
+      { metric: "Property/BI insurance", impact: "+ covers rebuild + lost income", tone: "ok" },
+    ],
+    timeline: [
+      { window: "Day 0", event: "Activate secondary hub; file BI insurance claim." },
+      { window: "Week 1", event: "Pre-position safety stock; prioritize revenue jobs." },
+      { window: "Week 2–3", event: "Temporary 3PL space; expedite critical SKUs." },
+      { window: "Week 4+", event: "Rebuild; make dual-hub redundancy permanent." },
+    ],
+    playbook: [
+      "Fail over to the secondary hub and a temporary 3PL.",
+      "Prioritize high-margin, revenue-critical jobs for scarce parts.",
+      "File business-interruption insurance on day zero.",
+    ],
+    resilience: 58,
+  },
+  {
+    id: "scandal",
+    label: "CEO / executive scandal",
+    trigger: "Credible allegation against a senior executive goes public.",
+    operational: [
+      { area: "Governance", effect: "Board convenes; independent investigation launched.", severity: "warn" },
+      { area: "Leadership", effect: "Interim coverage of the executive's mandate.", severity: "warn" },
+      { area: "Morale", effect: "Uncertainty; needs honest internal communication.", severity: "warn" },
+    ],
+    financial: [
+      { metric: "Deal/financing timing", impact: "Delays active processes", tone: "warn" },
+      { metric: "Customer churn risk", impact: "-$0.8M if mishandled", tone: "warn" },
+      { metric: "Legal/PR cost", impact: "-$0.4M", tone: "bad" },
+    ],
+    timeline: [
+      { window: "Hour 0–24", event: "Board control, independent counsel, preserve records." },
+      { window: "Day 1–3", event: "Interim leadership; holding statement; no speculation." },
+      { window: "Week 1–3", event: "Investigation; act decisively on findings." },
+      { window: "Week 4+", event: "Governance improvements; rebuild trust." },
+    ],
+    playbook: [
+      "Put the board and independent counsel in control immediately.",
+      "Separate the person from the company; act on facts, fast.",
+      "Communicate honestly internally before externally.",
+    ],
+    resilience: 71,
+  },
+  {
+    id: "recession",
+    label: "Sharp recession",
+    trigger: "Rates and unemployment rise; big-ticket demand drops 20%.",
+    operational: [
+      { area: "Demand mix", effect: "Replacement down; repair/maintenance up — protect capacity.", severity: "warn" },
+      { area: "Cost base", effect: "Wage inflation eases; renegotiate variable costs.", severity: "ok" },
+      { area: "Growth bets", effect: "Slow discretionary spend; keep the war chest.", severity: "warn" },
+    ],
+    financial: [
+      { metric: "Revenue (annual)", impact: "-9% base case", tone: "warn" },
+      { metric: "Free cash flow", impact: "Positive; countercyclical repair mix", tone: "ok" },
+      { metric: "Net cash buffer", impact: "$63M cushions 5+ quarters", tone: "ok" },
+    ],
+    timeline: [
+      { window: "Q1", event: "Retire floating debt; push maintenance plans + financing." },
+      { window: "Q2", event: "Hold capacity while price-cutters retrench." },
+      { window: "Q3–Q4", event: "Opportunistic tuck-ins from distressed competitors." },
+    ],
+    playbook: [
+      "Retire the high-rate floating debt to lower fixed costs.",
+      "Shift marketing to maintenance plans and financing offers.",
+      "Use reserves to buy distressed competitors, not to survive.",
+    ],
+    resilience: 77,
+  },
+  {
+    id: "supplier",
+    label: "Key supplier collapse",
+    trigger: "Sole-source compressor supplier enters insolvency.",
+    operational: [
+      { area: "Inventory", effect: "8–12 weeks of cover; then stockout risk.", severity: "bad" },
+      { area: "Sourcing", effect: "Qualify alternates; expect higher unit cost.", severity: "warn" },
+      { area: "Jobs", effect: "Prioritize safety stock for booked installs.", severity: "warn" },
+    ],
+    financial: [
+      { metric: "COGS", impact: "+6% on affected SKUs", tone: "warn" },
+      { metric: "Emergency buy", impact: "-$1.2M working capital", tone: "warn" },
+      { metric: "Lost jobs (if slow)", impact: "-$2.0M", tone: "bad" },
+    ],
+    timeline: [
+      { window: "Week 0", event: "Lock remaining supplier stock; start dual-sourcing." },
+      { window: "Week 1–4", event: "Qualify two alternates; pre-buy safety stock." },
+      { window: "Month 2+", event: "Make dual-sourcing permanent policy." },
+    ],
+    playbook: [
+      "Buy out remaining stock and pre-position safety inventory.",
+      "Qualify at least two alternate suppliers immediately.",
+      "Never return to single-source on a critical component.",
+    ],
+    resilience: 54,
+  },
+  {
+    id: "lawsuit",
+    label: "Major lawsuit",
+    trigger: "Class action alleges systemic billing or labor violation.",
+    operational: [
+      { area: "Legal", effect: "Litigation hold; document preservation; discovery.", severity: "warn" },
+      { area: "Process", effect: "Audit and fix the underlying practice fast.", severity: "warn" },
+      { area: "Reputation", effect: "Trade-press coverage likely.", severity: "warn" },
+    ],
+    financial: [
+      { metric: "Reserve/settlement range", impact: "-$1.5M to -$4M", tone: "bad" },
+      { metric: "Defense cost", impact: "-$0.9M", tone: "warn" },
+      { metric: "D&O / EPLI insurance", impact: "+ partial coverage", tone: "ok" },
+    ],
+    timeline: [
+      { window: "Week 0", event: "Litigation hold; engage specialist counsel; assess merits." },
+      { window: "Month 1", event: "Fix the underlying practice; quantify exposure." },
+      { window: "Month 2–6", event: "Settle vs. defend decision on ROI, not ego." },
+    ],
+    playbook: [
+      "Preserve documents and fix the root-cause practice immediately.",
+      "Quantify realistic exposure to decide settle vs. defend.",
+      "Manage the narrative with facts once counsel clears it.",
+    ],
+    resilience: 63,
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* 12. Negotiation War Room                                            */
+/* ------------------------------------------------------------------ */
+
+export type NegotiationId =
+  | "acquisition"
+  | "contract"
+  | "funding"
+  | "labor"
+  | "partnership"
+  | "government";
+
+export type NegotiationPrep = {
+  id: NegotiationId;
+  label: string;
+  counterparty: string;
+  objective: string;
+  leverage: { point: string; tone: Tone }[];
+  batna: string;
+  redlines: string[];
+  concessions: { give: string; get: string }[];
+  opening: string;
+  traps: string[];
+};
+
+export const negotiations: NegotiationPrep[] = [
+  {
+    id: "acquisition",
+    label: "Acquisition (Northwind)",
+    counterparty: "Founder-owner + advisor",
+    objective: "Buy at ≤8x with a relationship-transfer earnout.",
+    leverage: [
+      { point: "We're the natural strategic buyer (route density).", tone: "ok" },
+      { point: "Their owner-concentration risk lowers others' bids.", tone: "ok" },
+      { point: "Fleet leases expiring pressures their timeline.", tone: "warn" },
+    ],
+    batna: "Walk and pursue BrightPath + organic commercial build. Credible and funded.",
+    redlines: ["No deal above 8.5x", "Earnout must tie to relationship transfer", "Escrow for lease/CRM risk"],
+    concessions: [
+      { give: "Higher headline price", get: "Longer earnout + retention" },
+      { give: "Keep the owner's brand 12 months", get: "Full relationship handoff" },
+      { give: "Faster close", get: "Lease-risk escrow" },
+    ],
+    opening: "Anchor at 7.2x citing owner-concentration risk, then trade price for earnout structure that protects both sides.",
+    traps: ["Don't let them anchor on a strategic multiple.", "Don't pay for synergies you create."],
+  },
+  {
+    id: "contract",
+    label: "Major customer contract",
+    counterparty: "National property-management account",
+    objective: "Renew 3 years with a price increase and an SLA that fits.",
+    leverage: [
+      { point: "We're their most reliable vendor (speed/uptime).", tone: "ok" },
+      { point: "Switching cost + retraining is high for them.", tone: "ok" },
+      { point: "They're testing a price-cutting competitor.", tone: "warn" },
+    ],
+    batna: "Redeploy that capacity to higher-margin accounts; we're capacity-constrained anyway.",
+    redlines: ["No SLA we can't hit", "Minimum 6% price increase", "No exclusivity without volume commit"],
+    concessions: [
+      { give: "Volume-tiered pricing", get: "3-year term + auto-renew" },
+      { give: "Faster emergency SLA", get: "Higher base rate" },
+    ],
+    opening: "Lead with reliability data and the cost of switching; frame the increase as protecting their uptime.",
+    traps: ["Don't trade term length away for a one-time discount.", "Don't accept an SLA you'll breach."],
+  },
+  {
+    id: "funding",
+    label: "Financing / refinance",
+    counterparty: "Bank syndicate",
+    objective: "Refinance the 9.4% tranche with covenant headroom.",
+    leverage: [
+      { point: "Three competing term sheets in hand.", tone: "ok" },
+      { point: "$63M net cash and strong FCF.", tone: "ok" },
+      { point: "Rate environment is volatile.", tone: "warn" },
+    ],
+    batna: "Retire the tranche with cash and reserves; we don't strictly need them.",
+    redlines: ["No maintenance covenant tighter than 3.0x", "Prepayment flexibility", "No blanket lien on M&A targets"],
+    concessions: [
+      { give: "Slightly higher spread", get: "Covenant headroom + prepay flexibility" },
+      { give: "Primary banking relationship", get: "Lower all-in cost" },
+    ],
+    opening: "Play the three term sheets against each other on all-in cost and covenant headroom, not headline rate.",
+    traps: ["Don't optimize rate at the cost of covenant flexibility.", "Watch for hidden fees in the all-in."],
+  },
+  {
+    id: "labor",
+    label: "Labor / workforce",
+    counterparty: "Technician workforce reps",
+    objective: "Sustainable wage + retention deal without margin collapse.",
+    leverage: [
+      { point: "We pay at or above market and invest in training.", tone: "ok" },
+      { point: "Tight labor market strengthens their hand.", tone: "warn" },
+      { point: "Turnover is costly for us too — shared interest.", tone: "warn" },
+    ],
+    batna: "Automation + retention bonuses targeted at top performers; slower but viable.",
+    redlines: ["Total comp increase within margin plan", "Tie raises to certification/productivity"],
+    concessions: [
+      { give: "Clear career/pay ladder", get: "Productivity + retention commitments" },
+      { give: "Better benefits", get: "Schedule flexibility for coverage" },
+    ],
+    opening: "Open with shared interest in lower turnover; frame pay as tied to a career ladder, not a flat bump.",
+    traps: ["Don't set precedents you can't fund group-wide.", "Avoid across-the-board raises detached from output."],
+  },
+  {
+    id: "partnership",
+    label: "Strategic partnership",
+    counterparty: "Manufacturer / channel partner",
+    objective: "Preferred pricing + co-marketing without exclusivity lock-in.",
+    leverage: [
+      { point: "Our volume is meaningful to their channel.", tone: "ok" },
+      { point: "We can dual-source if terms slip.", tone: "ok" },
+      { point: "They want our data/insights access.", tone: "warn" },
+    ],
+    batna: "Diversify across two manufacturers; preserves pricing power.",
+    redlines: ["No exclusivity", "Data-sharing limited and privacy-safe", "Volume rebates in writing"],
+    concessions: [
+      { give: "Co-marketing commitment", get: "Preferred pricing tier" },
+      { give: "Anonymized insights", get: "Priority supply allocation" },
+    ],
+    opening: "Anchor on volume value; offer co-marketing before price, and refuse exclusivity.",
+    traps: ["Don't trade exclusivity for a discount.", "Guard customer data carefully."],
+  },
+  {
+    id: "government",
+    label: "Government / regulator meeting",
+    counterparty: "Regulatory agency",
+    objective: "Reasonable compliance timeline on the refrigerant phase-down.",
+    leverage: [
+      { point: "We're proactively transitioning ahead of peers.", tone: "ok" },
+      { point: "Jobs and local economic footprint.", tone: "ok" },
+      { point: "Rules are firm; goodwill matters more than leverage.", tone: "warn" },
+    ],
+    batna: "Comply on the strict timeline at higher cost; absorb and pass through.",
+    redlines: ["No commitments we can't operationally meet", "Written guidance, not verbal"],
+    concessions: [
+      { give: "Early voluntary reporting", get: "Reasonable transition runway" },
+      { give: "Pilot the new standard", get: "Regulatory goodwill + clarity" },
+    ],
+    opening: "Lead as a proactive partner, not an adversary; ask for a realistic runway in exchange for transparency.",
+    traps: ["Don't overcommit on timelines to look good.", "Get everything in writing."],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* Shared: top-line suite stats for overview surfaces                  */
+/* ------------------------------------------------------------------ */
+
+export const suiteHighlights = {
+  companies: 4,
+  activeDeals: dealRooms.length,
+  openRisks: radarSignals.filter((s) => s.severity !== "ok").length,
+  crisisPlaybooks: crisisScenarios.length,
+};
