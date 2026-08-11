@@ -4616,6 +4616,11 @@ html[data-a11y-motion="reduce"] *::after {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.focus-card {
+  margin: auto;
 }
 
 .focus-card {
