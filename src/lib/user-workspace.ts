@@ -1176,6 +1176,155 @@ export function employeeAssistantReply(
   };
 }
 
+/* ─── Atlas sidebar assistant (everywhere, permission-scoped) ──────────── */
+
+export type SidebarReply = { text: string; items: string[] };
+
+export function atlasSidebarReply(member: TeamPerson, input: string, now: number = Date.now()): SidebarReply {
+  const q = input.toLowerCase().trim();
+  const today = todayISO(new Date(now));
+  const mine = loadTeamTasks().filter((t) => t.memberId === member.id);
+  const open = mine.filter((t) => isOpenTask(t.status));
+  const docs = documentsForEmployee(member.id);
+  const training = trainingForMember(member.id);
+  const words = q.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+
+  // What's due today?
+  if (/due today|what.*due|today'?s? work|what.*work on/.test(q)) {
+    const due = open.filter((t) => t.kind === "task" && t.dueDate.slice(0, 10) === today);
+    const meetings = mine.filter((t) => t.kind === "meeting" && t.dueDate.slice(0, 10) === today);
+    return {
+      text: `You have ${due.length} task${due.length === 1 ? "" : "s"} and ${meetings.length} meeting${meetings.length === 1 ? "" : "s"} due today.`,
+      items: [...due, ...meetings].map((t) => `${t.dueTime ? `${t.dueTime} · ` : ""}${t.title}`),
+    };
+  }
+
+  // Find a document / contract / file.
+  if (/find|where.*(is|are)|contract|document|file|policy|handbook/.test(q)) {
+    const hits = docs.filter((d) => words.some((w) => d.title.toLowerCase().includes(w) || d.category.toLowerCase().includes(w)));
+    const list = hits.length ? hits : docs;
+    return {
+      text: hits.length ? "Here's what I found in your documents:" : "Here are the documents you can access:",
+      items: list.map((d) => `${d.title} (${d.category})`),
+    };
+  }
+
+  // How do I handle X? / refund guidance.
+  if (/how do i|how to|handle|refund|process/.test(q)) {
+    if (/refund/.test(q)) {
+      return {
+        text: "Refund process (per policy):",
+        items: [
+          "Confirm the order and reason in the customer record.",
+          "Check it's within the refund window and amount limits.",
+          "If over your limit, request manager approval.",
+          "Issue the refund and log the outcome on the task.",
+        ],
+      };
+    }
+    return {
+      text: "Here's the general playbook — check the linked policy for specifics:",
+      items: ["Confirm the details.", "Follow the documented steps.", "Escalate to your manager if it's outside policy.", "Log what you did."],
+    };
+  }
+
+  // Summarize a project.
+  if (/summariz|summary|project/.test(q)) {
+    const projects = [...new Set(mine.map((t) => t.project).filter(Boolean))];
+    const target = projects.find((p) => words.some((w) => p.toLowerCase().includes(w))) ?? projects[0];
+    if (target) {
+      const pt = mine.filter((t) => t.project === target);
+      const done = pt.filter((t) => t.status === "completed").length;
+      return {
+        text: `Project "${target}": ${pt.length} tasks, ${done} done, ${pt.length - done} open.`,
+        items: pt.map((t) => `${t.title} — ${taskStatusLabel(t.status)}`),
+      };
+    }
+    return { text: "You're not on any projects with tasks yet.", items: [] };
+  }
+
+  // Draft a reply.
+  if (/draft|write|reply|respond|email/.test(q)) {
+    return {
+      text: "Here's a draft you can adjust:",
+      items: [
+        `Hi there — thanks for reaching out. I've reviewed your request and I'm on it. I'll follow up with next steps shortly. Best, ${member.name.split(" ")[0]}.`,
+      ],
+    };
+  }
+
+  // Who should I contact?
+  if (/who.*(contact|ask|talk|reach)|escalate/.test(q)) {
+    let route = "your manager";
+    if (/it|technical|system|login|computer/.test(q)) route = "IT support";
+    else if (/hr|benefit|payroll|leave/.test(q)) route = "HR";
+    else if (/finance|pricing|invoice|billing/.test(q)) route = "Finance (via your manager)";
+    else if (/customer|account|client/.test(q)) route = "the account team";
+    return { text: `For that, contact ${route}. Want me to open a Need-Help request?`, items: [] };
+  }
+
+  // Training guide.
+  if (/training|guide|learn|course/.test(q)) {
+    return {
+      text: "Your training modules:",
+      items: training.map((m) => `${m.name} — ${m.progress >= 100 ? "complete" : `${m.progress}%`}`),
+    };
+  }
+
+  // Fall back to the task-focused assistant.
+  const r = employeeAssistantReply(member, mine, input);
+  return { text: r.text, items: r.actions.map((a) => a.label) };
+}
+
+/* ─── Daily brief + end-of-day summary + help routing ──────────────────── */
+
+export function dailyBrief(member: TeamPerson, tasks: TeamTask[], now: number = Date.now()): string[] {
+  const today = todayISO(new Date(now));
+  const mine = tasks.filter((t) => t.memberId === member.id);
+  const dueToday = mine.filter((t) => t.kind === "task" && t.dueDate.slice(0, 10) === today && t.status !== "completed");
+  const high = mine.filter((t) => (t.priority === "High" || t.priority === "Urgent") && t.status !== "completed");
+  const meetingsToday = mine
+    .filter((t) => t.kind === "meeting" && t.dueDate.slice(0, 10) === today && t.dueTime)
+    .sort((a, b) => (parseClockToMinutes(a.dueTime) < parseClockToMinutes(b.dueTime) ? -1 : 1));
+  const topDue = mine
+    .filter((t) => t.status !== "completed" && t.dueTime && t.dueDate.slice(0, 10) === today)
+    .sort((a, b) => (PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]))[0];
+  const waiting = mine.filter((t) => t.status === "waiting");
+  const overdue = mine.filter((t) => isOpenTask(t.status) && t.dueDate && t.dueDate.slice(0, 10) < today);
+
+  const lines: string[] = [];
+  lines.push(`You have ${dueToday.length} task${dueToday.length === 1 ? "" : "s"} today.`);
+  if (high.length) lines.push(`${high.length} ${high.length === 1 ? "is" : "are"} high priority.`);
+  if (meetingsToday[0]) lines.push(`Your first meeting begins at ${meetingsToday[0].dueTime}.`);
+  if (topDue && topDue.dueTime) lines.push(`The ${topDue.title} is due at ${topDue.dueTime}.`);
+  if (waiting[0]) lines.push(`You're waiting on ${waiting[0].blockReason || "someone"} for one task.`);
+  lines.push(overdue.length ? `You have ${overdue.length} overdue task${overdue.length === 1 ? "" : "s"}.` : "You have no overdue work.");
+  return lines;
+}
+
+export type EndOfDay = { completed: number; moved: number; blocked: number; meetings: number; compliments: number };
+
+export function endOfDaySummary(member: TeamPerson, tasks: TeamTask[], now: number = Date.now()): EndOfDay {
+  const today = todayISO(new Date(now));
+  const mine = tasks.filter((t) => t.memberId === member.id);
+  return {
+    completed: mine.filter((t) => t.status === "completed").length,
+    moved: mine.filter((t) => isOpenTask(t.status) && t.dueDate.slice(0, 10) === today).length,
+    blocked: mine.filter((t) => t.status === "blocked").length,
+    meetings: mine.filter((t) => t.kind === "meeting" && t.dueDate.slice(0, 10) === today).length,
+    compliments: recognitionsFor(member.id).length,
+  };
+}
+
+export const HELP_CATEGORIES: { id: string; label: string; route: string }[] = [
+  { id: "manager", label: "Manager Help", route: "your manager" },
+  { id: "it", label: "IT Problem", route: "IT support" },
+  { id: "hr", label: "HR Question", route: "HR" },
+  { id: "customer", label: "Customer Problem", route: "the account team" },
+  { id: "equipment", label: "Equipment Problem", route: "the ops team" },
+  { id: "atlas", label: "Atlas AI Help", route: "Atlas" },
+];
+
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
 
 export type ManagerAlert = {

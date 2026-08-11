@@ -8,11 +8,19 @@ import {
   acknowledgeAnnouncement,
   addTaskAttachment,
   addTaskComment,
+  atlasSidebarReply,
   awaitingApproval,
   BLOCK_REASONS,
   blockTask,
   buildDaySchedule,
   bumpTraining,
+  createTeamTask,
+  dailyBrief,
+  dmChannelId,
+  endOfDaySummary,
+  HELP_CATEGORIES,
+  loadDocuments,
+  saveDocuments,
   formatGoalNumber,
   goalActionPlan,
   goalProjection,
@@ -104,7 +112,7 @@ import {
   type WidgetPref,
 } from "@/lib/user-workspace";
 
-type ChatMsg = { role: "user" | "ai"; text: string; actions?: AssistantAction[] };
+type ChatMsg = { role: "user" | "ai"; text: string; actions?: AssistantAction[]; items?: string[] };
 
 function priorityBadge(priority: TaskPriority) {
   return priority === "Urgent" || priority === "High" ? "badge warn" : "badge";
@@ -159,6 +167,16 @@ export default function EmployeeDashboardPage() {
   const [customizing, setCustomizing] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [goalPlanId, setGoalPlanId] = useState<string | null>(null);
+  const [briefOpen, setBriefOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarMsgs, setSidebarMsgs] = useState<ChatMsg[]>([]);
+  const [sidebarInput, setSidebarInput] = useState("");
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpFlash, setHelpFlash] = useState<string | null>(null);
+  const [eodOpen, setEodOpen] = useState(false);
+  const [eodNote, setEodNote] = useState("");
+  const [actionFlash, setActionFlash] = useState<string | null>(null);
   const idRef = useRef<string | null>(null);
   const lastActivityPush = useRef(0);
 
@@ -186,6 +204,12 @@ export default function EmployeeDashboardPage() {
     setRecognitions(recognitionsFor(me.id));
     setAllMembers(loadTeamMembers());
     setLayout(loadWidgetLayout());
+    setSidebarMsgs([
+      {
+        role: "ai",
+        text: "Hi — I'm here on every page. Ask me what's due today, to find a document, how to handle a refund, to summarize a project, and more.",
+      },
+    ]);
     setChat([
       {
         role: "ai",
@@ -434,6 +458,71 @@ export default function EmployeeDashboardPage() {
     setBlockFlash(
       `⚠️ Atlas notified ${reason.notify}: ${employee.name.split(" ")[0]} can't complete "${task.title}" because ${clause}.`,
     );
+  }
+
+  function askSidebar(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !sidebarInput.trim()) return;
+    const r = atlasSidebarReply(employee, sidebarInput);
+    setSidebarMsgs((prev) => [...prev, { role: "user", text: sidebarInput.trim() }, { role: "ai", text: r.text, items: r.items }]);
+    setSidebarInput("");
+  }
+  function askSidebarPrompt(text: string) {
+    if (!employee) return;
+    const r = atlasSidebarReply(employee, text);
+    setSidebarMsgs((prev) => [...prev, { role: "user", text }, { role: "ai", text: r.text, items: r.items }]);
+  }
+
+  function requestClockOut() {
+    setEodOpen(true);
+  }
+  function confirmClockOut(withNote: boolean) {
+    if (!employee) return;
+    if (withNote && eodNote.trim()) {
+      sendMessage(dmChannelId(employee.id), employee.id, employee.name, `End-of-day note: ${eodNote.trim()}`);
+      setMessages(loadMessages());
+    }
+    doClockOut();
+    setEodOpen(false);
+    setEodNote("");
+  }
+
+  function chooseHelp(cat: (typeof HELP_CATEGORIES)[number]) {
+    if (!employee) return;
+    if (cat.id === "atlas") {
+      setHelpOpen(false);
+      setSidebarOpen(true);
+      return;
+    }
+    sendMessage(dmChannelId(employee.id), employee.id, employee.name, `Help request — ${cat.label}`);
+    setMessages(loadMessages());
+    setHelpOpen(false);
+    setHelpFlash(`Atlas routed your ${cat.label} request to ${cat.route}.`);
+  }
+
+  function qaNewTask() {
+    if (!employee) return;
+    const t = createTeamTask({ memberId: employee.id, title: "New task", assignedBy: employee.name });
+    saveTeamTasks([t, ...loadTeamTasks()]);
+    setTasks(loadTeamTasks().filter((x) => x.memberId === employee.id));
+    setQuickOpen(false);
+    setActionFlash('Created a task ("New task") — open it to add details.');
+  }
+  function qaReminder() {
+    if (!employee) return;
+    const t = createTeamTask({ memberId: employee.id, title: "Reminder", assignedBy: employee.name, priority: "Normal" });
+    saveTeamTasks([t, ...loadTeamTasks()]);
+    setTasks(loadTeamTasks().filter((x) => x.memberId === employee.id));
+    setQuickOpen(false);
+    setActionFlash("Reminder added to your tasks.");
+  }
+  function qaUpload() {
+    if (!employee) return;
+    const doc = { id: `doc-${Date.now()}`, memberId: employee.id, title: "Uploaded file", category: "Employment" as const, visibility: "employee" as const, addedAt: new Date().toISOString() };
+    saveDocuments([doc, ...loadDocuments()]);
+    setDocs(loadDocuments().filter((d) => d.memberId === employee.id && d.visibility === "employee"));
+    setQuickOpen(false);
+    setActionFlash("Document uploaded to your files.");
   }
 
   function toggleWidget(id: string) {
@@ -789,7 +878,7 @@ export default function EmployeeDashboardPage() {
             {!timesheet.clockedIn ? (
               <button className="btn btn-dark" type="button" onClick={doClockIn}>Clock in</button>
             ) : (
-              <button className="btn btn-outline" type="button" onClick={doClockOut}>Clock out</button>
+              <button className="btn btn-outline" type="button" onClick={requestClockOut}>Clock out</button>
             )}
           </>
         );
@@ -839,7 +928,7 @@ export default function EmployeeDashboardPage() {
                 Clock in
               </button>
             ) : (
-              <button className="emp-iconbtn" type="button" onClick={doClockOut}>
+              <button className="emp-iconbtn" type="button" onClick={requestClockOut}>
                 Clock out
               </button>
             )}
@@ -869,6 +958,32 @@ export default function EmployeeDashboardPage() {
 
       <main className="emp-main">
         <div className="container">
+          {briefOpen ? (
+            <section className="panel emp-hero" style={{ borderLeft: "4px solid var(--teal)" }}>
+              <h2>Your day</h2>
+              <div className="list" style={{ marginTop: "0.4rem" }}>
+                {dailyBrief(employee, tasks, now).map((line) => (
+                  <div className="list-row" key={line}>
+                    <span className="badge">Atlas</span>
+                    <p>{line}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="train-actions" style={{ marginTop: "0.8rem" }}>
+                <button className="btn btn-dark" type="button" onClick={() => setBriefOpen(false)}>
+                  Start my day
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {actionFlash || helpFlash ? (
+            <div className="memory-card">
+              <div className="label">Atlas</div>
+              <p>{actionFlash ?? helpFlash}</p>
+            </div>
+          ) : null}
+
           {announcements.length ? (
             <section className="panel" id="emp-announcements" style={{ borderLeft: "4px solid var(--sand)" }}>
               <h2>Company announcements</h2>
@@ -1141,7 +1256,7 @@ export default function EmployeeDashboardPage() {
                         Start break
                       </button>
                     )}
-                    <button className="btn btn-outline" type="button" onClick={doClockOut}>
+                    <button className="btn btn-outline" type="button" onClick={requestClockOut}>
                       Clock out
                     </button>
                   </>
@@ -1423,7 +1538,7 @@ export default function EmployeeDashboardPage() {
               </form>
             </section>
 
-            <section className="panel">
+            <section className="panel" id="emp-timeoff">
               <h2>Request time off</h2>
               <p className="panel-lead">Atlas checks staffing before your manager approves.</p>
               <form className="form-grid" onSubmit={requestTimeOff}>
@@ -1706,6 +1821,118 @@ export default function EmployeeDashboardPage() {
           </p>
         </div>
       </main>
+
+      {/* Floating actions: Need help, Quick actions, Atlas */}
+      <div className="fab-stack">
+        {quickOpen ? (
+          <div className="fab-menu">
+            <button type="button" onClick={qaNewTask}>➕ New Task</button>
+            <button type="button" onClick={() => { setQuickOpen(false); scrollTo("emp-messages"); }}>✉️ Send Message</button>
+            <button type="button" onClick={() => { setQuickOpen(false); scrollTo("emp-timeoff"); }}>🌴 Request Time Off</button>
+            <button type="button" onClick={() => { setQuickOpen(false); setHelpOpen(true); }}>🚩 Report Problem</button>
+            <button type="button" onClick={qaUpload}>📎 Upload Document</button>
+            <button type="button" onClick={() => { setQuickOpen(false); setHelpOpen(true); }}>🙋 Ask for Help</button>
+            <button type="button" onClick={qaReminder}>⏰ Create Reminder</button>
+          </div>
+        ) : null}
+        <button className="fab" type="button" onClick={() => setHelpOpen(true)}>
+          Need help?
+        </button>
+        <button className="fab" type="button" onClick={() => setQuickOpen((v) => !v)} aria-label="Quick actions">
+          {quickOpen ? "✕ Close" : "＋ Quick actions"}
+        </button>
+        <button className="fab primary" type="button" onClick={() => setSidebarOpen(true)}>
+          ✨ Atlas
+        </button>
+      </div>
+
+      {/* Atlas right sidebar */}
+      {sidebarOpen ? (
+        <>
+          <div className="drawer-overlay" onClick={() => setSidebarOpen(false)} />
+          <aside className="atlas-drawer" aria-label="Atlas assistant">
+            <div className="drawer-head">
+              <h2>Atlas</h2>
+              <button className="btn btn-outline" type="button" onClick={() => setSidebarOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="cta-row">
+              {["What's due today?", "Find the customer contract", "How do I handle this refund?", "Summarize this project", "Draft a reply to this customer", "Who should I contact about this problem?", "Show me the training guide"].map((p) => (
+                <button key={p} type="button" className="btn btn-outline" onClick={() => askSidebarPrompt(p)}>
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="drawer-thread">
+              {sidebarMsgs.map((m, i) => (
+                <div key={i} className={`bubble ${m.role === "ai" ? "bubble-ai" : "bubble-user"}`}>
+                  {m.text}
+                  {m.items && m.items.length ? (
+                    <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.1rem" }}>
+                      {m.items.map((it) => (
+                        <li key={it}>{it}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <form className="command-form" onSubmit={askSidebar}>
+              <input value={sidebarInput} onChange={(e) => setSidebarInput(e.target.value)} placeholder="Ask Atlas anything…" />
+              <button className="btn btn-dark" type="submit">Ask</button>
+            </form>
+          </aside>
+        </>
+      ) : null}
+
+      {/* Need Help routing */}
+      {helpOpen ? (
+        <div className="modal-overlay" onClick={() => setHelpOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Need help?</h2>
+            <p className="panel-lead">Pick a category and Atlas routes it automatically.</p>
+            <div className="cta-row" style={{ marginTop: "0.8rem" }}>
+              {HELP_CATEGORIES.map((c) => (
+                <button key={c.id} type="button" className="btn btn-outline" onClick={() => chooseHelp(c)}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <div className="train-actions" style={{ marginTop: "1rem" }}>
+              <button className="btn btn-dark" type="button" onClick={() => setHelpOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* End-of-day summary */}
+      {eodOpen ? (() => {
+        const eod = endOfDaySummary(employee, tasks, now);
+        return (
+          <div className="modal-overlay" onClick={() => setEodOpen(false)}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <h2>Today&apos;s summary</h2>
+              <div className="list" style={{ marginTop: "0.6rem" }}>
+                <div className="list-row"><span className="badge ok">✅</span><p>{eod.completed} task{eod.completed === 1 ? "" : "s"} completed</p></div>
+                <div className="list-row"><span className="badge">⏳</span><p>{eod.moved} moved to tomorrow</p></div>
+                <div className="list-row"><span className="badge warn">🚧</span><p>{eod.blocked} blocked</p></div>
+                <div className="list-row"><span className="badge">📅</span><p>{eod.meetings} meeting{eod.meetings === 1 ? "" : "s"} attended</p></div>
+                <div className="list-row"><span className="badge ok">⭐</span><p>{eod.compliments} recognition{eod.compliments === 1 ? "" : "s"}</p></div>
+              </div>
+              <label style={{ display: "block", marginTop: "1rem" }}>
+                <span className="muted-line">Anything your manager should know?</span>
+                <textarea value={eodNote} onChange={(e) => setEodNote(e.target.value)} rows={2} placeholder="e.g. Waiting on supplier pricing before I can finish tomorrow." />
+              </label>
+              <div className="train-actions" style={{ marginTop: "0.8rem" }}>
+                <button className="btn btn-dark" type="button" onClick={() => confirmClockOut(true)}>Submit &amp; clock out</button>
+                <button className="btn btn-outline" type="button" onClick={() => confirmClockOut(false)}>Just clock out</button>
+                <button className="btn btn-outline" type="button" onClick={() => setEodOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
     </div>
   );
 }
