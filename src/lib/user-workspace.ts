@@ -1947,6 +1947,285 @@ export function completeOnboardingStep(memberId: string, stepId: string): Onboar
   return state;
 }
 
+/* ─── AI Mentor · Career Center · Internal opportunities ───────────────── */
+
+export type CareerRung = { role: string; skills: string[]; expectations: string[]; training: string[] };
+export type CareerTrack = { id: string; name: string; departments: string[]; rungs: CareerRung[] };
+
+export const CAREER_TRACKS: CareerTrack[] = [
+  {
+    id: "support",
+    name: "Customer Support",
+    departments: ["Customer Support"],
+    rungs: [
+      { role: "Customer Support Representative", skills: ["Customer Service", "Product Knowledge"], expectations: ["Resolve tickets on time", "CSAT 4.5+"], training: ["Support Basics"] },
+      { role: "Senior Representative", skills: ["Customer Service", "Conflict resolution", "Product Knowledge"], expectations: ["Handle escalations", "Mentor new reps"], training: ["Advanced Support", "De-escalation"] },
+      { role: "Team Lead", skills: ["Leadership", "Coaching", "Scheduling"], expectations: ["Run a small team", "Hit team CSAT"], training: ["Leadership 101", "Coaching skills"] },
+      { role: "Support Manager", skills: ["Team management", "Data reporting", "Hiring"], expectations: ["Own team performance", "Manage a budget"], training: ["People Management", "Support Analytics"] },
+      { role: "Regional Support Director", skills: ["Strategy", "Budgeting", "Multi-team leadership"], expectations: ["Own the region", "Set support strategy"], training: ["Director Program"] },
+    ],
+  },
+  {
+    id: "sales",
+    name: "Sales",
+    departments: ["Sales"],
+    rungs: [
+      { role: "Sales Associate", skills: ["Sales", "Product Knowledge"], expectations: ["Hit activity targets"], training: ["Sales Basics"] },
+      { role: "Account Executive", skills: ["Sales", "Salesforce", "Negotiation"], expectations: ["Own a pipeline", "Hit quota"], training: ["Pipeline Management"] },
+      { role: "Senior Account Executive", skills: ["Negotiation", "Forecasting", "Salesforce"], expectations: ["Close strategic deals"], training: ["Advanced Negotiation"] },
+      { role: "Sales Manager", skills: ["Leadership", "Coaching", "Data reporting"], expectations: ["Lead a sales team"], training: ["People Management"] },
+      { role: "Regional Sales Director", skills: ["Strategy", "Budgeting"], expectations: ["Own regional revenue"], training: ["Director Program"] },
+    ],
+  },
+  {
+    id: "management",
+    name: "Leadership",
+    departments: ["Management", "Operations", "Marketing"],
+    rungs: [
+      { role: "Office Manager", skills: ["Customer Service", "Scheduling", "Excel"], expectations: ["Keep operations running"], training: ["Operations Basics"] },
+      { role: "Operations Manager", skills: ["Leadership", "Coaching", "Data reporting"], expectations: ["Manage a department", "Hit KPIs"], training: ["People Management", "Ops Analytics"] },
+      { role: "Director of Operations", skills: ["Strategy", "Budgeting", "Team management"], expectations: ["Own multiple teams"], training: ["Director Program"] },
+      { role: "VP of Operations", skills: ["Vision", "Financial planning"], expectations: ["Own the org"], training: ["Executive Program"] },
+    ],
+  },
+];
+
+export function trackForMember(member: TeamPerson): CareerTrack | null {
+  return (
+    CAREER_TRACKS.find((t) => t.departments.includes(member.department || "")) ??
+    CAREER_TRACKS.find((t) => t.id === "management") ??
+    null
+  );
+}
+function memberSkillNames(member: TeamPerson): Set<string> {
+  return new Set((member.skills ?? []).map((s) => s.name.toLowerCase()));
+}
+export function currentRungIndex(member: TeamPerson, track: CareerTrack): number {
+  const idx = track.rungs.findIndex((r) => r.role.toLowerCase() === (member.role || "").toLowerCase());
+  return idx >= 0 ? idx : 0;
+}
+
+export type CareerLadder = { track: CareerTrack; currentIndex: number; nextRole: string | null; missingForNext: string[] };
+export function careerLadderFor(member: TeamPerson): CareerLadder | null {
+  const track = trackForMember(member);
+  if (!track) return null;
+  const currentIndex = currentRungIndex(member, track);
+  const next = track.rungs[currentIndex + 1] ?? null;
+  const have = memberSkillNames(member);
+  const missingForNext = next ? next.skills.filter((s) => !have.has(s.toLowerCase())) : [];
+  return { track, currentIndex, nextRole: next ? next.role : null, missingForNext };
+}
+
+export type MentorPlan = {
+  target: string;
+  path: string[];
+  skillsHave: string[];
+  skillsMissing: string[];
+  training: string[];
+  expectations: string[];
+  goals: string[];
+};
+export function mentorPlan(member: TeamPerson, aspiration: string): MentorPlan | null {
+  const track = trackForMember(member);
+  if (!track) return null;
+  const cur = currentRungIndex(member, track);
+  const q = aspiration.toLowerCase();
+  let targetIdx = -1;
+  for (let i = cur + 1; i < track.rungs.length; i += 1) {
+    const role = track.rungs[i].role.toLowerCase();
+    if (q && (role.includes(q) || q.split(/\s+/).some((w) => w.length > 3 && role.includes(w)))) {
+      targetIdx = i;
+      break;
+    }
+  }
+  if (targetIdx <= cur) targetIdx = Math.min(cur + 1, track.rungs.length - 1);
+  const rung = track.rungs[targetIdx];
+  const have = memberSkillNames(member);
+  return {
+    target: rung.role,
+    path: track.rungs.slice(cur, targetIdx + 1).map((r) => r.role),
+    skillsHave: rung.skills.filter((s) => have.has(s.toLowerCase())),
+    skillsMissing: rung.skills.filter((s) => !have.has(s.toLowerCase())),
+    training: rung.training,
+    expectations: rung.expectations,
+    goals: [
+      ...rung.skills.filter((s) => !have.has(s.toLowerCase())).map((s) => `Build your ${s} skill`),
+      ...rung.training.map((t) => `Complete "${t}" training`),
+    ].slice(0, 5),
+  };
+}
+
+export type InternalOpening = { id: string; role: string; department: string; location: string; requirements: string[]; postedAt: string };
+export const INTERNAL_OPENINGS: InternalOpening[] = [
+  { id: "open-teamlead", role: "Team Lead", department: "Customer Support", location: "HQ", requirements: ["Customer Service", "Sales", "Salesforce", "Excel", "Leadership", "Coaching", "Team management", "2+ years tenure", "Conflict resolution", "Data reporting"], postedAt: "2026-08-01" },
+  { id: "open-ae", role: "Account Executive", department: "Sales", location: "HQ", requirements: ["Sales", "Salesforce", "Negotiation", "Pipeline management", "2+ years tenure"], postedAt: "2026-08-05" },
+];
+function memberCredentials(member: TeamPerson): string[] {
+  const creds = new Set<string>();
+  (member.skills ?? []).forEach((s) => creds.add(s.name.toLowerCase()));
+  const role = (member.role || "").toLowerCase();
+  creds.add(role);
+  if (role.includes("manager") || role.includes("lead")) ["leadership", "coaching", "team management"].forEach((c) => creds.add(c));
+  if (member.startDate) {
+    const yrs = (Date.now() - new Date(member.startDate).getTime()) / (365 * 864e5);
+    if (yrs >= 2) {
+      creds.add("2+ years tenure");
+      creds.add("tenure");
+    }
+  }
+  return [...creds];
+}
+export function openingMatch(member: TeamPerson, opening: InternalOpening): { met: number; total: number; missing: string[] } {
+  const creds = memberCredentials(member);
+  const missing: string[] = [];
+  let met = 0;
+  for (const req of opening.requirements) {
+    const r = req.toLowerCase();
+    if (creds.some((c) => c.includes(r) || r.includes(c))) met += 1;
+    else missing.push(req);
+  }
+  return { met, total: opening.requirements.length, missing };
+}
+
+/* ─── Employee self-service (routed requests) ──────────────────────────── */
+
+export type ServiceCategory = { id: string; label: string; emoji: string; routeTo: string };
+export const SERVICE_CATEGORIES: ServiceCategory[] = [
+  { id: "pto", label: "Time off (PTO)", emoji: "🏖️", routeTo: "Your manager" },
+  { id: "availability", label: "Availability change", emoji: "🕒", routeTo: "Scheduling" },
+  { id: "schedule", label: "Schedule change", emoji: "📅", routeTo: "Scheduling" },
+  { id: "swap", label: "Shift swap", emoji: "🔁", routeTo: "Scheduling" },
+  { id: "expense", label: "Expense reimbursement", emoji: "💳", routeTo: "Finance" },
+  { id: "equipment", label: "Equipment request", emoji: "🖥️", routeTo: "IT / Facilities" },
+  { id: "document", label: "Document request", emoji: "📄", routeTo: "HR" },
+  { id: "benefits", label: "Benefits information", emoji: "🩺", routeTo: "HR / Benefits" },
+  { id: "contact", label: "Address / contact change", emoji: "🏠", routeTo: "HR" },
+  { id: "concern", label: "Workplace concern", emoji: "⚠️", routeTo: "HR (confidential)" },
+  { id: "hr", label: "HR question", emoji: "❓", routeTo: "HR" },
+];
+export type ServiceRequest = { id: string; memberId: string; category: string; label: string; detail: string; routedTo: string; status: "open" | "in_progress" | "resolved"; at: string };
+const SERVICE_KEY = "atlas-service-requests-v1";
+export function loadServiceRequests(): ServiceRequest[] {
+  return loadJson<ServiceRequest[]>(SERVICE_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveServiceRequests(list: ServiceRequest[]) {
+  saveJson(SERVICE_KEY, list);
+}
+export function createServiceRequest(input: { memberId: string; categoryId: string; detail: string }): ServiceRequest {
+  const cat = SERVICE_CATEGORIES.find((c) => c.id === input.categoryId);
+  const req: ServiceRequest = {
+    id: newId("svc"),
+    memberId: input.memberId,
+    category: input.categoryId,
+    label: cat?.label ?? "Request",
+    detail: input.detail.trim(),
+    routedTo: cat?.routeTo ?? "HR",
+    status: "open",
+    at: nowIso(),
+  };
+  saveServiceRequests([req, ...loadServiceRequests()]);
+  return req;
+}
+export function serviceRequestsFor(memberId: string): ServiceRequest[] {
+  return loadServiceRequests().filter((r) => r.memberId === memberId);
+}
+
+/* ─── Pay dashboard (permission-sensitive) ─────────────────────────────── */
+
+export type Paystub = { id: string; period: string; gross: number; net: number; date: string };
+export type PayDashboard = { nextPayday: string; regularHours: number; overtimeHours: number; ptoHours: number; paystubs: Paystub[]; taxDocs: string[] };
+function nextFridayISO(now = new Date()): string {
+  const d = new Date(now);
+  let add = (5 - d.getDay() + 7) % 7;
+  if (add === 0) add = 7;
+  d.setDate(d.getDate() + add);
+  return todayISO(d);
+}
+export function payDashboard(member: TeamPerson): PayDashboard {
+  const ts = timesheetFor(member);
+  const regular = Math.min(ts.hoursWeek, 40);
+  return {
+    nextPayday: nextFridayISO(),
+    regularHours: Math.round(regular * 10) / 10,
+    overtimeHours: Math.round(ts.overtime * 10) / 10,
+    ptoHours: (ts.ptoDays || 0) * 8,
+    paystubs: [
+      { id: "ps-2", period: "Jul 16–31", gross: 2840, net: 2180, date: "2026-07-31" },
+      { id: "ps-1", period: "Jul 1–15", gross: 2760, net: 2120, date: "2026-07-15" },
+    ],
+    taxDocs: ["W-2 (2025)", "W-2 (2024)"],
+  };
+}
+
+/* ─── Expense center ───────────────────────────────────────────────────── */
+
+export type Expense = { id: string; memberId: string; merchant: string; date: string; amount: number; category: string; project: string; status: "submitted" | "approved" | "rejected"; at: string };
+const EXPENSE_KEY = "atlas-expenses-v1";
+export function loadExpenses(): Expense[] {
+  return loadJson<Expense[]>(EXPENSE_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveExpenses(list: Expense[]) {
+  saveJson(EXPENSE_KEY, list);
+}
+/** Mock receipt OCR — returns plausible extracted fields for a scanned receipt. */
+export function sampleReceiptExtraction(): { merchant: string; date: string; amount: number; category: string; project: string } {
+  const samples = [
+    { merchant: "Office Depot", amount: 86.42, category: "Office supplies", project: "Johnson Expansion" },
+    { merchant: "Shell", amount: 52.1, category: "Fuel", project: "Field visits" },
+    { merchant: "Delta Air Lines", amount: 318.0, category: "Travel", project: "Client onsite" },
+  ];
+  const s = samples[Math.floor(Math.random() * samples.length)];
+  return { ...s, date: todayISO() };
+}
+export function createExpense(input: { memberId: string; merchant: string; date: string; amount: number; category: string; project: string }): Expense {
+  const e: Expense = {
+    id: newId("exp"),
+    memberId: input.memberId,
+    merchant: input.merchant.trim(),
+    date: input.date,
+    amount: input.amount,
+    category: input.category.trim(),
+    project: input.project.trim(),
+    status: "submitted",
+    at: nowIso(),
+  };
+  saveExpenses([e, ...loadExpenses()]);
+  return e;
+}
+export function expensesFor(memberId: string): Expense[] {
+  return loadExpenses().filter((e) => e.memberId === memberId);
+}
+export function pendingExpenses(): Expense[] {
+  return loadExpenses().filter((e) => e.status === "submitted");
+}
+export function decideExpense(id: string, status: "approved" | "rejected"): Expense[] {
+  const next = loadExpenses().map((e) => (e.id === id ? { ...e, status } : e));
+  saveExpenses(next);
+  return next;
+}
+
+/* ─── Equipment & assets ───────────────────────────────────────────────── */
+
+export type Asset = { id: string; memberId: string; kind: string; tag: string; name: string };
+const ASSET_KEY = "atlas-assets-v1";
+export function loadAssets(): Asset[] {
+  return loadJson<Asset[]>(ASSET_KEY, []);
+}
+export function saveAssets(list: Asset[]) {
+  saveJson(ASSET_KEY, list);
+}
+export function assetsFor(memberId: string): Asset[] {
+  return loadAssets().filter((a) => a.memberId === memberId);
+}
+/** Report a problem with an asset — routes an IT/facilities request. */
+export function reportAssetProblem(member: TeamPerson, asset: Asset, detail: string): ServiceRequest {
+  return createServiceRequest({
+    memberId: member.id,
+    categoryId: "equipment",
+    detail: `${asset.kind} ${asset.tag} (${asset.name}): ${detail || "Reported a problem"}`,
+  });
+}
+
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
 
 export type ManagerAlert = {
@@ -3611,6 +3890,16 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     : [];
   const events: PlannedEvent[] = [planEventFromInput({ title: "Johnson Expansion Meeting", type: "Client meeting", guests: 6, budget: 500, date: friday })];
 
+  // Equipment assigned to Sarah for the Equipment & Asset page.
+  const assets: Asset[] = sarah
+    ? [
+        { id: newId("asset"), memberId: sarah.id, kind: "Laptop", tag: "#A194", name: "MacBook Pro 14\"" },
+        { id: newId("asset"), memberId: sarah.id, kind: "Phone", tag: "#M283", name: "iPhone 15" },
+        { id: newId("asset"), memberId: sarah.id, kind: "Vehicle", tag: "#142", name: "Company van" },
+        { id: newId("asset"), memberId: sarah.id, kind: "Access Card", tag: "#183", name: "HQ badge" },
+      ]
+    : [];
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
   saveShifts([...shifts, ...loadShifts()]);
@@ -3629,5 +3918,6 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   saveOnboardingAll([...onboarding, ...loadOnboardingAll()]);
   saveRecurring([...recurring, ...loadRecurring()]);
   saveEvents([...loadEvents(), ...events]);
+  saveAssets([...assets, ...loadAssets()]);
   return members;
 }

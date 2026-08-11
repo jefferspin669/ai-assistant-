@@ -11,6 +11,7 @@ import {
   ACHIEVEMENT_BADGES,
   acceptHandoff,
   appsFor,
+  assetsFor,
   atlasSidebarReply,
   awaitingApproval,
   BLOCK_REASONS,
@@ -18,21 +19,33 @@ import {
   bottleneckOf,
   buildHandoffSummary,
   cadenceLabel,
+  careerLadderFor,
   completeOnboardingStep,
+  createExpense,
   createHandoff,
+  createServiceRequest,
   dependencyStatus,
   employeeProjects,
+  expensesFor,
   generateRecurringTasks,
   handoffsFor,
   inboxItems,
+  INTERNAL_OPENINGS,
   isShared,
   memoryFor,
+  mentorPlan,
   ONBOARDING_STEPS,
   onboardingFor,
   onboardingPct,
+  openingMatch,
+  payDashboard,
   projectSummary,
   recurringFor,
+  reportAssetProblem,
+  sampleReceiptExtraction,
   searchWiki,
+  SERVICE_CATEGORIES,
+  serviceRequestsFor,
   WIKI_ARTICLES,
   sharedProgress,
   universalSearch,
@@ -129,12 +142,16 @@ import {
   type ScheduledShift,
   type TaskPriority,
   type TaskStatus,
+  type Asset,
   type EmployeeApp,
+  type Expense,
   type Handoff,
   type MemoryEntry,
+  type MentorPlan,
   type OnboardingState,
   type RecurringTemplate,
   type SearchGroup,
+  type ServiceRequest,
   type TeamPerson,
   type WikiArticle,
   type TeamTask,
@@ -232,6 +249,16 @@ export default function EmployeeDashboardPage() {
   const [searchGroups, setSearchGroups] = useState<SearchGroup[] | null>(null);
   const [wikiQ, setWikiQ] = useState("");
   const [wikiHits, setWikiHits] = useState<WikiArticle[] | null>(null);
+  const [mentorAsk, setMentorAsk] = useState("");
+  const [mentorResult, setMentorResult] = useState<MentorPlan | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [serviceReqs, setServiceReqs] = useState<ServiceRequest[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [serviceCat, setServiceCat] = useState<string | null>(null);
+  const [serviceDetail, setServiceDetail] = useState("");
+  const [reportAsset, setReportAsset] = useState<Asset | null>(null);
+  const [reportDetail, setReportDetail] = useState("");
+  const [expenseDraft, setExpenseDraft] = useState<{ merchant: string; date: string; amount: string; category: string; project: string } | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -255,6 +282,9 @@ export default function EmployeeDashboardPage() {
     setRecurring(recurringFor(me.id));
     setApps(appsFor(me));
     setOnboarding(onboardingFor(me.id));
+    setAssets(assetsFor(me.id));
+    setServiceReqs(serviceRequestsFor(me.id));
+    setExpenses(expensesFor(me.id));
     setPresence(getPresence(me.id));
     setShift(getOpenShift(me.id));
     setAnnouncements(unacknowledgedFor(me.id));
@@ -568,6 +598,53 @@ export default function EmployeeDashboardPage() {
     const st = completeOnboardingStep(employee.id, stepId);
     setOnboarding({ ...st });
     setActionFlash("Onboarding step completed.");
+  }
+
+  function askMentor(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !mentorAsk.trim()) return;
+    setMentorResult(mentorPlan(employee, mentorAsk));
+  }
+
+  function submitService(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !serviceCat) return;
+    const req = createServiceRequest({ memberId: employee.id, categoryId: serviceCat, detail: serviceDetail });
+    setServiceReqs(serviceRequestsFor(employee.id));
+    setActionFlash(`${req.label} request routed to ${req.routedTo}.`);
+    setServiceCat(null);
+    setServiceDetail("");
+  }
+
+  function scanReceipt() {
+    const x = sampleReceiptExtraction();
+    setExpenseDraft({ merchant: x.merchant, date: x.date, amount: String(x.amount), category: x.category, project: x.project });
+  }
+
+  function submitExpense(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !expenseDraft) return;
+    createExpense({
+      memberId: employee.id,
+      merchant: expenseDraft.merchant,
+      date: expenseDraft.date,
+      amount: Number(expenseDraft.amount) || 0,
+      category: expenseDraft.category,
+      project: expenseDraft.project,
+    });
+    setExpenses(expensesFor(employee.id));
+    setActionFlash(`Expense submitted — routed to your manager for approval.`);
+    setExpenseDraft(null);
+  }
+
+  function submitAssetReport(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !reportAsset) return;
+    reportAssetProblem(employee, reportAsset, reportDetail);
+    setServiceReqs(serviceRequestsFor(employee.id));
+    setActionFlash(`Reported a problem with ${reportAsset.kind} ${reportAsset.tag} — an IT/facilities request was created.`);
+    setReportAsset(null);
+    setReportDetail("");
   }
 
   function handOff(task: TeamTask, toId: string) {
@@ -2299,6 +2376,192 @@ export default function EmployeeDashboardPage() {
             )}
           </section>
 
+          <section className="panel" id="emp-mentor">
+            <h2>AI Mentor</h2>
+            <p className="panel-lead">Your personal coach — tell Atlas a career goal and it maps the path.</p>
+            <form className="hero-ask" onSubmit={askMentor}>
+              <input value={mentorAsk} onChange={(e) => setMentorAsk(e.target.value)} placeholder="e.g. I want to become a manager" aria-label="Career goal" />
+              <button className="btn btn-dark" type="submit">Ask my mentor</button>
+            </form>
+            {mentorResult ? (
+              <div className="memory-card" style={{ marginTop: "0.6rem" }}>
+                <div className="label">Path to {mentorResult.target}</div>
+                <p><strong>Career path:</strong> {mentorResult.path.join(" → ")}</p>
+                {mentorResult.skillsMissing.length ? (
+                  <p><strong>Skills to build:</strong> {mentorResult.skillsMissing.join(", ")}</p>
+                ) : (
+                  <p>You already have the core skills — keep delivering results.</p>
+                )}
+                {mentorResult.skillsHave.length ? <p className="muted-line">Already strong: {mentorResult.skillsHave.join(", ")}</p> : null}
+                <p><strong>Training available:</strong> {mentorResult.training.join(", ")}</p>
+                <p><strong>Performance expectations:</strong> {mentorResult.expectations.join("; ")}</p>
+                {mentorResult.goals.length ? (
+                  <>
+                    <p><strong>Goals to work toward:</strong></p>
+                    <ul style={{ margin: "0.3rem 0 0 1.1rem" }}>
+                      {mentorResult.goals.map((g, i) => <li key={i}>{g}</li>)}
+                    </ul>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
+          {(() => {
+            const ladder = careerLadderFor(employee);
+            if (!ladder) return null;
+            return (
+              <section className="panel">
+                <h2>Career center</h2>
+                <p className="panel-lead">Your internal path in {ladder.track.name}.</p>
+                <div className="list">
+                  {ladder.track.rungs.map((r, i) => (
+                    <div className="list-row" key={r.role}>
+                      <span className={i <= ladder.currentIndex ? "badge ok" : "badge"}>
+                        {i < ladder.currentIndex ? "✓" : i === ladder.currentIndex ? "●" : "○"}
+                      </span>
+                      <p><strong>{r.role}</strong>{i === ladder.currentIndex ? <span className="muted-line">You are here</span> : null}</p>
+                    </div>
+                  ))}
+                </div>
+                {ladder.nextRole ? (
+                  <p style={{ marginTop: "0.5rem" }}>
+                    Next role: <strong>{ladder.nextRole}</strong>. {ladder.missingForNext.length ? `Skills to add: ${ladder.missingForNext.join(", ")}.` : "You meet the skills for the next step."}
+                  </p>
+                ) : (
+                  <p style={{ marginTop: "0.5rem" }}>You&apos;re at the top of this track — nice.</p>
+                )}
+              </section>
+            );
+          })()}
+
+          <section className="panel">
+            <h2>Internal opportunities</h2>
+            <p className="panel-lead">Open roles you may qualify for — before we hire externally.</p>
+            <div className="list">
+              {INTERNAL_OPENINGS.map((o) => {
+                const m = openingMatch(employee, o);
+                return (
+                  <div className="list-row" key={o.id}>
+                    <span className={m.met >= Math.ceil(m.total * 0.7) ? "badge ok" : "badge"}>{m.met}/{m.total}</span>
+                    <div style={{ flex: 1 }}>
+                      <p>
+                        <strong>{o.role} · {o.department}</strong>
+                        <span className="muted-line">Based on your skills and experience, you meet {m.met}/{m.total} requirements.{m.missing.length ? ` Missing: ${m.missing.join(", ")}.` : ""}</span>
+                      </p>
+                    </div>
+                    <button className="btn btn-outline" type="button" onClick={() => setActionFlash(`Viewing ${o.role} — application routed to HR.`)}>View position</button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {(() => {
+            const pay = payDashboard(employee);
+            return (
+              <section className="panel">
+                <h2>Pay dashboard</h2>
+                <p className="panel-lead">🔒 Payroll data is private to you.</p>
+                <p><strong>Next payday:</strong> {pay.nextPayday}</p>
+                <div className="stat-grid metrics-dense">
+                  <div className="stat"><span>Regular</span><strong>{pay.regularHours}h</strong><small>This period</small></div>
+                  <div className="stat"><span>Overtime</span><strong>{pay.overtimeHours}h</strong><small>This period</small></div>
+                  <div className="stat"><span>PTO</span><strong>{pay.ptoHours}h</strong><small>Used</small></div>
+                </div>
+                <h3 style={{ marginTop: "0.6rem" }}>Paystubs</h3>
+                <div className="list">
+                  {pay.paystubs.map((p) => (
+                    <div className="list-row" key={p.id}>
+                      <span className="badge">🧾</span>
+                      <div style={{ flex: 1 }}><p><strong>{p.period}</strong><span className="muted-line">Gross ${p.gross} · Net ${p.net} · {p.date}</span></p></div>
+                      <button className="btn btn-outline" type="button" onClick={() => setActionFlash(`Opening paystub ${p.period}… (demo)`)}>View</button>
+                    </div>
+                  ))}
+                </div>
+                <p className="muted-line" style={{ marginTop: "0.4rem" }}>Tax documents: {pay.taxDocs.join(", ")}</p>
+              </section>
+            );
+          })()}
+
+          <section className="panel">
+            <h2>Expense center</h2>
+            <p className="panel-lead">Snap a receipt — Atlas reads it, you confirm, your manager approves.</p>
+            {!expenseDraft ? (
+              <button className="btn btn-dark" type="button" onClick={scanReceipt}>📷 Scan a receipt</button>
+            ) : (
+              <form className="form-grid" onSubmit={submitExpense}>
+                <label>Merchant<input value={expenseDraft.merchant} onChange={(e) => setExpenseDraft({ ...expenseDraft, merchant: e.target.value })} /></label>
+                <div className="field-row">
+                  <label>Date<input type="date" value={expenseDraft.date} onChange={(e) => setExpenseDraft({ ...expenseDraft, date: e.target.value })} /></label>
+                  <label>Amount<input value={expenseDraft.amount} onChange={(e) => setExpenseDraft({ ...expenseDraft, amount: e.target.value })} /></label>
+                </div>
+                <div className="field-row">
+                  <label>Category<input value={expenseDraft.category} onChange={(e) => setExpenseDraft({ ...expenseDraft, category: e.target.value })} /></label>
+                  <label>Project / client<input value={expenseDraft.project} onChange={(e) => setExpenseDraft({ ...expenseDraft, project: e.target.value })} /></label>
+                </div>
+                <p className="muted-line">✨ Atlas extracted these from your receipt — edit anything, then submit.</p>
+                <div className="train-actions">
+                  <button className="btn btn-dark" type="submit">Submit expense</button>
+                  <button className="btn btn-outline" type="button" onClick={() => setExpenseDraft(null)}>Cancel</button>
+                </div>
+              </form>
+            )}
+            {expenses.length ? (
+              <div className="list" style={{ marginTop: "0.6rem" }}>
+                {expenses.map((x) => (
+                  <div className="list-row" key={x.id}>
+                    <span className={x.status === "approved" ? "badge ok" : x.status === "rejected" ? "badge warn" : "badge"}>${x.amount.toFixed(2)}</span>
+                    <p><strong>{x.merchant} · {x.category}</strong><span className="muted-line">{x.project} · {x.date} · {x.status === "submitted" ? "Awaiting manager approval" : x.status}</span></p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          {assets.length ? (
+            <section className="panel">
+              <h2>Equipment &amp; assets</h2>
+              <p className="panel-lead">Assigned to you. Report a problem and Atlas opens an IT/facilities request.</p>
+              <div className="list">
+                {assets.map((a) => (
+                  <div className="list-row" key={a.id}>
+                    <span className="badge">🛠️</span>
+                    <div style={{ flex: 1 }}><p><strong>{a.kind} {a.tag}</strong><span className="muted-line">{a.name}</span></p></div>
+                    <button className="btn btn-outline" type="button" onClick={() => { setReportAsset(a); setReportDetail(""); }}>Report problem</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="panel">
+            <h2>Employee self-service</h2>
+            <p className="panel-lead">Common HR &amp; workplace requests — Atlas routes each to the right place.</p>
+            <div className="pack-grid">
+              {SERVICE_CATEGORIES.map((c) => (
+                <button key={c.id} type="button" className="pack-card" style={{ textAlign: "left", cursor: "pointer" }} onClick={() => { setServiceCat(c.id); setServiceDetail(""); }}>
+                  <div style={{ fontSize: "1.4rem" }}>{c.emoji}</div>
+                  <strong>{c.label}</strong>
+                  <span className="muted-line">→ {c.routeTo}</span>
+                </button>
+              ))}
+            </div>
+            {serviceReqs.length ? (
+              <>
+                <h3 style={{ marginTop: "0.6rem" }}>My requests</h3>
+                <div className="list">
+                  {serviceReqs.map((r) => (
+                    <div className="list-row" key={r.id}>
+                      <span className={r.status === "resolved" ? "badge ok" : "badge"}>{r.status}</span>
+                      <p><strong>{r.label}</strong><span className="muted-line">Routed to {r.routedTo}{r.detail ? ` · ${r.detail}` : ""}</span></p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </section>
+
           <section className="panel">
             <h2>Work memory</h2>
             <p className="panel-lead">Atlas remembers your projects, procedures, training, and past cases — within company permissions.</p>
@@ -2417,6 +2680,40 @@ export default function EmployeeDashboardPage() {
             </form>
           </aside>
         </>
+      ) : null}
+
+      {/* Self-service request */}
+      {serviceCat ? (
+        <div className="modal-overlay" onClick={() => setServiceCat(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>{SERVICE_CATEGORIES.find((c) => c.id === serviceCat)?.label}</h2>
+            <p className="muted-line">Routes to {SERVICE_CATEGORIES.find((c) => c.id === serviceCat)?.routeTo}.</p>
+            <form onSubmit={submitService}>
+              <textarea value={serviceDetail} onChange={(e) => setServiceDetail(e.target.value)} rows={3} placeholder="Add any details (dates, what you need)…" />
+              <div className="train-actions" style={{ marginTop: "0.5rem" }}>
+                <button className="btn btn-dark" type="submit">Submit request</button>
+                <button className="btn btn-outline" type="button" onClick={() => setServiceCat(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Equipment problem report */}
+      {reportAsset ? (
+        <div className="modal-overlay" onClick={() => setReportAsset(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Report a problem</h2>
+            <p className="muted-line">{reportAsset.kind} {reportAsset.tag} · {reportAsset.name}</p>
+            <form onSubmit={submitAssetReport}>
+              <textarea value={reportDetail} onChange={(e) => setReportDetail(e.target.value)} rows={3} placeholder="What's wrong? (e.g. won't power on)" />
+              <div className="train-actions" style={{ marginTop: "0.5rem" }}>
+                <button className="btn btn-dark" type="submit">Create IT request</button>
+                <button className="btn btn-outline" type="button" onClick={() => setReportAsset(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
 
       {/* Need Help routing */}
