@@ -515,6 +515,174 @@ export function purchaseChain(amount: number): string[] {
   return chain;
 }
 
+/* ─── Conditional approval tiers (configurable by the CEO) ─────────────── */
+
+export type ApprovalTier = { id: string; min: number; max: number | null; approver: string };
+export const DEFAULT_TIERS: ApprovalTier[] = [
+  { id: "t0", min: 0, max: 1000, approver: "Auto approve" },
+  { id: "t1", min: 1000, max: 10000, approver: "Manager approval" },
+  { id: "t2", min: 10000, max: 50000, approver: "Director approval" },
+  { id: "t3", min: 50000, max: 250000, approver: "CFO approval" },
+  { id: "t4", min: 250000, max: null, approver: "CEO approval" },
+];
+const TIERS_KEY = "atlas-approval-tiers-v1";
+export function loadTiers(): ApprovalTier[] {
+  const saved = loadJson<ApprovalTier[]>(TIERS_KEY, []);
+  return saved.length ? saved : DEFAULT_TIERS;
+}
+export function saveTiers(tiers: ApprovalTier[]) {
+  saveJson(TIERS_KEY, tiers);
+}
+/** Recompute each tier's min from the previous tier's max, then persist. */
+export function normalizeTiers(tiers: ApprovalTier[]): ApprovalTier[] {
+  const next = tiers.map((t, i) => ({ ...t, min: i === 0 ? 0 : tiers[i - 1].max ?? 0 }));
+  saveTiers(next);
+  return next;
+}
+export function approverForAmount(amount: number, tiers = loadTiers()): ApprovalTier | null {
+  return tiers.find((t) => amount >= t.min && (t.max === null || amount < t.max)) ?? tiers[tiers.length - 1] ?? null;
+}
+export function formatTierRange(t: ApprovalTier): string {
+  const money = (n: number) => `$${n.toLocaleString()}`;
+  if (t.min === 0 && t.max !== null) return `Under ${money(t.max)}`;
+  if (t.max === null) return `Above ${money(t.min)}`;
+  return `${money(t.min)}–${money(t.max)}`;
+}
+
+/* ─── Department permissions (role-based access) ───────────────────────── */
+
+export type DeptProfile = { department: string; can: string[]; cannot: string[] };
+export const DEPARTMENT_PROFILES: DeptProfile[] = [
+  { department: "Sales", can: ["View customers", "Create leads", "Create quotes", "Contact customers"], cannot: ["View payroll", "Change company banking", "Access HR files"] },
+  { department: "HR", can: ["View employee profiles", "Manage PTO", "Manage training"], cannot: ["View customer financial records", "Change sales pricing"] },
+  { department: "Finance", can: ["View invoices", "View expenses", "View financial reports"], cannot: ["View private HR notes"] },
+  { department: "Operations", can: ["View schedules", "Assign tasks", "Manage inventory"], cannot: ["View payroll", "Change sales pricing"] },
+  { department: "Customer Support", can: ["View customers", "Create tickets", "Issue standard credits"], cannot: ["View payroll", "Access HR files"] },
+  { department: "Marketing", can: ["View campaigns", "View audiences", "Create content"], cannot: ["View payroll", "View customer financial records"] },
+  { department: "Management", can: ["View department data", "Approve within limits", "Assign tasks"], cannot: ["Change corporate policies without CEO"] },
+];
+export function deptProfileFor(department?: string): DeptProfile | null {
+  return DEPARTMENT_PROFILES.find((p) => p.department === department) ?? null;
+}
+
+/* ─── Custom roles ─────────────────────────────────────────────────────── */
+
+export type CustomRole = { id: string; name: string; region: string; expenseLimit: number; can: string[]; cannot: string[]; createdAt: string };
+const ROLES_KEY = "atlas-custom-roles-v1";
+export function loadCustomRoles(): CustomRole[] {
+  return loadJson<CustomRole[]>(ROLES_KEY, []).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+export function saveCustomRoles(list: CustomRole[]) {
+  saveJson(ROLES_KEY, list);
+}
+export function createCustomRole(input: { name: string; region?: string; expenseLimit?: number; can?: string[]; cannot?: string[] }): CustomRole {
+  const role: CustomRole = {
+    id: newId("role"),
+    name: input.name.trim() || "New role",
+    region: input.region?.trim() || "",
+    expenseLimit: Number(input.expenseLimit) || 0,
+    can: (input.can ?? []).map((c) => c.trim()).filter(Boolean),
+    cannot: (input.cannot ?? []).map((c) => c.trim()).filter(Boolean),
+    createdAt: nowIso(),
+  };
+  saveCustomRoles([role, ...loadCustomRoles()]);
+  return role;
+}
+export function removeCustomRole(id: string) {
+  saveCustomRoles(loadCustomRoles().filter((r) => r.id !== id));
+}
+
+/* ─── Location-based access ────────────────────────────────────────────── */
+
+type LocMember = { id: string; role?: string; department?: string; location?: string };
+export function seesAllLocations(member: LocMember): boolean {
+  const role = (member.role || "").toLowerCase();
+  return role.includes("ceo") || role.includes("owner") || role.includes("chief") || role.includes("president");
+}
+/** Locations a member can see: everything for leadership, else their own. */
+export function locationsForMember(member: LocMember, allLocations: string[]): { allowed: string[]; blocked: string[] } {
+  if (seesAllLocations(member)) return { allowed: [...allLocations], blocked: [] };
+  const mine = member.location || "";
+  const allowed = mine ? [mine] : [];
+  const blocked = allLocations.filter((l) => l !== mine);
+  return { allowed, blocked };
+}
+
+/* ─── Emergency access (break glass) ───────────────────────────────────── */
+
+export type EmergencyAccess = { id: string; who: string; resource: string; reason: string; at: string };
+const BREAKGLASS_KEY = "atlas-breakglass-v1";
+export function loadEmergencyAccess(): EmergencyAccess[] {
+  return loadJson<EmergencyAccess[]>(BREAKGLASS_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function createEmergencyAccess(input: { who: string; resource: string; reason: string }): EmergencyAccess {
+  const rec: EmergencyAccess = { id: newId("brk"), who: input.who.trim() || "Unknown", resource: input.resource.trim(), reason: input.reason.trim(), at: nowIso() };
+  saveJson(BREAKGLASS_KEY, [rec, ...loadEmergencyAccess()]);
+  return rec;
+}
+
+/* ─── Approval inbox ───────────────────────────────────────────────────── */
+
+export type ApprovalPriority = "urgent" | "normal" | "low";
+export type ApprovalReqStatus = "pending" | "approved" | "rejected" | "question";
+export type ApprovalRequest = {
+  id: string;
+  kind: string;
+  title: string;
+  amount?: number;
+  requestedBy: string;
+  customer?: string;
+  reason?: string;
+  priority: ApprovalPriority;
+  status: ApprovalReqStatus;
+  question?: string;
+  at: string;
+};
+const APPROVALS_KEY = "atlas-approval-requests-v1";
+export function loadApprovalRequests(): ApprovalRequest[] {
+  const rank: Record<ApprovalPriority, number> = { urgent: 0, normal: 1, low: 2 };
+  return loadJson<ApprovalRequest[]>(APPROVALS_KEY, []).sort((a, b) => {
+    if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
+    if (rank[a.priority] !== rank[b.priority]) return rank[a.priority] - rank[b.priority];
+    return a.at < b.at ? 1 : -1;
+  });
+}
+export function saveApprovalRequests(list: ApprovalRequest[]) {
+  saveJson(APPROVALS_KEY, list);
+}
+export function createApprovalRequest(input: { kind: string; title: string; amount?: number; requestedBy: string; customer?: string; reason?: string; priority?: ApprovalPriority }): ApprovalRequest {
+  const req: ApprovalRequest = {
+    id: newId("apr"),
+    kind: input.kind,
+    title: input.title,
+    amount: input.amount,
+    requestedBy: input.requestedBy,
+    customer: input.customer,
+    reason: input.reason,
+    priority: input.priority ?? "normal",
+    status: "pending",
+    at: nowIso(),
+  };
+  saveApprovalRequests([req, ...loadApprovalRequests()]);
+  return req;
+}
+export function decideApprovalRequest(id: string, status: ApprovalReqStatus, question?: string): ApprovalRequest[] {
+  const next = loadApprovalRequests().map((r) => (r.id === id ? { ...r, status, ...(question !== undefined ? { question } : {}) } : r));
+  saveApprovalRequests(next);
+  return next;
+}
+export function pendingApprovalCount(): number {
+  return loadApprovalRequests().filter((r) => r.status === "pending").length;
+}
+/** Seed a couple of example approvals so a manager's inbox isn't empty. */
+export function seedApprovalsIfEmpty() {
+  if (loadApprovalRequests().length > 0) return;
+  saveApprovalRequests([
+    { id: newId("apr"), kind: "Refund", title: "Refund — $940", amount: 940, requestedBy: "Sarah", customer: "Johnson Construction", reason: "Service failure", priority: "urgent", status: "pending", at: nowIso() },
+    { id: newId("apr"), kind: "Purchase", title: "Purchase — $12,400", amount: 12400, requestedBy: "Mike", reason: "Equipment replacement", priority: "normal", status: "pending", at: new Date(Date.now() - 5 * 60000).toISOString() },
+  ]);
+}
+
 /* ─── Security center ──────────────────────────────────────────────────── */
 
 export type SecurityItem = {
