@@ -1,5 +1,7 @@
 /** Client-owned workspace data — starts empty and accumulates via user actions. */
 
+import { customers as dataCustomers, quotes as dataQuotes } from "./data";
+
 function newId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -1275,6 +1277,15 @@ export function atlasSidebarReply(member: TeamPerson, input: string, now: number
     return { text: "I don't have a matching memory for that yet — it may be a first.", items: [] };
   }
 
+  // Company wiki: "how do refunds work", "what's our bad-weather policy".
+  if (/how (do|does|to|can)|what'?s our|what is our|policy|procedure/.test(q)) {
+    const hits = searchWiki(input);
+    if (hits.length) {
+      const a = hits[0];
+      return { text: a.answer, items: [`📚 Source: ${a.source}`, ...hits.slice(1, 3).map((h) => `Related: ${h.question}`)] };
+    }
+  }
+
   // Find a document / contract / file.
   if (/find|where.*(is|are)|contract|document|file|policy|handbook/.test(q)) {
     const hits = docs.filter((d) => words.some((w) => d.title.toLowerCase().includes(w) || d.category.toLowerCase().includes(w)));
@@ -1610,6 +1621,330 @@ export function acceptHandoff(id: string): Handoff[] {
   const next = loadHandoffs().map((h) => (h.id === id ? { ...h, status: "accepted" as const } : h));
   saveHandoffs(next);
   return next;
+}
+
+/* ─── Automatic task creation (capture from notes/email) ───────────────── */
+
+export type TaskSuggestion = {
+  id: string;
+  title: string;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  dueLabel: string;
+  dueDate: string;
+  source: string;
+};
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+/** Resolve a natural due phrase to a label + ISO date (when possible). */
+function resolveDue(phrase: string): { label: string; date: string } {
+  const p = phrase.toLowerCase();
+  const now = new Date();
+  if (/\btoday\b|end of day|\beod\b/.test(p)) return { label: "today", date: todayISO(now) };
+  if (/\btomorrow\b/.test(p)) return { label: "tomorrow", date: todayISO(new Date(now.getTime() + 864e5)) };
+  if (/first of (the )?month|1st of/.test(p)) {
+    const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return { label: "first of month", date: todayISO(d) };
+  }
+  for (let i = 0; i < WEEKDAYS.length; i += 1) {
+    if (p.includes(WEEKDAYS[i])) {
+      const target = i;
+      const d = new Date(now);
+      let add = (target - d.getDay() + 7) % 7;
+      if (add === 0) add = 7; // "by Thursday" means the coming Thursday
+      d.setDate(d.getDate() + add);
+      return { label: WEEKDAYS[i][0].toUpperCase() + WEEKDAYS[i].slice(1), date: todayISO(d) };
+    }
+  }
+  if (/next week/.test(p)) return { label: "next week", date: todayISO(new Date(now.getTime() + 7 * 864e5)) };
+  return { label: "", date: "" };
+}
+
+function titleCase(s: string): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  return t ? t[0].toUpperCase() + t.slice(1) : t;
+}
+
+/** Scan meeting notes / an email for commitments and propose tasks. */
+export function detectTaskSuggestions(text: string, members: TeamPerson[]): TaskSuggestion[] {
+  const suggestions: TaskSuggestion[] = [];
+  const seen = new Set<string>();
+  const sentences = text.split(/[\n.!?]+/).map((s) => s.trim()).filter(Boolean);
+
+  const firstNames = members.map((m) => ({ m, first: m.name.split(/\s+/)[0].toLowerCase() }));
+
+  for (const raw of sentences) {
+    const s = raw.replace(/\s+/g, " ").trim();
+    const lower = s.toLowerCase();
+    let title = "";
+    let assignee: TeamPerson | null = null;
+    let duePhrase = s;
+
+    // Pattern A: "<Name> will <action> [by <when>]"
+    const willMatch = s.match(/^([A-Z][a-z]+)\s+will\s+(.+)$/);
+    // Pattern B: requests — "can you <action>", "please <action>", "need to <action>"
+    const askMatch = lower.match(/(?:can you|could you|please|need to|needs to|remember to)\s+(.+)$/);
+
+    if (willMatch) {
+      const who = firstNames.find((f) => f.first === willMatch[1].toLowerCase());
+      assignee = who ? who.m : null;
+      let body = willMatch[2];
+      body = body.replace(/\bby\b.*$/i, "").trim();
+      title = titleCase(body);
+    } else if (askMatch) {
+      let body = askMatch[1];
+      body = body.replace(/\b(by|tomorrow|today|next week|end of day|eod)\b.*$/i, "").trim();
+      title = titleCase(body);
+    } else {
+      continue;
+    }
+
+    if (title.length < 3) continue;
+    const due = resolveDue(duePhrase);
+    const key = title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    suggestions.push({
+      id: newId("sug"),
+      title: title.length > 70 ? `${title.slice(0, 67)}…` : title,
+      assigneeId: assignee ? assignee.id : null,
+      assigneeName: assignee ? assignee.name : null,
+      dueLabel: due.label,
+      dueDate: due.date,
+      source: s.length > 90 ? `${s.slice(0, 87)}…` : s,
+    });
+  }
+  return suggestions;
+}
+
+/** Turn an accepted suggestion into a real task. */
+export function createTaskFromSuggestion(s: TaskSuggestion, fallbackMemberId: string, assignedBy = "Atlas capture"): TeamTask {
+  const task = createTeamTask({
+    memberId: s.assigneeId || fallbackMemberId,
+    title: s.title,
+    dueDate: s.dueDate,
+    assignedBy,
+    priority: "Normal",
+  });
+  saveTeamTasks([task, ...loadTeamTasks()]);
+  return task;
+}
+
+/* ─── Recurring responsibilities ───────────────────────────────────────── */
+
+export type RecurringCadence = "weekly-mon" | "weekly-fri" | "monthly-1";
+export type RecurringTemplate = {
+  id: string;
+  memberId: string;
+  title: string;
+  department: string;
+  cadence: RecurringCadence;
+  lastOccurrence: string; // ISO date of the last occurrence materialized
+  createdAt: string;
+};
+
+const RECURRING_KEY = "atlas-recurring-v1";
+export function loadRecurring(): RecurringTemplate[] {
+  return loadJson<RecurringTemplate[]>(RECURRING_KEY, []);
+}
+export function saveRecurring(list: RecurringTemplate[]) {
+  saveJson(RECURRING_KEY, list);
+}
+export function recurringFor(memberId: string): RecurringTemplate[] {
+  return loadRecurring().filter((r) => r.memberId === memberId);
+}
+export function cadenceLabel(c: RecurringCadence): string {
+  return c === "weekly-mon" ? "Every Monday" : c === "weekly-fri" ? "Every Friday" : "First of the month";
+}
+export function addRecurring(input: { memberId: string; title: string; department?: string; cadence: RecurringCadence }): RecurringTemplate {
+  const tpl: RecurringTemplate = {
+    id: newId("rec"),
+    memberId: input.memberId,
+    title: input.title.trim(),
+    department: input.department || "",
+    cadence: input.cadence,
+    lastOccurrence: "",
+    createdAt: nowIso(),
+  };
+  saveRecurring([tpl, ...loadRecurring()]);
+  return tpl;
+}
+
+/** ISO date of the current period's occurrence for a cadence. */
+function currentOccurrence(c: RecurringCadence, now = new Date()): string {
+  if (c === "monthly-1") return todayISO(new Date(now.getFullYear(), now.getMonth(), 1));
+  const target = c === "weekly-mon" ? 1 : 5;
+  const d = new Date(now);
+  const back = (d.getDay() - target + 7) % 7;
+  d.setDate(d.getDate() - back); // most recent target weekday (this period)
+  return todayISO(d);
+}
+
+/**
+ * Materialize any recurring template whose current-period occurrence hasn't
+ * been created yet. Returns the number of tasks Atlas auto-created.
+ */
+export function generateRecurringTasks(now = new Date()): number {
+  const templates = loadRecurring();
+  if (!templates.length) return 0;
+  let created = 0;
+  const existing = loadTeamTasks();
+  const newTasks: TeamTask[] = [];
+  const updated = templates.map((tpl) => {
+    const occ = currentOccurrence(tpl.cadence, now);
+    if (tpl.lastOccurrence === occ) return tpl;
+    const task = createTeamTask({
+      memberId: tpl.memberId,
+      title: tpl.title,
+      dueDate: occ,
+      assignedBy: "Atlas (recurring)",
+      department: tpl.department,
+    });
+    newTasks.push({ ...task, recurrence: tpl.cadence === "monthly-1" ? "monthly" : "weekly" });
+    created += 1;
+    return { ...tpl, lastOccurrence: occ };
+  });
+  if (created) {
+    saveTeamTasks([...newTasks, ...existing]);
+    saveRecurring(updated);
+  }
+  return created;
+}
+
+/* ─── Employee tool center ─────────────────────────────────────────────── */
+
+export type EmployeeApp = { id: string; name: string; emoji: string; desc: string; restrictedTo?: string[] };
+export const EMPLOYEE_APPS: EmployeeApp[] = [
+  { id: "email", name: "Email", emoji: "✉️", desc: "Company inbox" },
+  { id: "calendar", name: "Calendar", emoji: "📅", desc: "Schedule & meetings" },
+  { id: "crm", name: "CRM", emoji: "👥", desc: "Customers & pipeline" },
+  { id: "documents", name: "Documents", emoji: "📁", desc: "Files & contracts" },
+  { id: "accounting", name: "Accounting", emoji: "💰", desc: "Invoices & payments", restrictedTo: ["Management", "Finance", "Operations"] },
+  { id: "support", name: "Customer Support", emoji: "🎧", desc: "Tickets & help desk" },
+  { id: "pm", name: "Project Management", emoji: "🗂️", desc: "Projects & boards" },
+];
+export function appsFor(member: TeamPerson): EmployeeApp[] {
+  return EMPLOYEE_APPS.filter((a) => !a.restrictedTo || a.restrictedTo.includes(member.department || ""));
+}
+
+/* ─── Universal company search ─────────────────────────────────────────── */
+
+export type SearchHit = { title: string; sub: string };
+export type SearchGroup = { category: string; emoji: string; hits: SearchHit[] };
+
+export function universalSearch(member: TeamPerson, query: string): SearchGroup[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const groups: SearchGroup[] = [];
+  const match = (s: string) => s.toLowerCase().includes(q);
+
+  // Customers (company-wide) — names come from CRM + quotes.
+  const customerNames = new Set<string>();
+  for (const c of dataCustomers) if (match(c.name) || match(c.email)) customerNames.add(c.name);
+  for (const qu of dataQuotes) if (match(qu.customer)) customerNames.add(qu.customer);
+  if (customerNames.size) {
+    groups.push({ category: "Customers", emoji: "🏢", hits: [...customerNames].slice(0, 5).map((n) => ({ title: n, sub: "Customer record" })) });
+  }
+
+  // Documents the employee can see (+ their memory docs).
+  const docHits: SearchHit[] = [];
+  for (const d of documentsForEmployee(member.id)) if (match(d.title)) docHits.push({ title: d.title, sub: d.category });
+  for (const m of memoryFor(member.id)) for (const doc of m.docs) if (match(doc)) docHits.push({ title: doc, sub: "Referenced document" });
+  if (docHits.length) groups.push({ category: "Documents", emoji: "📄", hits: docHits.slice(0, 5) });
+
+  // Tasks the employee owns or is part of.
+  const taskHits = loadTeamTasks()
+    .filter((t) => (t.memberId === member.id || t.parts.some((p) => p.memberId === member.id)) && (match(t.title) || match(t.description) || match(t.project)))
+    .slice(0, 5)
+    .map((t) => ({ title: t.title, sub: t.project ? `Task · ${t.project}` : "Task" }));
+  if (taskHits.length) groups.push({ category: "Tasks", emoji: "✅", hits: taskHits });
+
+  // Messages in the employee's channels.
+  const myChannels = new Set(channelsForEmployee(member).map((c) => c.id));
+  const msgMatches = loadMessages().filter((m) => myChannels.has(m.channelId) && match(m.text));
+  if (msgMatches.length) {
+    groups.push({ category: "Messages", emoji: "💬", hits: [{ title: `${msgMatches.length} conversation${msgMatches.length === 1 ? "" : "s"}`, sub: msgMatches[0].text.slice(0, 60) }] });
+  }
+
+  // Meetings / events.
+  const meetingHits = loadEvents()
+    .filter((e) => match(e.title) || match(e.type))
+    .slice(0, 5)
+    .map((e) => ({ title: e.title, sub: e.date ? `Meeting · ${e.date}` : "Meeting" }));
+  if (meetingHits.length) groups.push({ category: "Meetings", emoji: "📆", hits: meetingHits });
+
+  // Invoices / quotes (company-wide).
+  const invoiceHits = dataQuotes
+    .filter((qu) => match(qu.id) || match(qu.title) || match(qu.customer))
+    .slice(0, 5)
+    .map((qu) => ({ title: qu.id, sub: `${qu.title} · ${qu.amount}` }));
+  if (invoiceHits.length) groups.push({ category: "Invoices", emoji: "🧾", hits: invoiceHits });
+
+  return groups;
+}
+
+/* ─── Company wiki ─────────────────────────────────────────────────────── */
+
+export type WikiArticle = { id: string; question: string; answer: string; source: string; tags: string[] };
+export const WIKI_ARTICLES: WikiArticle[] = [
+  { id: "refunds", question: "How do refunds work?", answer: "Confirm the order and that it's within the 30-day window, then process the refund. Refunds over $500 need manager approval. Log the outcome in the customer record.", source: "Customer Policy Handbook, §4.2 Refunds", tags: ["refund", "return", "money back"] },
+  { id: "weather", question: "What's our bad-weather policy?", answer: "If a site is unsafe due to weather, notify your manager and reschedule the customer. Field crews should not travel in severe warnings. Remote staff continue as normal.", source: "Operations Manual, §7 Safety", tags: ["weather", "storm", "snow", "safety", "closure"] },
+  { id: "pto", question: "How do I request PTO?", answer: "Open Time-off in your portal, choose the dates and type, and submit. Atlas checks staffing and routes it to your manager for approval.", source: "Employee Handbook, §3 Time Off", tags: ["pto", "time off", "vacation", "leave", "holiday"] },
+  { id: "estimate", question: "How do I create an estimate?", answer: "In the CRM, open the customer, choose New Estimate, add line items, apply any approved discount, and send for e-signature. Estimates over $10k route to a manager first.", source: "Sales Playbook, §2 Estimates", tags: ["estimate", "quote", "proposal", "pricing"] },
+  { id: "expenses", question: "How do I submit an expense report?", answer: "Every Friday, itemize receipts in Accounting, attach photos, and submit. Reimbursements land in the next pay cycle.", source: "Finance Policy, §5 Expenses", tags: ["expense", "reimbursement", "receipts"] },
+];
+export function searchWiki(query: string): WikiArticle[] {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+  if (!words.length) return [];
+  return WIKI_ARTICLES.map((a) => {
+    const hay = `${a.question} ${a.answer} ${a.tags.join(" ")}`.toLowerCase();
+    const score = words.reduce((s, w) => s + (hay.includes(w) ? 1 : 0), 0);
+    return { a, score };
+  })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.a);
+}
+
+/* ─── New employee mode (onboarding) ───────────────────────────────────── */
+
+export type OnboardingStep = { id: string; label: string; detail: string };
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  { id: "profile", label: "Complete your profile", detail: "Add your photo, contact details, and skills." },
+  { id: "policies", label: "Review company policies", detail: "Handbook, safety, and code of conduct." },
+  { id: "documents", label: "Sign required documents", detail: "Employment agreement and tax forms." },
+  { id: "training", label: "Start required training", detail: "Safety basics and your role's onboarding course." },
+  { id: "coworkers", label: "Meet your coworkers", detail: "See who's on your team and what they do." },
+  { id: "manager", label: "Meet your manager", detail: "Say hello and book a 1:1." },
+  { id: "software", label: "Set up software access", detail: "Email, CRM, and the tools you'll use." },
+  { id: "tasks", label: "See your first tasks", detail: "Atlas has queued a few starter tasks." },
+  { id: "schedule", label: "Review your first-week schedule", detail: "Your shifts, meetings, and check-ins." },
+];
+
+export type OnboardingState = { memberId: string; done: string[]; startedAt: string };
+const ONBOARDING_KEY = "atlas-onboarding-v1";
+export function loadOnboardingAll(): OnboardingState[] {
+  return loadJson<OnboardingState[]>(ONBOARDING_KEY, []);
+}
+export function saveOnboardingAll(list: OnboardingState[]) {
+  saveJson(ONBOARDING_KEY, list);
+}
+export function onboardingFor(memberId: string): OnboardingState | null {
+  return loadOnboardingAll().find((o) => o.memberId === memberId) ?? null;
+}
+export function onboardingPct(state: OnboardingState): number {
+  return Math.round((state.done.length / ONBOARDING_STEPS.length) * 100);
+}
+export function completeOnboardingStep(memberId: string, stepId: string): OnboardingState {
+  const all = loadOnboardingAll();
+  const idx = all.findIndex((o) => o.memberId === memberId);
+  const state: OnboardingState = idx >= 0 ? all[idx] : { memberId, done: [], startedAt: nowIso() };
+  if (!state.done.includes(stepId)) state.done = [...state.done, stepId];
+  const next = idx >= 0 ? all.map((o) => (o.memberId === memberId ? state : o)) : [...all, state];
+  saveOnboardingAll(next);
+  return state;
 }
 
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
@@ -3027,6 +3362,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     { name: "Diego Ruiz", role: "Support Specialist", department: "Customer Support" },
     { name: "Taylor Kim", role: "Marketing Manager", department: "Marketing" },
     { name: "Casey Nolan", role: "Ops Coordinator", department: "Operations" },
+    { name: "Marcus Lee", role: "Sales Associate", department: "Sales" },
   ];
   const goals: EmployeeGoal[] = [];
   roster.forEach((r) => {
@@ -3263,6 +3599,18 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     acks: [],
   };
 
+  // New-hire onboarding, Sarah's recurring responsibilities, a searchable meeting.
+  const marcus = byName("Marcus Lee");
+  const onboarding: OnboardingState[] = marcus ? [{ memberId: marcus.id, done: ["profile"], startedAt: nowIso() }] : [];
+  const recurring: RecurringTemplate[] = sarah
+    ? [
+        { id: newId("rec"), memberId: sarah.id, title: "Inventory audit", department: "Operations", cadence: "weekly-mon", lastOccurrence: "", createdAt: nowIso() },
+        { id: newId("rec"), memberId: sarah.id, title: "Submit expense report", department: "Finance", cadence: "weekly-fri", lastOccurrence: "", createdAt: nowIso() },
+        { id: newId("rec"), memberId: sarah.id, title: "Customer account review", department: "Sales", cadence: "monthly-1", lastOccurrence: "", createdAt: nowIso() },
+      ]
+    : [];
+  const events: PlannedEvent[] = [planEventFromInput({ title: "Johnson Expansion Meeting", type: "Client meeting", guests: 6, budget: 500, date: friday })];
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
   saveShifts([...shifts, ...loadShifts()]);
@@ -3278,5 +3626,8 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   saveRecognitions([...recognitions, ...loadRecognitions()]);
   saveSuggestions([...suggestions, ...loadSuggestions()]);
   saveMemory([...memory, ...loadMemory()]);
+  saveOnboardingAll([...onboarding, ...loadOnboardingAll()]);
+  saveRecurring([...recurring, ...loadRecurring()]);
+  saveEvents([...loadEvents(), ...events]);
   return members;
 }

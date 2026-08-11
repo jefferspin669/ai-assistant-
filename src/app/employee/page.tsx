@@ -10,21 +10,32 @@ import {
   addTaskComment,
   ACHIEVEMENT_BADGES,
   acceptHandoff,
+  appsFor,
   atlasSidebarReply,
   awaitingApproval,
   BLOCK_REASONS,
   blockTask,
   bottleneckOf,
   buildHandoffSummary,
+  cadenceLabel,
+  completeOnboardingStep,
   createHandoff,
   dependencyStatus,
   employeeProjects,
+  generateRecurringTasks,
   handoffsFor,
   inboxItems,
   isShared,
   memoryFor,
+  ONBOARDING_STEPS,
+  onboardingFor,
+  onboardingPct,
   projectSummary,
+  recurringFor,
+  searchWiki,
+  WIKI_ARTICLES,
   sharedProgress,
+  universalSearch,
   updateTaskPart,
   buildDaySchedule,
   bumpTraining,
@@ -118,9 +129,14 @@ import {
   type ScheduledShift,
   type TaskPriority,
   type TaskStatus,
+  type EmployeeApp,
   type Handoff,
   type MemoryEntry,
+  type OnboardingState,
+  type RecurringTemplate,
+  type SearchGroup,
   type TeamPerson,
+  type WikiArticle,
   type TeamTask,
   type TimeShift,
   type TimeOffType,
@@ -209,6 +225,13 @@ export default function EmployeeDashboardPage() {
   const [actionFlash, setActionFlash] = useState<string | null>(null);
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [memory, setMemory] = useState<MemoryEntry[]>([]);
+  const [recurring, setRecurring] = useState<RecurringTemplate[]>([]);
+  const [apps, setApps] = useState<EmployeeApp[]>([]);
+  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchGroups, setSearchGroups] = useState<SearchGroup[] | null>(null);
+  const [wikiQ, setWikiQ] = useState("");
+  const [wikiHits, setWikiHits] = useState<WikiArticle[] | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -225,9 +248,13 @@ export default function EmployeeDashboardPage() {
     }
     idRef.current = me.id;
     setEmployee(me);
+    generateRecurringTasks(); // Atlas auto-creates any due recurring responsibilities
     setTasks(loadTeamTasks().filter((t) => t.memberId === me.id || t.parts.some((p) => p.memberId === me.id)));
     setHandoffs(handoffsFor(me.id));
     setMemory(memoryFor(me.id));
+    setRecurring(recurringFor(me.id));
+    setApps(appsFor(me));
+    setOnboarding(onboardingFor(me.id));
     setPresence(getPresence(me.id));
     setShift(getOpenShift(me.id));
     setAnnouncements(unacknowledgedFor(me.id));
@@ -523,6 +550,24 @@ export default function EmployeeDashboardPage() {
     acceptHandoff(id);
     setHandoffs(handoffsFor(employee.id));
     setActionFlash("Handoff accepted — the task is now on your board.");
+  }
+
+  function runSearch(e: FormEvent) {
+    e.preventDefault();
+    if (!employee) return;
+    setSearchGroups(searchQ.trim() ? universalSearch(employee, searchQ) : null);
+  }
+
+  function runWiki(question: string) {
+    setWikiQ(question);
+    setWikiHits(question.trim() ? searchWiki(question) : null);
+  }
+
+  function completeStep(stepId: string) {
+    if (!employee) return;
+    const st = completeOnboardingStep(employee.id, stepId);
+    setOnboarding({ ...st });
+    setActionFlash("Onboarding step completed.");
   }
 
   function handOff(task: TeamTask, toId: string) {
@@ -1119,6 +1164,33 @@ export default function EmployeeDashboardPage() {
                     ))}
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+            <form className="hero-ask" style={{ marginTop: "0.6rem" }} onSubmit={runSearch}>
+              <input
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="🔍 Search everything — customers, docs, tasks, invoices…"
+                aria-label="Company search"
+              />
+              <button className="btn btn-outline" type="submit">Search</button>
+            </form>
+            {searchGroups ? (
+              <div className="memory-card" style={{ marginTop: "0.5rem" }}>
+                {searchGroups.length === 0 ? (
+                  <p>No permitted results for &ldquo;{searchQ}&rdquo;.</p>
+                ) : (
+                  searchGroups.map((g) => (
+                    <div key={g.category} style={{ marginBottom: "0.5rem" }}>
+                      <div className="label">{g.emoji} {g.category}</div>
+                      {g.hits.map((h, i) => (
+                        <p key={i} style={{ margin: "0.15rem 0" }}>
+                          <strong>{h.title}</strong> <span className="muted-line">{h.sub}</span>
+                        </p>
+                      ))}
+                    </div>
+                  ))
+                )}
               </div>
             ) : null}
             {topNote ? (
@@ -2140,6 +2212,91 @@ export default function EmployeeDashboardPage() {
               <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="What do I need to finish today?" />
               <button className="btn btn-dark" type="submit">Ask</button>
             </form>
+          </section>
+
+          {onboarding && onboardingPct(onboarding) < 100 ? (
+            <section className="panel" style={{ borderLeft: "4px solid var(--teal)" }}>
+              <h2>Welcome to Atlas, {employee.name.split(" ")[0]} 👋</h2>
+              <p className="panel-lead">I&apos;ll help you get set up — you&apos;re {onboardingPct(onboarding)}% through onboarding.</p>
+              <span className="bar-track" style={{ display: "block", margin: "0.4rem 0" }}>
+                <span className="bar-fill" style={{ width: `${onboardingPct(onboarding)}%` }} />
+              </span>
+              <div className="list">
+                {ONBOARDING_STEPS.map((step) => {
+                  const done = onboarding.done.includes(step.id);
+                  return (
+                    <div className="list-row" key={step.id}>
+                      <span className={done ? "badge ok" : "badge"}>{done ? "✅" : "○"}</span>
+                      <div style={{ flex: 1 }}>
+                        <p><strong>{step.label}</strong><span className="muted-line">{step.detail}</span></p>
+                      </div>
+                      {done ? (
+                        <span className="badge ok">Done</span>
+                      ) : (
+                        <button className="btn btn-outline" type="button" onClick={() => completeStep(step.id)}>Mark done</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {recurring.length ? (
+            <section className="panel">
+              <h2>Recurring responsibilities</h2>
+              <p className="panel-lead">Atlas creates these automatically so you never miss them.</p>
+              <div className="list">
+                {recurring.map((r) => (
+                  <div className="list-row" key={r.id}>
+                    <span className="badge">🔁</span>
+                    <p><strong>{r.title}</strong><span className="muted-line">{cadenceLabel(r.cadence)}{r.department ? ` · ${r.department}` : ""}</span></p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {apps.length ? (
+            <section className="panel">
+              <h2>My apps</h2>
+              <p className="panel-lead">The tools your company allows — right inside Atlas.</p>
+              <div className="pack-grid">
+                {apps.map((a) => (
+                  <button key={a.id} type="button" className="pack-card" style={{ textAlign: "left", cursor: "pointer" }} onClick={() => setActionFlash(`Opening ${a.name}… (demo)`)}>
+                    <div style={{ fontSize: "1.4rem" }}>{a.emoji}</div>
+                    <strong>{a.name}</strong>
+                    <span className="muted-line">{a.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="panel">
+            <h2>Company wiki</h2>
+            <p className="panel-lead">Search approved company documentation instead of asking around — Atlas shows the source.</p>
+            <form className="hero-ask" onSubmit={(e) => { e.preventDefault(); runWiki(wikiQ); }}>
+              <input value={wikiQ} onChange={(e) => setWikiQ(e.target.value)} placeholder="e.g. How do refunds work?" aria-label="Wiki search" />
+              <button className="btn btn-outline" type="submit">Ask the wiki</button>
+            </form>
+            {wikiHits ? (
+              wikiHits.length === 0 ? (
+                <p className="muted-line" style={{ marginTop: "0.5rem" }}>No article found — try different words or ask your manager.</p>
+              ) : (
+                <div className="memory-card" style={{ marginTop: "0.5rem" }}>
+                  <div className="label">{wikiHits[0].question}</div>
+                  <p>{wikiHits[0].answer}</p>
+                  <p className="muted-line">📚 Source: {wikiHits[0].source}</p>
+                </div>
+              )
+            ) : (
+              <div className="train-actions" style={{ marginTop: "0.5rem" }}>
+                {WIKI_ARTICLES.slice(0, 4).map((a) => (
+                  <button key={a.id} type="button" className="btn btn-outline" onClick={() => runWiki(a.question)}>{a.question}</button>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="panel">

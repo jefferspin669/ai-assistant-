@@ -5,8 +5,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   addTaskComment,
   awaitingApproval,
+  createTaskFromSuggestion,
   createTeamTask,
   decideApproval,
+  detectTaskSuggestions,
   isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
@@ -17,6 +19,7 @@ import {
   TASK_PRIORITIES,
   type TaskPriority,
   type TaskRecurrence,
+  type TaskSuggestion,
   type TeamPerson,
   type TeamTask,
 } from "@/lib/user-workspace";
@@ -51,6 +54,8 @@ export function TaskAssignmentStudio() {
   const [approvalRequired, setApprovalRequired] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  const [captureText, setCaptureText] = useState("");
+  const [suggestions, setSuggestions] = useState<TaskSuggestion[] | null>(null);
 
   const refresh = useCallback(() => {
     setMembers(loadTeamMembers());
@@ -112,6 +117,17 @@ export function TaskAssignmentStudio() {
     setApprovalRequired(false);
   }
 
+  function detect() {
+    setSuggestions(detectTaskSuggestions(captureText, members));
+  }
+
+  function acceptSuggestion(s: TaskSuggestion) {
+    createTaskFromSuggestion(s, memberId || members[0]?.id || "");
+    refresh();
+    setSuggestions((prev) => (prev ? prev.filter((x) => x.id !== s.id) : prev));
+    setNote(`Created "${s.title}"${s.assigneeName ? ` for ${s.assigneeName}` : ""}${s.dueLabel ? ` · due ${s.dueLabel}` : ""}.`);
+  }
+
   function decide(task: TeamTask, action: "approved" | "changes_requested" | "rejected") {
     saveTeamTasks(replaceTask(loadTeamTasks(), decideApproval(task, action)));
     refresh();
@@ -152,6 +168,47 @@ export function TaskAssignmentStudio() {
           <small>Assigned total</small>
         </div>
       </div>
+
+      <section className="panel">
+        <h2>Atlas task capture</h2>
+        <p className="panel-lead">Paste meeting notes or a customer email — Atlas proposes tasks and you confirm before anything is created.</p>
+        <textarea
+          value={captureText}
+          onChange={(e) => setCaptureText(e.target.value)}
+          rows={3}
+          placeholder={"e.g. Sarah will finish the presentation by Thursday. Can you send me an updated estimate tomorrow?"}
+        />
+        <div className="train-actions" style={{ marginTop: "0.5rem" }}>
+          <button className="btn btn-dark" type="button" onClick={detect} disabled={!captureText.trim()}>Detect tasks</button>
+          {captureText ? (
+            <button className="btn btn-outline" type="button" onClick={() => { setCaptureText(""); setSuggestions(null); }}>Clear</button>
+          ) : null}
+        </div>
+        {suggestions ? (
+          suggestions.length === 0 ? (
+            <p className="muted-line" style={{ marginTop: "0.5rem" }}>No clear commitments found. Try a sentence like &ldquo;Sarah will send the quote by Friday.&rdquo;</p>
+          ) : (
+            <div className="list" style={{ marginTop: "0.6rem" }}>
+              {suggestions.map((s) => (
+                <div className="list-row" key={s.id}>
+                  <span className="badge">✨</span>
+                  <div style={{ flex: 1 }}>
+                    <p>
+                      <strong>{s.title}</strong>
+                      <span className="muted-line">
+                        {s.assigneeName ? `Assigned: ${s.assigneeName}` : "Assign to the selected employee"}
+                        {s.dueLabel ? ` · Due: ${s.dueLabel}` : ""}
+                      </span>
+                      <span className="muted-line">From: &ldquo;{s.source}&rdquo;</span>
+                    </p>
+                  </div>
+                  <button className="btn btn-outline" type="button" onClick={() => acceptSuggestion(s)}>Create</button>
+                </div>
+              ))}
+            </div>
+          )
+        ) : null}
+      </section>
 
       <div className="split">
         <section className="panel">
