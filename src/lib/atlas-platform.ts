@@ -116,6 +116,12 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Atlas Assistant",
+    items: [
+      { href: "/app/talk", label: "Talk to Atlas" },
+    ],
+  },
+  {
     label: "Atlas Governance",
     items: [
       { href: "/app/governance", label: "Governance Home" },
