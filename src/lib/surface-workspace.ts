@@ -814,6 +814,76 @@ export function pushVoiceHistory(text: string, mode: string): VoiceEntry[] {
   return next;
 }
 
+/* ─── Voice transcripts + retention ────────────────────────────────────── */
+
+export type TranscriptTurn = { id: string; who: "you" | "atlas"; text: string; mode: string; at: string };
+const TRANSCRIPT_KEY = "atlas-voice-transcript-v1";
+const RETENTION_KEY = "atlas-voice-retention-v1";
+export function loadVoiceRetention(): number {
+  return loadJson<number>(RETENTION_KEY, 30); // days; 0 = keep forever
+}
+export function setVoiceRetention(days: number) {
+  saveJson(RETENTION_KEY, days);
+}
+export function loadTranscript(): TranscriptTurn[] {
+  const all = loadJson<TranscriptTurn[]>(TRANSCRIPT_KEY, []);
+  const days = loadVoiceRetention();
+  if (days <= 0) return all;
+  const cutoff = Date.now() - days * 864e5;
+  const kept = all.filter((t) => new Date(t.at).getTime() >= cutoff);
+  if (kept.length !== all.length) saveJson(TRANSCRIPT_KEY, kept);
+  return kept;
+}
+export function appendTranscript(turn: { who: "you" | "atlas"; text: string; mode: string }): TranscriptTurn {
+  const t: TranscriptTurn = { id: newId("tr"), who: turn.who, text: turn.text, mode: turn.mode, at: nowIso() };
+  saveJson(TRANSCRIPT_KEY, [...loadJson<TranscriptTurn[]>(TRANSCRIPT_KEY, []), t]);
+  return t;
+}
+export function clearTranscript() {
+  saveJson(TRANSCRIPT_KEY, []);
+}
+
+/* ─── Voice notes ──────────────────────────────────────────────────────── */
+
+export type VoiceNote = { id: string; target: string; text: string; at: string };
+const VOICE_NOTES_KEY = "atlas-voice-notes-v1";
+export function loadVoiceNotes(): VoiceNote[] {
+  return loadJson<VoiceNote[]>(VOICE_NOTES_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveVoiceNote(input: { target: string; text: string }): VoiceNote {
+  const n: VoiceNote = { id: newId("vnote"), target: input.target.trim() || "General", text: input.text.trim(), at: nowIso() };
+  saveJson(VOICE_NOTES_KEY, [n, ...loadVoiceNotes()]);
+  return n;
+}
+
+/* ─── Voice permission controls (separate from normal permissions) ─────── */
+
+export type VoicePermLevel = "allow" | "approval" | "deny";
+export type VoiceAbility = { id: string; label: string };
+export const VOICE_ABILITIES: VoiceAbility[] = [
+  { id: "ask_tasks", label: "Ask about own tasks" },
+  { id: "customer_notes", label: "Create customer notes" },
+  { id: "message_team", label: "Message team" },
+  { id: "schedule", label: "Schedule appointments" },
+  { id: "discounts", label: "Issue discounts" },
+  { id: "payroll", label: "Payroll information" },
+  { id: "financials", label: "Company financial data" },
+  { id: "delete_customer", label: "Delete customer records" },
+];
+const VOICE_PERM_KEY = "atlas-voice-perms-v1";
+function defaultVoicePerms(): Record<string, VoicePermLevel> {
+  return { ask_tasks: "allow", customer_notes: "allow", message_team: "allow", schedule: "allow", discounts: "approval", payroll: "deny", financials: "deny", delete_customer: "deny" };
+}
+export function voicePermsFor(memberId: string): Record<string, VoicePermLevel> {
+  const all = loadJson<Record<string, Record<string, VoicePermLevel>>>(VOICE_PERM_KEY, {});
+  return { ...defaultVoicePerms(), ...(all[memberId] ?? {}) };
+}
+export function setVoicePerm(memberId: string, abilityId: string, level: VoicePermLevel) {
+  const all = loadJson<Record<string, Record<string, VoicePermLevel>>>(VOICE_PERM_KEY, {});
+  const forMember = { ...defaultVoicePerms(), ...(all[memberId] ?? {}), [abilityId]: level };
+  saveJson(VOICE_PERM_KEY, { ...all, [memberId]: forMember });
+}
+
 /* ─── Security center ──────────────────────────────────────────────────── */
 
 export type SecurityItem = {

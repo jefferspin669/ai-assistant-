@@ -2,15 +2,29 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  appendTranscript,
+  clearTranscript,
   createApprovalRequest,
   evaluateAction,
+  loadTranscript,
   loadVoiceHistory,
+  loadVoiceNotes,
+  loadVoiceRetention,
   pushVoiceHistory,
+  saveVoiceNote,
   seedApprovalsIfEmpty,
+  setVoicePerm,
+  setVoiceRetention,
+  VOICE_ABILITIES,
+  voicePermsFor,
+  type TranscriptTurn,
+  type VoiceNote,
+  type VoicePermLevel,
 } from "@/lib/surface-workspace";
 import {
   blockTask,
   createTeamTask,
+  detectLanguage,
   isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
@@ -47,7 +61,7 @@ const OVERDUE_PROJECTS = [
 
 const SAMPLES: Record<Mode, string[]> = {
   ceo: ["Give me my morning briefing", "Tell me about Dallas", "What happens if we add another project manager?", "Prepare that recommendation for my COO", "How are sales doing today?"],
-  employee: ["What should I do next?", "Start my inventory task", "Mark this task blocked", "Find the safety procedure", "Message my manager that I'm waiting on approval"],
+  employee: ["What should I do next?", "Start my inventory task", "Take a note", "Find the safety procedure", "Remind Sarah to call Johnson before lunch tomorrow", "¿Qué tareas me quedan hoy?"],
   field: ["Pull up the customer I'm visiting", "What equipment did we install last time?", "Add a note that the compressor needs replacement", "Message my manager that I'm running late"],
   customer: ["I need to reschedule my appointment", "Thursday", "What time is my appointment?"],
 };
@@ -78,9 +92,19 @@ export function TalkToAtlasStudio() {
   const [voice, setVoice] = useState("Professional");
   const [rate, setRate] = useState(1);
   const [length, setLength] = useState<"short" | "detailed">("detailed");
+  const [lang, setLang] = useState<"auto" | "en" | "es">("auto");
   const [history, setHistory] = useState<{ id: string; text: string; mode: string; at: string }[]>([]);
+  const [saveTx, setSaveTx] = useState(true);
+  const [retention, setRetention] = useState(30);
+  const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
+  const [txQuery, setTxQuery] = useState("");
+  const [notes, setNotes] = useState<VoiceNote[]>([]);
+  const [pendingNote, setPendingNote] = useState(false);
+  const [captions, setCaptions] = useState(false);
+  const [esActive, setEsActive] = useState(false);
   const recRef = useRef<SpeechRec | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const esRef = useRef(false);
 
   useEffect(() => {
     seedDemoTeamIfEmpty();
@@ -90,6 +114,9 @@ export function TalkToAtlasStudio() {
     const sarah = list.find((m) => m.name === "Sarah Williams");
     setPersonaId((prev) => prev || sarah?.id || list[0]?.id || "");
     setHistory(loadVoiceHistory());
+    setRetention(loadVoiceRetention());
+    setTranscript(loadTranscript());
+    setNotes(loadVoiceNotes());
   }, []);
 
   useEffect(() => {
@@ -109,6 +136,7 @@ export function TalkToAtlasStudio() {
       if (!synth) return;
       synth.cancel();
       const u = new SpeechSynthesisUtterance(text);
+      u.lang = esRef.current ? "es-ES" : "en-US";
       u.rate = rate * (voice === "Energetic" ? 1.08 : voice === "Calm" ? 0.92 : 1);
       u.pitch = voice === "Warm" ? 1.1 : voice === "Calm" ? 0.9 : 1;
       u.onend = () => setSpeaking(false);
@@ -119,6 +147,7 @@ export function TalkToAtlasStudio() {
   }
   function say(text: string, screen?: Screen) {
     setTurns((t) => [...t, { who: "atlas", text, screen }]);
+    if (saveTx) { appendTranscript({ who: "atlas", text, mode }); setTranscript(loadTranscript()); }
     speak(text);
   }
   const pick = (short: string, detailed: string) => (length === "short" ? short : detailed);
@@ -137,6 +166,22 @@ export function TalkToAtlasStudio() {
     const ql = q.toLowerCase();
     setTurns((t) => [...t, { who: "you", text: raw.trim() }]);
     setHistory(pushVoiceHistory(raw.trim(), mode));
+    if (saveTx) appendTranscript({ who: "you", text: raw.trim(), mode });
+    const es = lang === "es" || (lang === "auto" && detectLanguage(q) === "es");
+    esRef.current = es;
+    setEsActive(es);
+    const vp = persona ? voicePermsFor(persona.id) : { payroll: "deny", financials: "deny", delete_customer: "deny", discounts: "approval" } as Record<string, VoicePermLevel>;
+
+    // ── Voice note capture ("take a note" → next utterance is the note) ──
+    if (pendingNote) {
+      if (/^(cancel|never ?mind|stop)$/.test(ql)) { setPendingNote(false); say("Okay, no note saved."); return; }
+      const target = subject || "General";
+      const n = saveVoiceNote({ target, text: q });
+      setNotes(loadVoiceNotes());
+      setPendingNote(false);
+      say(`Saved to ${target}: “${n.text}”.`, { kind: "list", heading: "Note saved", items: [{ title: target, sub: n.text }] });
+      return;
+    }
 
     // ── Pending confirmations ────────────────────────────────────────────
     if (pending && /^(yes|yep|confirm|submit|do it|go ahead)\b/.test(ql)) {
@@ -146,6 +191,42 @@ export function TalkToAtlasStudio() {
     if (pending && /^(no|cancel|stop|never ?mind)\b/.test(ql)) {
       setPending(null);
       say("Okay, cancelled.");
+      return;
+    }
+
+    // ── Voice notes ("take a note") ─────────────────────────────────────
+    if (/^(take|make|start) a note\b|new note$/.test(ql)) {
+      if (vp.customer_notes === "deny") { say("Voice notes are turned off for your account."); return; }
+      setPendingNote(true);
+      say(subject ? `Sure — what's the note for ${subject}?` : "Sure — what's the note?");
+      return;
+    }
+
+    // ── Voice permission denials (voice never bypasses security) ─────────
+    if (/payroll|my pay\b|pay stub|salary/.test(ql) && vp.payroll === "deny") {
+      say("Payroll information isn't available by voice on your account.");
+      return;
+    }
+    if (/financial data|financial report|company (revenue|profit|financ)|p&l|margins?/.test(ql) && vp.financials === "deny") {
+      say("Company financial data isn't available by voice on your account.");
+      return;
+    }
+
+    // ── Natural reminders ("remind Sarah to call Johnson before lunch tomorrow")
+    const remind = q.match(/remind (\w+) to (.+)/i);
+    if (remind) {
+      const who = members.find((m) => first(m.name).toLowerCase() === remind[1].toLowerCase());
+      let body = remind[2].trim();
+      const tomorrow = /tomorrow/i.test(body);
+      body = body.replace(/\b(before lunch|this morning|in the morning|by\s+\w+)?\s*(tomorrow|today)?( morning| afternoon| evening)?\.?$/i, "").trim();
+      const title = body.charAt(0).toUpperCase() + body.slice(1);
+      if (who) {
+        saveTeamTasks([createTeamTask({ memberId: who.id, title, assignedBy: "Atlas (voice)", dueDate: tomorrow ? todayISO(new Date(Date.now() + 864e5)) : "" }), ...loadTeamTasks()]);
+        logAudit(persona?.name ?? "User", "created reminder (voice)", `${title} → ${who.name}`);
+        say(`Got it — I reminded ${first(who.name)} to ${body}${tomorrow ? " tomorrow" : ""}.`, { kind: "list", heading: "Reminder set", items: [{ title, sub: `For ${who.name}${tomorrow ? " · tomorrow" : ""}` }] });
+      } else {
+        say(`I couldn't find "${remind[1]}" on the team.`);
+      }
       return;
     }
 
@@ -333,6 +414,7 @@ export function TalkToAtlasStudio() {
       return;
     }
     if (/delete (?:this )?customer(?: account)?/.test(ql)) {
+      if (vp.delete_customer === "deny") { say("For safety, deleting customer records isn't allowed by voice on your account."); return; }
       setPending({ type: "delete", label: "Delete customer account" });
       say("This permanently removes the account. Please confirm on screen.");
       return;
@@ -358,11 +440,15 @@ export function TalkToAtlasStudio() {
       const p = OVERDUE_PROJECTS.find((x) => x.name === subject);
       if (p) { say(`${p.owner} owns the delayed tasks on ${p.name}.`, { kind: "list", heading: `${p.name} — owner`, items: [{ title: p.owner, sub: "Responsible for the delayed tasks" }] }); return; }
     }
-    if (/tasks?.*(left|remaining|today|do i have)/.test(ql)) {
+    if (/tasks?.*(left|remaining|today|do i have)/.test(ql) || /tareas.*(quedan|hoy)/.test(ql)) {
       const open = personaOpenTasks();
       const high = open.filter((t) => t.priority === "High" || t.priority === "Urgent").length;
       const timed = open.filter((t) => t.dueTime).sort((a, b) => (a.dueTime < b.dueTime ? -1 : 1))[0];
-      say(`You have ${open.length} tasks remaining.${high ? ` ${high} are high priority.` : ""}${timed ? ` Your next deadline is ${timed.title}${timed.dueTime ? ` at ${timed.dueTime}` : ""}.` : ""}`, { kind: "list", heading: "Tasks remaining", items: open.slice(0, 6).map((t) => ({ title: t.title, sub: `${t.priority}${t.dueTime ? ` · ${t.dueTime}` : ""}` })) });
+      const heading = es ? "Tareas restantes" : "Tasks remaining";
+      const text = es
+        ? `Te quedan ${open.length} tareas.${high ? ` ${high} son de alta prioridad.` : ""}${timed ? ` Tu próxima fecha límite es ${timed.title}${timed.dueTime ? ` a las ${timed.dueTime}` : ""}.` : ""}`
+        : `You have ${open.length} tasks remaining.${high ? ` ${high} are high priority.` : ""}${timed ? ` Your next deadline is ${timed.title}${timed.dueTime ? ` at ${timed.dueTime}` : ""}.` : ""}`;
+      say(text, { kind: "list", heading, items: open.slice(0, 6).map((t) => ({ title: t.title, sub: `${t.priority}${t.dueTime ? ` · ${t.dueTime}` : ""}` })) });
       return;
     }
     if (/sales|revenue|numbers today|how are we doing/.test(ql)) {
@@ -423,20 +509,34 @@ export function TalkToAtlasStudio() {
           </div>
         </div>
 
+        <div className="status-picker" style={{ marginBottom: "0.4rem" }}>
+          {["🗣️ Talk", "🔊 Listen", "⚡ Act", "🧠 Remember", "🖥️ See", "🛡️ Confirm", "🌎 Translate"].map((c) => (
+            <span key={c} className="badge">{c}</span>
+          ))}
+        </div>
+
         <div className="field-row" style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
           <label>Atlas voice<select value={voice} onChange={(e) => setVoice(e.target.value)}>{VOICES.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
           <label>Speed<select value={rate} onChange={(e) => setRate(Number(e.target.value))}>{SPEEDS.map((s) => <option key={s} value={s}>{s}×</option>)}</select></label>
           <label>Answers<select value={length} onChange={(e) => setLength(e.target.value as "short" | "detailed")}><option value="short">Short answers</option><option value="detailed">Detailed answers</option></select></label>
+          <label>Language<select value={lang} onChange={(e) => setLang(e.target.value as "auto" | "en" | "es")}><option value="auto">Auto-detect</option><option value="en">English</option><option value="es">Español</option></select></label>
+          <label>Transcript<select value={retention} onChange={(e) => { const d = Number(e.target.value); setRetention(d); setVoiceRetention(d); setTranscript(loadTranscript()); }}><option value={7}>Keep 7 days</option><option value={30}>Keep 30 days</option><option value={90}>Keep 90 days</option><option value={0}>Keep forever</option></select></label>
+        </div>
+        <div className="train-actions" style={{ marginTop: "0.3rem" }}>
+          <label className="check-inline"><input type="checkbox" checked={saveTx} onChange={(e) => setSaveTx(e.target.checked)} /> Save transcript</label>
+          <label className="check-inline"><input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} /> Captions / large text</label>
         </div>
 
         <div className="train-actions" style={{ alignItems: "center", marginTop: "0.4rem" }}>
           <button className={listening ? "btn btn-dark" : "btn btn-outline"} type="button" onClick={toggleMic}>{listening ? "● Listening… (stop)" : "🎤 Talk to Atlas"}</button>
+          <span className={listening ? "presence-badge working" : "presence-badge offline"}>{listening ? "🎤 Atlas is listening" : "Microphone off"}</span>
           {speaking ? (
             <>
               <span className="badge ok">🔊 Atlas is speaking…</span>
               <button className="btn btn-outline" type="button" onClick={stopSpeaking}>■ Interrupt</button>
             </>
           ) : null}
+          {esActive ? <span className="badge">🌎 Español</span> : null}
         </div>
         {micNote ? <p className="muted-line" style={{ marginTop: "0.4rem" }}>{micNote}</p> : null}
 
@@ -453,7 +553,8 @@ export function TalkToAtlasStudio() {
       <div className="split">
         <section className="panel">
           <h2>Conversation</h2>
-          <div className="command-thread" ref={threadRef} style={{ maxHeight: "24rem", overflowY: "auto" }}>
+          {pendingNote ? <p className="muted-line">📝 Listening for your note — say or type it now.</p> : null}
+          <div className="command-thread" ref={threadRef} style={{ maxHeight: "24rem", overflowY: "auto", fontSize: captions ? "1.12rem" : undefined }}>
             {turns.length === 0 ? <p className="muted-line">Pick your mode, then tap a suggestion or ask something.</p> : turns.map((t, i) => (
               <div key={i} className={`bubble ${t.who === "you" ? "bubble-user" : "bubble-ai"}`}>
                 <span className="agent-tag">{t.who === "you" ? (persona ? persona.name : "You") : "Atlas"}</span>
@@ -503,6 +604,73 @@ export function TalkToAtlasStudio() {
           </div>
         )}
       </section>
+
+      <div className="split">
+        <section className="panel">
+          <div className="train-head">
+            <div>
+              <h2>Transcript</h2>
+              <p className="panel-lead">Searchable text record of voice conversations (retention above).</p>
+            </div>
+            <button className="btn btn-outline" type="button" onClick={() => { clearTranscript(); setTranscript([]); }}>Clear</button>
+          </div>
+          <input value={txQuery} onChange={(e) => setTxQuery(e.target.value)} placeholder="🔍 Search the transcript…" aria-label="Search transcript" />
+          {(() => {
+            const filtered = transcript.filter((t) => !txQuery.trim() || t.text.toLowerCase().includes(txQuery.toLowerCase())).slice(-40).reverse();
+            if (transcript.length === 0) return <p className="muted-line" style={{ marginTop: "0.5rem" }}>Nothing recorded yet{saveTx ? "" : " (saving is off)"}.</p>;
+            if (filtered.length === 0) return <p className="muted-line" style={{ marginTop: "0.5rem" }}>No matches.</p>;
+            return (
+              <div className="command-thread" style={{ maxHeight: "18rem", overflowY: "auto", marginTop: "0.5rem" }}>
+                {filtered.map((t) => (
+                  <div key={t.id} className={`bubble ${t.who === "you" ? "bubble-user" : "bubble-ai"}`}>
+                    <span className="agent-tag">{t.who === "you" ? "You" : "Atlas"} · {new Date(t.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    {t.text}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </section>
+
+        <section className="panel">
+          <h2>Voice permissions{persona ? ` — ${persona.name.split(" ")[0]}` : ""}</h2>
+          <p className="panel-lead">Talking to Atlas never bypasses security — control what voice can do, per employee.</p>
+          <div className="list">
+            {VOICE_ABILITIES.map((a) => {
+              const level = (persona ? voicePermsFor(persona.id)[a.id] : "deny") as VoicePermLevel;
+              return (
+                <div className="list-row" key={a.id}>
+                  <span className={level === "allow" ? "badge ok" : level === "approval" ? "badge warn" : "badge"}>{level === "allow" ? "✅" : level === "approval" ? "⚠️" : "❌"}</span>
+                  <p style={{ flex: 1 }}><strong>{a.label}</strong></p>
+                  <select
+                    value={level}
+                    onChange={(e) => { if (persona) { setVoicePerm(persona.id, a.id, e.target.value as VoicePermLevel); setTurns((t) => [...t]); } }}
+                    aria-label={`${a.label} voice permission`}
+                  >
+                    <option value="allow">Allow</option>
+                    <option value="approval">Approval</option>
+                    <option value="deny">Deny</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {notes.length ? (
+        <section className="panel">
+          <h2>Voice notes</h2>
+          <div className="list">
+            {notes.slice(0, 8).map((n) => (
+              <div className="list-row" key={n.id}>
+                <span className="badge">📝</span>
+                <p><strong>{n.target}</strong><span className="muted-line">{n.text}</span></p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
