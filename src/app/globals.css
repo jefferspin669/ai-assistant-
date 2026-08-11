@@ -4623,7 +4623,17 @@ html[data-a11y-motion="reduce"] *::after {
   margin: auto;
 }
 
-/* The focus overlay is dark, so outline buttons need light text. */
+/* The focus overlay is dark: primary button goes bright, outlines go light. */
+.focus-overlay .btn-dark {
+  background: var(--sand);
+  color: var(--ink);
+  border-color: var(--sand);
+}
+
+.focus-overlay .btn-dark:hover {
+  background: #e3b35a;
+}
+
 .focus-overlay .btn-outline {
   color: var(--foam);
   border-color: rgba(244, 248, 247, 0.5);
