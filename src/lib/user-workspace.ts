@@ -2401,23 +2401,33 @@ export function coveragePlan(member: TeamPerson, now: number = Date.now()): Cove
   const today = todayISO(new Date(now));
   const allTasks = loadTeamTasks().filter((t) => t.memberId === member.id && isOpenTask(t.status));
   const members = loadTeamMembers();
-  const available = members.filter((m) => m.id !== member.id && isAvailableStatus(derivedStatus(getPresence(m.id), now)));
+  const others = members.filter((m) => m.id !== member.id);
+  const availableIds = new Set(others.filter((m) => isAvailableStatus(derivedStatus(getPresence(m.id), now))).map((m) => m.id));
+  const sameDept = others.filter((m) => (m.department || "") === (member.department || ""));
+  // Prefer people who are live-available; otherwise fall back to qualified
+  // same-department teammates (or anyone) so the manager always has options.
+  const pool = (availableIds.size ? others.filter((m) => availableIds.has(m.id)) : sameDept.length ? sameDept : others);
 
-  const suggestFor = (t: TeamTask): CoverageSuggestion[] => {
-    const sameDept = available.filter((m) => (m.department || "") === (member.department || ""));
-    const pool = (sameDept.length ? sameDept : available).slice(0, 3);
-    return pool.map((m) => ({
-      id: m.id,
-      name: m.name,
-      reason: (m.department || "") === (member.department || "") ? `Same department, available now` : `Available now`,
-    }));
+  const reasonFor = (m: TeamPerson): string => {
+    const avail = availableIds.has(m.id);
+    const dept = (m.department || "") === (member.department || "");
+    if (avail && dept) return "Same department, available now";
+    if (avail) return "Available now";
+    if (dept) return "Same department, qualified";
+    return "Qualified teammate";
+  };
+
+  const suggestFor = (): CoverageSuggestion[] => {
+    const sameDeptInPool = pool.filter((m) => (m.department || "") === (member.department || ""));
+    const chosen = (sameDeptInPool.length ? sameDeptInPool : pool).slice(0, 3);
+    return chosen.map((m) => ({ id: m.id, name: m.name, reason: reasonFor(m) }));
   };
 
   const items: CoverageItem[] = allTasks.map((t) => ({
     kind: t.dueDate === today && (t.priority === "Urgent" || t.priority === "High") ? "deadline" : "task",
     title: t.title,
     detail: `${t.priority} · ${t.dueDate ? `due ${t.dueDate}` : "no due date"}${t.project ? ` · ${t.project}` : ""}`,
-    suggestions: suggestFor(t),
+    suggestions: suggestFor(),
   }));
 
   // Appointments today assigned to this member (from CRM demo appointments by first name).
@@ -2428,7 +2438,7 @@ export function coveragePlan(member: TeamPerson, now: number = Date.now()): Cove
       kind: "appointment",
       title: `${a.job} — ${a.customer}`,
       detail: `${a.time} · ${a.status}`,
-      suggestions: available.slice(0, 2).map((m) => ({ id: m.id, name: m.name, reason: "Available now" })),
+      suggestions: suggestFor(),
     });
   }
 
