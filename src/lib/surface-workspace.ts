@@ -380,6 +380,141 @@ export function setContactsPerm(member: PermMember, ability: ContactsAbility, va
   return result;
 }
 
+/* ─── Control Center: leveled permissions, rules, approval chains ──────── */
+
+export type PermLevel = "none" | "view" | "edit" | "approval" | "auto" | "full";
+export const PERM_LEVELS: { id: PermLevel; label: string; blurb: string }[] = [
+  { id: "none", label: "No Access", blurb: "Cannot see or use it." },
+  { id: "view", label: "View Only", blurb: "Can see, but can't change anything." },
+  { id: "edit", label: "Edit", blurb: "Can make changes." },
+  { id: "approval", label: "Approval Required", blurb: "Can request; someone higher up must approve." },
+  { id: "auto", label: "Automatic Approval", blurb: "Atlas approves automatically within your rules." },
+  { id: "full", label: "Full Control", blurb: "View, create, edit, delete, approve, and configure." },
+];
+
+export type PermUnit = "percent" | "dollar";
+export type PermCategoryDef = { id: string; label: string; kind: "view" | "action"; unit?: PermUnit };
+export const PERM_CATEGORIES: PermCategoryDef[] = [
+  { id: "view_customers", label: "View customers", kind: "view" },
+  { id: "add_customers", label: "Add customers", kind: "action" },
+  { id: "edit_customers", label: "Edit customers", kind: "action" },
+  { id: "delete_customers", label: "Delete customers", kind: "action" },
+  { id: "export_customers", label: "Export customer list", kind: "action" },
+  { id: "view_pricing", label: "View pricing", kind: "view" },
+  { id: "change_pricing", label: "Change pricing", kind: "action" },
+  { id: "issue_discounts", label: "Issue discounts", kind: "action", unit: "percent" },
+  { id: "refund_customers", label: "Refund customers", kind: "action", unit: "dollar" },
+  { id: "create_invoices", label: "Create invoices", kind: "action" },
+  { id: "approve_invoices", label: "Approve invoices", kind: "action" },
+  { id: "view_payroll", label: "View payroll", kind: "view" },
+  { id: "view_performance", label: "View employee performance", kind: "view" },
+  { id: "assign_tasks", label: "Assign tasks", kind: "action" },
+  { id: "edit_settings", label: "Edit company settings", kind: "action" },
+];
+
+export type CategoryPerm = { level: PermLevel; limit?: number };
+export type EmployeePermissions = { memberId: string; categories: Record<string, CategoryPerm> };
+
+const CONTROL_KEY = "atlas-control-perms-v1";
+function loadAllPermissions(): EmployeePermissions[] {
+  return loadJson<EmployeePermissions[]>(CONTROL_KEY, []);
+}
+function saveAllPermissions(list: EmployeePermissions[]) {
+  saveJson(CONTROL_KEY, list);
+}
+
+type PermMemberCC = { id: string; role?: string; department?: string };
+function isManagerRole(member: PermMemberCC): boolean {
+  const role = (member.role || "").toLowerCase();
+  return role.includes("manager") || role.includes("lead") || role.includes("owner") || role.includes("director") || (member.department || "") === "Management";
+}
+/** Role-based default policy — matches the CEO's example for a sales manager. */
+export function defaultPermissions(member: PermMemberCC): Record<string, CategoryPerm> {
+  const mgr = isManagerRole(member);
+  const d: Record<string, CategoryPerm> = {
+    view_customers: { level: mgr ? "full" : "view" },
+    add_customers: { level: mgr ? "full" : "edit" },
+    edit_customers: { level: mgr ? "full" : "edit" },
+    delete_customers: { level: "none" },
+    export_customers: { level: mgr ? "edit" : "none" },
+    view_pricing: { level: "view" },
+    change_pricing: { level: mgr ? "approval" : "none" },
+    issue_discounts: mgr ? { level: "auto", limit: 10 } : { level: "approval" },
+    refund_customers: mgr ? { level: "auto", limit: 500 } : { level: "approval" },
+    create_invoices: { level: mgr ? "full" : "none" },
+    approve_invoices: { level: "none" },
+    view_payroll: { level: "none" },
+    view_performance: { level: mgr ? "view" : "none" },
+    assign_tasks: { level: mgr ? "full" : "none" },
+    edit_settings: { level: "none" },
+  };
+  return d;
+}
+export function permissionsFor(member: PermMemberCC): EmployeePermissions {
+  const explicit = loadAllPermissions().find((p) => p.memberId === member.id);
+  if (explicit) {
+    // Merge in any newly-added categories with defaults.
+    const base = defaultPermissions(member);
+    return { memberId: member.id, categories: { ...base, ...explicit.categories } };
+  }
+  return { memberId: member.id, categories: defaultPermissions(member) };
+}
+export function setCategoryPerm(member: PermMemberCC, categoryId: string, level: PermLevel, limit?: number): EmployeePermissions {
+  const list = loadAllPermissions();
+  const current = permissionsFor(member).categories;
+  const nextCat: CategoryPerm = { level, ...(limit !== undefined ? { limit } : {}) };
+  // Preserve an existing limit when a category still supports one.
+  if (limit === undefined && current[categoryId]?.limit !== undefined) nextCat.limit = current[categoryId].limit;
+  const updated: EmployeePermissions = { memberId: member.id, categories: { ...current, [categoryId]: nextCat } };
+  const idx = list.findIndex((p) => p.memberId === member.id);
+  const result = idx >= 0 ? list.map((p) => (p.memberId === member.id ? updated : p)) : [...list, updated];
+  saveAllPermissions(result);
+  return updated;
+}
+
+export function formatLimit(cat: PermCategoryDef, limit?: number): string {
+  if (limit === undefined) return "";
+  return cat.unit === "percent" ? `${limit}%` : `$${limit.toLocaleString()}`;
+}
+
+export type ActionDecision = { outcome: "auto" | "needs_approval" | "denied" | "allowed"; message: string; chain?: string[] };
+/** Evaluate whether a member can perform a category action, honoring limits. */
+export function evaluateAction(member: PermMemberCC, categoryId: string, amount?: number): ActionDecision {
+  const cat = PERM_CATEGORIES.find((c) => c.id === categoryId);
+  const perm = permissionsFor(member).categories[categoryId] ?? { level: "none" as PermLevel };
+  const label = cat?.label ?? categoryId;
+  switch (perm.level) {
+    case "none":
+      return { outcome: "denied", message: `You don't have access to ${label.toLowerCase()}.` };
+    case "view":
+      if (cat?.kind === "view") return { outcome: "allowed", message: `View access to ${label.toLowerCase()}.` };
+      return { outcome: "denied", message: `You have view-only access to ${label.toLowerCase()} and can't make changes.` };
+    case "edit":
+    case "full":
+      return { outcome: "allowed", message: `Allowed — ${PERM_LEVELS.find((l) => l.id === perm.level)!.label}.` };
+    case "approval":
+      return { outcome: "needs_approval", message: `This requires manager approval.` };
+    case "auto": {
+      if (amount === undefined || perm.limit === undefined) return { outcome: "auto", message: "Automatically approved." };
+      const lim = formatLimit(cat!, perm.limit);
+      if (amount <= perm.limit) return { outcome: "auto", message: `✅ Automatically approved (within your ${lim} limit).` };
+      return { outcome: "needs_approval", message: `This exceeds your ${lim} approval limit.` };
+    }
+    default:
+      return { outcome: "denied", message: "No access." };
+  }
+}
+
+/** Escalating purchase-approval chain based on amount thresholds. */
+export function purchaseChain(amount: number): string[] {
+  const chain: string[] = [];
+  if (amount >= 1000) chain.push("Department Manager");
+  if (amount >= 10000) chain.push("Finance Director");
+  if (amount >= 50000) chain.push("CFO");
+  if (amount >= 100000) chain.push("CEO");
+  return chain;
+}
+
 /* ─── Security center ──────────────────────────────────────────────────── */
 
 export type SecurityItem = {

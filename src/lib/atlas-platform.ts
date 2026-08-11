@@ -108,6 +108,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/messages", label: "Messages" },
       { href: "/app/coverage", label: "Coverage Mode" },
       { href: "/app/access", label: "Access & Audit" },
+      { href: "/app/control-center", label: "Control Center" },
       { href: "/app/suggestions", label: "Suggestions" },
       { href: "/app/time-off", label: "Time-Off" },
       { href: "/app/training", label: "Atlas Academy" },
