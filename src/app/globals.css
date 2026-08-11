@@ -4643,10 +4643,10 @@ html[data-a11y-motion="reduce"] *::after {
 }
 
 .focus-timer {
-  font-size: clamp(2.6rem, 10vw, 4.5rem);
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
   font-weight: 800;
   letter-spacing: -0.03em;
-  margin: 0.5rem 0;
+  margin: 0.35rem 0;
 }
 
 .focus-card .focus-bar {

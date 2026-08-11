@@ -2172,15 +2172,15 @@ export default function EmployeeDashboardPage() {
               <div className="focus-timer">{formatCountdown(focusSeconds)}</div>
               <div className="focus-label">{Math.ceil(focusSeconds / 60)} minutes remaining</div>
               <div className="focus-bar"><span style={{ width: `${pct}%` }} /></div>
-              {nextUp ? (
-                <p style={{ opacity: 0.85 }}>Next: {nextUp.title}{nextUp.dueTime ? ` at ${nextUp.dueTime}` : ""}</p>
-              ) : null}
-              <p className="focus-label" style={{ marginTop: "0.6rem" }}>🔕 Non-urgent notifications are paused</p>
               <div className="focus-actions">
                 <button className="btn btn-dark" type="button" onClick={() => { setFocusMode(false); setSelectedId(runningTask.id); setCompleting(true); }}>Complete</button>
                 <button className="btn btn-outline" type="button" onClick={() => { setFocusMode(false); setBlockingTaskId(runningTask.id); }}>I&apos;m Blocked</button>
                 <button className="btn btn-outline" type="button" onClick={() => setFocusMode(false)}>Exit focus</button>
               </div>
+              {nextUp ? (
+                <p style={{ opacity: 0.85, marginTop: "1rem" }}>Next: {nextUp.title}{nextUp.dueTime ? ` at ${nextUp.dueTime}` : ""}</p>
+              ) : null}
+              <p className="focus-label">🔕 Non-urgent notifications are paused</p>
             </div>
           </div>
         );
