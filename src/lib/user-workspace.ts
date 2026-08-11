@@ -1,6 +1,6 @@
 /** Client-owned workspace data — starts empty and accumulates via user actions. */
 
-import { customers as dataCustomers, quotes as dataQuotes } from "./data";
+import { appointments as dataAppointments, customers as dataCustomers, quotes as dataQuotes } from "./data";
 
 function newId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -1186,6 +1186,8 @@ export function employeeAssistantReply(
   allTasks: TeamTask[],
   input: string,
 ): AssistantReply {
+  const denial = permissionDenialFor(member, input);
+  if (denial) return { text: denial, actions: [] };
   const q = input.toLowerCase().trim();
   const mine = allTasks.filter((t) => t.memberId === member.id);
   const open = mine.filter((t) => isOpenTask(t.status));
@@ -1246,6 +1248,8 @@ export function employeeAssistantReply(
 export type SidebarReply = { text: string; items: string[] };
 
 export function atlasSidebarReply(member: TeamPerson, input: string, now: number = Date.now()): SidebarReply {
+  const denial = permissionDenialFor(member, input);
+  if (denial) return { text: denial, items: [] };
   const q = input.toLowerCase().trim();
   const today = todayISO(new Date(now));
   const mine = loadTeamTasks().filter((t) => t.memberId === member.id);
@@ -2224,6 +2228,271 @@ export function reportAssetProblem(member: TeamPerson, asset: Asset, detail: str
     categoryId: "equipment",
     detail: `${asset.kind} ${asset.tag} (${asset.name}): ${detail || "Reported a problem"}`,
   });
+}
+
+/* ─── Incident reporting ───────────────────────────────────────────────── */
+
+export type IncidentSeverity = "Low" | "Moderate" | "High" | "Critical";
+export const INCIDENT_SEVERITIES: IncidentSeverity[] = ["Low", "Moderate", "High", "Critical"];
+export type Incident = {
+  id: string;
+  memberId: string;
+  description: string;
+  location: string;
+  witnesses: string;
+  equipment: string;
+  severity: IncidentSeverity;
+  photos: string[];
+  routedTo: string;
+  status: "reported" | "reviewing" | "closed";
+  at: string;
+};
+const INCIDENT_KEY = "atlas-incidents-v1";
+export function loadIncidents(): Incident[] {
+  return loadJson<Incident[]>(INCIDENT_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveIncidents(list: Incident[]) {
+  saveJson(INCIDENT_KEY, list);
+}
+function incidentRoute(sev: IncidentSeverity): string {
+  if (sev === "Critical" || sev === "High") return "Safety team + Manager (urgent)";
+  if (sev === "Moderate") return "Your manager";
+  return "Supervisor";
+}
+export function createIncident(input: { memberId: string; description: string; location?: string; witnesses?: string; equipment?: string; severity: IncidentSeverity; photos?: string[] }): Incident {
+  const inc: Incident = {
+    id: newId("inc"),
+    memberId: input.memberId,
+    description: input.description.trim(),
+    location: (input.location || "").trim(),
+    witnesses: (input.witnesses || "").trim(),
+    equipment: (input.equipment || "").trim(),
+    severity: input.severity,
+    photos: input.photos ?? [],
+    routedTo: incidentRoute(input.severity),
+    status: "reported",
+    at: nowIso(),
+  };
+  saveIncidents([inc, ...loadIncidents()]);
+  return inc;
+}
+export function incidentsFor(memberId: string): Incident[] {
+  return loadIncidents().filter((i) => i.memberId === memberId);
+}
+
+/* ─── Permissions (role-based access) ──────────────────────────────────── */
+
+export type AccessScope = "own" | "team" | "department" | "personnel" | "financial" | "company";
+export const SCOPE_LABELS: Record<AccessScope, string> = {
+  own: "Your own tasks & schedule",
+  team: "Your team's tasks",
+  department: "Department information",
+  personnel: "Personnel / HR information",
+  financial: "Financial information",
+  company: "Company-wide information",
+};
+export function scopesFor(member: TeamPerson): AccessScope[] {
+  const role = (member.role || "").toLowerCase();
+  const dept = member.department || "";
+  const scopes = new Set<AccessScope>(["own"]);
+  if (role.includes("lead")) scopes.add("team");
+  if (role.includes("manager") || dept === "Management") {
+    scopes.add("team");
+    scopes.add("department");
+  }
+  if (dept === "Customer Support" || dept === "HR") scopes.add("team");
+  if (dept === "HR") scopes.add("personnel");
+  if (dept === "Finance" || role.includes("finance")) scopes.add("financial");
+  if (role.includes("ceo") || role.includes("owner") || role.includes("chief") || role.includes("president")) {
+    (Object.keys(SCOPE_LABELS) as AccessScope[]).forEach((s) => scopes.add(s));
+  }
+  return [...scopes];
+}
+export function hasScope(member: TeamPerson, scope: AccessScope): boolean {
+  return scopesFor(member).includes(scope);
+}
+
+/**
+ * If a sidebar/assistant query asks for something outside the employee's
+ * permissions (and no temp grant covers it), return a denial message.
+ */
+export function permissionDenialFor(member: TeamPerson, query: string): string | null {
+  const q = query.toLowerCase();
+  const scopes = scopesFor(member);
+  const grantsCover = activeGrantsFor(member.id).some((g) => q.includes(g.resource.toLowerCase().split(/\s+/)[0]));
+  // Someone else's pay / salary.
+  if (/how much (does|do).*(make|earn)|\bsalary\b|\bpaystub\b|\bwage\b|compensation of|what does .* (make|earn)/.test(q)) {
+    if (!scopes.includes("financial") && !scopes.includes("personnel") && !scopes.includes("company")) {
+      return "You don't have access to that information. Pay and compensation are restricted to HR, Finance, and leadership.";
+    }
+  }
+  // Personnel / HR files.
+  if (/personnel file|social security|\bssn\b|home address of|medical record|performance review of/.test(q)) {
+    if (!scopes.includes("personnel") && !scopes.includes("company") && !grantsCover) {
+      return "You don't have access to that information. Personnel records are restricted to HR and leadership.";
+    }
+  }
+  // Company financials.
+  if (/company (revenue|profit|financ)|\bp&l\b|burn rate|gross margin/.test(q)) {
+    if (!scopes.includes("financial") && !scopes.includes("company") && !grantsCover) {
+      return "You don't have access to that information. Company financials are restricted to Finance and leadership.";
+    }
+  }
+  return null;
+}
+
+/* ─── Temporary permissions ────────────────────────────────────────────── */
+
+export type TempGrant = { id: string; memberId: string; memberName: string; resource: string; grantedBy: string; grantedAt: string; expiresAt: string; revoked: boolean };
+const GRANT_KEY = "atlas-temp-grants-v1";
+export function loadGrants(): TempGrant[] {
+  return loadJson<TempGrant[]>(GRANT_KEY, []).sort((a, b) => (a.grantedAt < b.grantedAt ? 1 : -1));
+}
+export function saveGrants(list: TempGrant[]) {
+  saveJson(GRANT_KEY, list);
+}
+export function isGrantActive(g: TempGrant): boolean {
+  return !g.revoked && Date.now() < new Date(g.expiresAt).getTime();
+}
+export function grantTempAccess(input: { memberId: string; memberName: string; resource: string; grantedBy: string; expiresAt: string }): TempGrant {
+  const g: TempGrant = {
+    id: newId("grant"),
+    memberId: input.memberId,
+    memberName: input.memberName,
+    resource: input.resource.trim(),
+    grantedBy: input.grantedBy,
+    grantedAt: nowIso(),
+    expiresAt: input.expiresAt,
+    revoked: false,
+  };
+  saveGrants([g, ...loadGrants()]);
+  logAudit(input.grantedBy, "granted temporary access", `${input.memberName}: ${g.resource} until ${input.expiresAt}`);
+  return g;
+}
+export function revokeGrant(id: string): TempGrant[] {
+  const next = loadGrants().map((g) => (g.id === id ? { ...g, revoked: true } : g));
+  saveGrants(next);
+  return next;
+}
+export function activeGrantsFor(memberId: string): TempGrant[] {
+  return loadGrants().filter((g) => g.memberId === memberId && isGrantActive(g));
+}
+
+/* ─── Audit trail ──────────────────────────────────────────────────────── */
+
+export type AuditEvent = { id: string; at: string; actor: string; action: string; target: string };
+const AUDIT_KEY = "atlas-audit-v1";
+export function loadAudit(): AuditEvent[] {
+  return loadJson<AuditEvent[]>(AUDIT_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function logAudit(actor: string, action: string, target: string): AuditEvent {
+  const ev: AuditEvent = { id: newId("audit"), at: nowIso(), actor, action, target };
+  saveJson(AUDIT_KEY, [ev, ...loadAudit()].slice(0, 200));
+  return ev;
+}
+
+/* ─── Substitute / coverage mode ───────────────────────────────────────── */
+
+export type CoverageSuggestion = { id: string; name: string; reason: string };
+export type CoverageItem = { kind: "task" | "appointment" | "deadline"; title: string; detail: string; suggestions: CoverageSuggestion[] };
+export type CoveragePlan = { member: TeamPerson; tasksAffected: number; appointmentsAffected: number; urgentDeadlines: number; items: CoverageItem[] };
+
+export function coveragePlan(member: TeamPerson, now: number = Date.now()): CoveragePlan {
+  const today = todayISO(new Date(now));
+  const allTasks = loadTeamTasks().filter((t) => t.memberId === member.id && isOpenTask(t.status));
+  const members = loadTeamMembers();
+  const available = members.filter((m) => m.id !== member.id && isAvailableStatus(derivedStatus(getPresence(m.id), now)));
+
+  const suggestFor = (t: TeamTask): CoverageSuggestion[] => {
+    const sameDept = available.filter((m) => (m.department || "") === (member.department || ""));
+    const pool = (sameDept.length ? sameDept : available).slice(0, 3);
+    return pool.map((m) => ({
+      id: m.id,
+      name: m.name,
+      reason: (m.department || "") === (member.department || "") ? `Same department, available now` : `Available now`,
+    }));
+  };
+
+  const items: CoverageItem[] = allTasks.map((t) => ({
+    kind: t.dueDate === today && (t.priority === "Urgent" || t.priority === "High") ? "deadline" : "task",
+    title: t.title,
+    detail: `${t.priority} · ${t.dueDate ? `due ${t.dueDate}` : "no due date"}${t.project ? ` · ${t.project}` : ""}`,
+    suggestions: suggestFor(t),
+  }));
+
+  // Appointments today assigned to this member (from CRM demo appointments by first name).
+  const first = member.name.split(/\s+/)[0];
+  const appts = dataAppointments.filter((a) => a.staff === first);
+  for (const a of appts) {
+    items.push({
+      kind: "appointment",
+      title: `${a.job} — ${a.customer}`,
+      detail: `${a.time} · ${a.status}`,
+      suggestions: available.slice(0, 2).map((m) => ({ id: m.id, name: m.name, reason: "Available now" })),
+    });
+  }
+
+  return {
+    member,
+    tasksAffected: allTasks.length,
+    appointmentsAffected: appts.length,
+    urgentDeadlines: items.filter((i) => i.kind === "deadline").length,
+    items,
+  };
+}
+
+/* ─── Language translation (workplace messages) ────────────────────────── */
+
+const TRANSLATION_PHRASES: Record<string, string> = {
+  "hola, el cliente de johnson pidió una cotización actualizada para mañana. ¿puedes ayudar?":
+    "Hi, the Johnson customer asked for an updated quote for tomorrow. Can you help?",
+  "gracias, ya casi termino el reporte.": "Thanks, I'm almost done with the report.",
+  "necesito ayuda con el inventario.": "I need help with the inventory.",
+};
+const TRANSLATION_WORDS: Record<string, string> = {
+  hola: "hello", gracias: "thanks", cliente: "customer", cotización: "quote", mañana: "tomorrow",
+  reporte: "report", inventario: "inventory", ayuda: "help", "¿puedes": "can you", pedido: "order",
+  necesito: "I need", el: "the", la: "the", de: "of", para: "for", con: "with", ya: "already", termino: "finish",
+};
+export function detectLanguage(text: string): "es" | "en" {
+  const t = text.toLowerCase();
+  if (/[¿¡ñáéíóú]/.test(t)) return "es";
+  const esWords = ["hola", "gracias", "cliente", "mañana", "necesito", "ayuda", "pedido", "cotización"];
+  return esWords.some((w) => t.includes(w)) ? "es" : "en";
+}
+/** Mock translator: exact-phrase map first, then a small word dictionary. */
+export function translateText(text: string, to: "en" | "es" = "en"): string {
+  if (to !== "en") return text;
+  const key = text.trim().toLowerCase();
+  if (TRANSLATION_PHRASES[key]) return TRANSLATION_PHRASES[key];
+  let changed = false;
+  const out = text.split(/(\s+)/).map((tok) => {
+    const bare = tok.toLowerCase().replace(/[.,!?¿¡]/g, "");
+    if (TRANSLATION_WORDS[bare]) {
+      changed = true;
+      return TRANSLATION_WORDS[bare];
+    }
+    return tok;
+  });
+  return changed ? out.join("") : text;
+}
+
+/* ─── Accessibility settings ───────────────────────────────────────────── */
+
+export type A11ySettings = { largeText: boolean; highContrast: boolean; reducedMotion: boolean };
+const A11Y_KEY = "atlas-a11y-v1";
+export function loadA11y(): A11ySettings {
+  return loadJson<A11ySettings>(A11Y_KEY, { largeText: false, highContrast: false, reducedMotion: false });
+}
+export function saveA11y(s: A11ySettings) {
+  saveJson(A11Y_KEY, s);
+}
+export function applyA11y(s: A11ySettings) {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.classList.toggle("a11y-large-text", s.largeText);
+  root.classList.toggle("a11y-high-contrast", s.highContrast);
+  root.classList.toggle("a11y-reduced-motion", s.reducedMotion);
 }
 
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
@@ -3685,6 +3954,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     seededMessages.push(
       { id: newId("msg"), channelId: dmChannelId(sarah.id), authorId: "owner", authorName: "Owner", text: "@Sarah please prioritize the Johnson account.", at: nowIso() },
       { id: newId("msg"), channelId: teamChannelId(sarah.department || "Management"), authorId: "owner", authorName: "Owner", text: "Great work closing out July — let's keep the momentum.", at: nowIso() },
+      { id: newId("msg"), channelId: teamChannelId(sarah.department || "Management"), authorId: byName("Diego Ruiz")?.id ?? "teammate", authorName: "Diego Ruiz", text: "Hola, el cliente de Johnson pidió una cotización actualizada para mañana. ¿Puedes ayudar?", at: nowIso() },
     );
   }
 
@@ -3890,6 +4160,30 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     : [];
   const events: PlannedEvent[] = [planEventFromInput({ title: "Johnson Expansion Meeting", type: "Client meeting", guests: 6, budget: 500, date: friday })];
 
+  // A temporary access grant (auto-expires) + a starter audit trail.
+  const grants: TempGrant[] = sarah
+    ? [
+        {
+          id: newId("grant"),
+          memberId: sarah.id,
+          memberName: sarah.name,
+          resource: "Johnson acquisition documents",
+          grantedBy: "Owner",
+          grantedAt: nowIso(),
+          expiresAt: new Date(`${friday}T17:00:00`).toISOString(),
+          revoked: false,
+        },
+      ]
+    : [];
+  const audit: AuditEvent[] = sarah
+    ? [
+        { id: newId("audit"), at: new Date(Date.now() - 40 * 60000).toISOString(), actor: sarah.name, action: "completed", target: "Task: Call Johnson Construction" },
+        { id: newId("audit"), at: new Date(Date.now() - 23 * 60000).toISOString(), actor: "Owner", action: "approved", target: "Sarah's proposal" },
+        { id: newId("audit"), at: new Date(Date.now() - 22 * 60000).toISOString(), actor: "Atlas", action: "sent customer email", target: "Johnson Construction" },
+        { id: newId("audit"), at: new Date(Date.now() - 7 * 60000).toISOString(), actor: "Owner", action: "granted temporary access", target: "Sarah: Johnson acquisition documents" },
+      ]
+    : [];
+
   // Equipment assigned to Sarah for the Equipment & Asset page.
   const assets: Asset[] = sarah
     ? [
@@ -3919,5 +4213,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   saveRecurring([...recurring, ...loadRecurring()]);
   saveEvents([...loadEvents(), ...events]);
   saveAssets([...assets, ...loadAssets()]);
+  saveGrants([...grants, ...loadGrants()]);
+  saveJson(AUDIT_KEY, [...audit, ...loadAudit()].slice(0, 200));
   return members;
 }

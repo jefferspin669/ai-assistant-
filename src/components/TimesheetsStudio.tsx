@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   decideExpense,
   loadExpenses,
+  logAudit,
   loadTeamMembers,
   seedDemoTeamIfEmpty,
   timesheetFor,
@@ -28,7 +29,9 @@ export function TimesheetsStudio() {
   const memberName = useCallback((id: string) => loadTeamMembers().find((m) => m.id === id)?.name ?? "Employee", []);
 
   function decide(id: string, status: "approved" | "rejected") {
+    const exp = loadExpenses().find((x) => x.id === id);
     decideExpense(id, status);
+    if (exp) logAudit("Manager", `${status} expense`, `$${exp.amount.toFixed(2)} · ${exp.merchant}`);
     refresh();
   }
 

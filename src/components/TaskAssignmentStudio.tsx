@@ -10,6 +10,7 @@ import {
   decideApproval,
   detectTaskSuggestions,
   isOpenTask,
+  logAudit,
   loadTeamMembers,
   loadTeamTasks,
   replaceTask,
@@ -130,6 +131,7 @@ export function TaskAssignmentStudio() {
 
   function decide(task: TeamTask, action: "approved" | "changes_requested" | "rejected") {
     saveTeamTasks(replaceTask(loadTeamTasks(), decideApproval(task, action)));
+    logAudit("Manager", action === "approved" ? "approved" : action === "rejected" ? "rejected" : "requested changes on", `Task: ${task.title}`);
     refresh();
     const verb = action === "approved" ? "Approved" : action === "rejected" ? "Rejected" : "Requested changes on";
     setNote(`${verb} "${task.title}".`);

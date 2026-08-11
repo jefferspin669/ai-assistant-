@@ -4964,3 +4964,39 @@ html[data-a11y-motion="reduce"] *::after {
     justify-content: flex-start;
   }
 }
+
+/* Inline text-style button (e.g. Translate) */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.link-btn:hover {
+  opacity: 1;
+}
+
+/* Accessibility modes (toggled on <html>) */
+.a11y-large-text {
+  font-size: 118%;
+}
+.a11y-high-contrast {
+  filter: contrast(1.18) saturate(1.05);
+}
+.a11y-high-contrast .panel,
+.a11y-high-contrast .modal-card {
+  border: 1px solid rgba(0, 0, 0, 0.55);
+}
+.a11y-high-contrast .muted-line {
+  opacity: 1;
+}
+.a11y-reduced-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

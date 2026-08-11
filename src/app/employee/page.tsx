@@ -10,7 +10,9 @@ import {
   addTaskComment,
   ACHIEVEMENT_BADGES,
   acceptHandoff,
+  activeGrantsFor,
   appsFor,
+  applyA11y,
   assetsFor,
   atlasSidebarReply,
   awaitingApproval,
@@ -21,8 +23,10 @@ import {
   cadenceLabel,
   careerLadderFor,
   completeOnboardingStep,
+  logAudit,
   createExpense,
   createHandoff,
+  createIncident,
   createServiceRequest,
   dependencyStatus,
   employeeProjects,
@@ -30,8 +34,11 @@ import {
   generateRecurringTasks,
   handoffsFor,
   inboxItems,
+  incidentsFor,
+  INCIDENT_SEVERITIES,
   INTERNAL_OPENINGS,
   isShared,
+  loadA11y,
   memoryFor,
   mentorPlan,
   ONBOARDING_STEPS,
@@ -43,9 +50,13 @@ import {
   recurringFor,
   reportAssetProblem,
   sampleReceiptExtraction,
+  saveA11y,
+  scopesFor,
+  SCOPE_LABELS,
   searchWiki,
   SERVICE_CATEGORIES,
   serviceRequestsFor,
+  translateText,
   WIKI_ARTICLES,
   sharedProgress,
   universalSearch,
@@ -142,10 +153,13 @@ import {
   type ScheduledShift,
   type TaskPriority,
   type TaskStatus,
+  type A11ySettings,
   type Asset,
   type EmployeeApp,
   type Expense,
   type Handoff,
+  type Incident,
+  type IncidentSeverity,
   type MemoryEntry,
   type MentorPlan,
   type OnboardingState,
@@ -153,6 +167,7 @@ import {
   type SearchGroup,
   type ServiceRequest,
   type TeamPerson,
+  type TempGrant,
   type WikiArticle,
   type TeamTask,
   type TimeShift,
@@ -259,6 +274,12 @@ export default function EmployeeDashboardPage() {
   const [reportAsset, setReportAsset] = useState<Asset | null>(null);
   const [reportDetail, setReportDetail] = useState("");
   const [expenseDraft, setExpenseDraft] = useState<{ merchant: string; date: string; amount: string; category: string; project: string } | null>(null);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [grants, setGrants] = useState<TempGrant[]>([]);
+  const [incidentDraft, setIncidentDraft] = useState<{ description: string; location: string; witnesses: string; equipment: string; severity: IncidentSeverity } | null>(null);
+  const [translatedIds, setTranslatedIds] = useState<Set<string>>(new Set());
+  const [a11yOpen, setA11yOpen] = useState(false);
+  const [a11y, setA11y] = useState<A11ySettings>({ largeText: false, highContrast: false, reducedMotion: false });
   const [focusMode, setFocusMode] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -285,6 +306,11 @@ export default function EmployeeDashboardPage() {
     setAssets(assetsFor(me.id));
     setServiceReqs(serviceRequestsFor(me.id));
     setExpenses(expensesFor(me.id));
+    setIncidents(incidentsFor(me.id));
+    setGrants(activeGrantsFor(me.id));
+    const a = loadA11y();
+    setA11y(a);
+    applyA11y(a);
     setPresence(getPresence(me.id));
     setShift(getOpenShift(me.id));
     setAnnouncements(unacknowledgedFor(me.id));
@@ -472,6 +498,7 @@ export default function EmployeeDashboardPage() {
   function confirmComplete() {
     if (!employee || !selected) return;
     const done = completeTask(selected, { result: resultDraft, note: completeNote });
+    logAudit(employee.name, "completed", `Task: ${selected.title}`);
     saveMyTasks(employee.id, replaceTask(tasks, done));
     if (presence?.currentTaskId === selected.id) {
       setPresence(updatePresence(employee.id, { currentTaskId: null, touchActive: true }));
@@ -645,6 +672,31 @@ export default function EmployeeDashboardPage() {
     setActionFlash(`Reported a problem with ${reportAsset.kind} ${reportAsset.tag} — an IT/facilities request was created.`);
     setReportAsset(null);
     setReportDetail("");
+  }
+
+  function submitIncident(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !incidentDraft || !incidentDraft.description.trim()) return;
+    const inc = createIncident({ memberId: employee.id, ...incidentDraft });
+    setIncidents(incidentsFor(employee.id));
+    setActionFlash(`Incident reported (${inc.severity}) — routed to ${inc.routedTo}.`);
+    setIncidentDraft(null);
+  }
+
+  function toggleTranslate(id: string) {
+    setTranslatedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleA11y(key: keyof A11ySettings) {
+    const next = { ...a11y, [key]: !a11y[key] };
+    setA11y(next);
+    saveA11y(next);
+    applyA11y(next);
   }
 
   function handOff(task: TeamTask, toId: string) {
@@ -1145,11 +1197,7 @@ export default function EmployeeDashboardPage() {
             <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-assistant")}>
               Atlas AI
             </button>
-            <button
-              className="emp-iconbtn"
-              type="button"
-              onClick={() => setTopNote("Your profile and settings are managed by your admin.")}
-            >
+            <button className="emp-iconbtn" type="button" onClick={() => setA11yOpen(true)}>
               Settings
             </button>
             <button className="btn btn-outline" type="button" onClick={logout}>
@@ -2021,12 +2069,23 @@ export default function EmployeeDashboardPage() {
                 {thread.length === 0 ? (
                   <p className="muted-line">No messages yet.</p>
                 ) : (
-                  thread.map((m) => (
-                    <div key={m.id} className={`bubble ${m.authorId === employee.id ? "bubble-user" : "bubble-ai"}`}>
-                      <span className="agent-tag">{m.authorName}</span>
-                      {m.text}
-                    </div>
-                  ))
+                  thread.map((m) => {
+                    const shown = translatedIds.has(m.id);
+                    const translated = translateText(m.text, "en");
+                    const canTranslate = translated !== m.text;
+                    return (
+                      <div key={m.id} className={`bubble ${m.authorId === employee.id ? "bubble-user" : "bubble-ai"}`}>
+                        <span className="agent-tag">{m.authorName}</span>
+                        {shown ? translated : m.text}
+                        {canTranslate ? (
+                          <button type="button" className="link-btn" style={{ display: "block", marginTop: "0.3rem" }} onClick={() => toggleTranslate(m.id)}>
+                            {shown ? "Show original" : "🌎 Translate"}
+                          </button>
+                        ) : null}
+                        {shown && canTranslate ? <span className="muted-line" style={{ display: "block" }}>Original: {m.text}</span> : null}
+                      </div>
+                    );
+                  })
                 )}
               </div>
               <form className="command-form" onSubmit={sendChannelMessage}>
@@ -2563,6 +2622,71 @@ export default function EmployeeDashboardPage() {
           </section>
 
           <section className="panel">
+            <h2>Report an incident</h2>
+            <p className="panel-lead">For field, warehouse, and on-site work — Atlas routes it by severity.</p>
+            {!incidentDraft ? (
+              <button className="btn btn-dark" type="button" onClick={() => setIncidentDraft({ description: "", location: "", witnesses: "", equipment: "", severity: "Moderate" })}>Report incident</button>
+            ) : (
+              <form className="form-grid" onSubmit={submitIncident}>
+                <label>What happened?<textarea value={incidentDraft.description} onChange={(e) => setIncidentDraft({ ...incidentDraft, description: e.target.value })} rows={2} required /></label>
+                <div className="field-row">
+                  <label>Location<input value={incidentDraft.location} onChange={(e) => setIncidentDraft({ ...incidentDraft, location: e.target.value })} placeholder="e.g. Warehouse B, dock 3" /></label>
+                  <label>Severity<select value={incidentDraft.severity} onChange={(e) => setIncidentDraft({ ...incidentDraft, severity: e.target.value as IncidentSeverity })}>{INCIDENT_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+                </div>
+                <div className="field-row">
+                  <label>Witnesses<input value={incidentDraft.witnesses} onChange={(e) => setIncidentDraft({ ...incidentDraft, witnesses: e.target.value })} placeholder="Names (optional)" /></label>
+                  <label>Equipment involved<input value={incidentDraft.equipment} onChange={(e) => setIncidentDraft({ ...incidentDraft, equipment: e.target.value })} placeholder="(optional)" /></label>
+                </div>
+                <p className="muted-line">📷 Attach photos where appropriate (demo).</p>
+                <div className="train-actions">
+                  <button className="btn btn-dark" type="submit">Submit incident</button>
+                  <button className="btn btn-outline" type="button" onClick={() => setIncidentDraft(null)}>Cancel</button>
+                </div>
+              </form>
+            )}
+            {incidents.length ? (
+              <div className="list" style={{ marginTop: "0.6rem" }}>
+                {incidents.map((i) => (
+                  <div className="list-row" key={i.id}>
+                    <span className={i.severity === "Critical" || i.severity === "High" ? "badge warn" : "badge"}>{i.severity}</span>
+                    <p><strong>{i.description}</strong><span className="muted-line">{i.location ? `${i.location} · ` : ""}Routed to {i.routedTo} · {i.status}</span></p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="panel">
+            <h2>Your permissions</h2>
+            <p className="panel-lead">Atlas only shows what your role allows — and it enforces this on itself too.</p>
+            <div className="list">
+              {(Object.keys(SCOPE_LABELS) as (keyof typeof SCOPE_LABELS)[]).map((scope) => {
+                const has = scopesFor(employee).includes(scope);
+                return (
+                  <div className="list-row" key={scope}>
+                    <span className={has ? "badge ok" : "badge"}>{has ? "✅" : "🔒"}</span>
+                    <p><strong>{SCOPE_LABELS[scope]}</strong><span className="muted-line">{has ? "You can access this" : "Restricted"}</span></p>
+                  </div>
+                );
+              })}
+            </div>
+            {grants.length ? (
+              <>
+                <h3 style={{ marginTop: "0.6rem" }}>Temporary access</h3>
+                <div className="list">
+                  {grants.map((g) => (
+                    <div className="list-row" key={g.id}>
+                      <span className="badge warn">⏳</span>
+                      <p><strong>{g.resource}</strong><span className="muted-line">Granted by {g.grantedBy} · expires {new Date(g.expiresAt).toLocaleString()}</span></p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            <p className="muted-line" style={{ marginTop: "0.5rem" }}>Try asking the Atlas sidebar something restricted like &quot;How much does Mike make?&quot; — it will decline.</p>
+          </section>
+
+          <section className="panel">
             <h2>Work memory</h2>
             <p className="panel-lead">Atlas remembers your projects, procedures, training, and past cases — within company permissions.</p>
             {memory.length === 0 ? (
@@ -2680,6 +2804,23 @@ export default function EmployeeDashboardPage() {
             </form>
           </aside>
         </>
+      ) : null}
+
+      {/* Accessibility settings */}
+      {a11yOpen ? (
+        <div className="modal-overlay" onClick={() => setA11yOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Accessibility</h2>
+            <p className="panel-lead">Atlas is built to work for everyone.</p>
+            <label className="check-inline"><input type="checkbox" checked={a11y.largeText} onChange={() => toggleA11y("largeText")} /> Larger text</label>
+            <label className="check-inline"><input type="checkbox" checked={a11y.highContrast} onChange={() => toggleA11y("highContrast")} /> High contrast</label>
+            <label className="check-inline"><input type="checkbox" checked={a11y.reducedMotion} onChange={() => toggleA11y("reducedMotion")} /> Reduce motion</label>
+            <p className="muted-line" style={{ marginTop: "0.6rem" }}>Also built in: screen-reader labels, full keyboard navigation, captions/transcripts, and voice input where available.</p>
+            <div className="train-actions" style={{ marginTop: "0.6rem" }}>
+              <button className="btn btn-dark" type="button" onClick={() => setA11yOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* Self-service request */}
