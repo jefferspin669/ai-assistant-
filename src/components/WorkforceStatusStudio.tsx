@@ -1,28 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  createTeamTask,
+  derivedStatus,
   employeeAccessCode,
+  EMPLOYEE_STATUSES,
   getPresence,
+  isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
-  presenceState,
   relativeTime,
-  saveTeamTasks,
   seedDemoTeamIfEmpty,
+  STATUS_META,
   type EmployeePresence,
-  type PresenceState,
+  type EmployeeStatus,
   type TeamPerson,
   type TeamTask,
 } from "@/lib/user-workspace";
-
-function stateLabel(state: PresenceState) {
-  if (state === "working") return "Working";
-  if (state === "break") return "On break";
-  return "Offline";
-}
 
 export function WorkforceStatusStudio() {
   const [members, setMembers] = useState<TeamPerson[]>([]);
@@ -30,10 +25,6 @@ export function WorkforceStatusStudio() {
   const [presence, setPresence] = useState<Record<string, EmployeePresence>>({});
   const [now, setNow] = useState(() => Date.now());
   const [ready, setReady] = useState(false);
-  const [assignId, setAssignId] = useState<string>("");
-  const [taskTitle, setTaskTitle] = useState("");
-  const [taskNotes, setTaskNotes] = useState("");
-  const [note, setNote] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     const people = loadTeamMembers();
@@ -49,7 +40,6 @@ export function WorkforceStatusStudio() {
   useEffect(() => {
     seedDemoTeamIfEmpty();
     refresh();
-    setAssignId((prev) => prev || loadTeamMembers()[0]?.id || "");
     setReady(true);
 
     const interval = window.setInterval(refresh, 5000);
@@ -69,26 +59,13 @@ export function WorkforceStatusStudio() {
     let online = 0;
     let working = 0;
     for (const person of members) {
-      const state = presenceState(presence[person.id], now);
-      if (state !== "offline") online += 1;
-      if (state === "working") working += 1;
+      const s = derivedStatus(presence[person.id], now);
+      if (s !== "offline") online += 1;
+      if (s === "working") working += 1;
     }
-    const openTasks = tasks.filter((t) => t.status !== "done").length;
+    const openTasks = tasks.filter((t) => isOpenTask(t.status)).length;
     return { online, working, openTasks };
   }, [members, presence, tasks, now]);
-
-  function onAssign(e: FormEvent) {
-    e.preventDefault();
-    const memberId = assignId || members[0]?.id;
-    if (!memberId) return;
-    const task = createTeamTask({ memberId, title: taskTitle, notes: taskNotes });
-    saveTeamTasks([task, ...loadTeamTasks()]);
-    setTaskTitle("");
-    setTaskNotes("");
-    const who = members.find((m) => m.id === memberId);
-    setNote(`Assigned to ${who?.name ?? "employee"} — it now shows on their page.`);
-    refresh();
-  }
 
   return (
     <div className="training-studio">
@@ -122,9 +99,14 @@ export function WorkforceStatusStudio() {
               <h2>Live status</h2>
               <p className="panel-lead">Updates automatically as employees clock in and work.</p>
             </div>
-            <Link className="btn btn-outline" href="/employee/login">
-              Employee portal
-            </Link>
+            <div className="train-actions">
+              <Link className="btn btn-dark" href="/app/assign-tasks">
+                Create task
+              </Link>
+              <Link className="btn btn-outline" href="/employee/login">
+                Employee portal
+              </Link>
+            </div>
           </div>
 
           {!ready ? <p className="muted-line">Loading…</p> : null}
@@ -136,12 +118,13 @@ export function WorkforceStatusStudio() {
             <div>
               {members.map((person) => {
                 const p = presence[person.id];
-                const state = presenceState(p, now);
+                const s: EmployeeStatus = derivedStatus(p, now);
+                const meta = STATUS_META[s];
                 const current = p?.currentTaskId
                   ? tasks.find((t) => t.id === p.currentTaskId)
                   : null;
                 const open = tasks.filter(
-                  (t) => t.memberId === person.id && t.status !== "done",
+                  (t) => t.memberId === person.id && isOpenTask(t.status),
                 ).length;
                 return (
                   <div className="workforce-row" key={person.id}>
@@ -150,22 +133,22 @@ export function WorkforceStatusStudio() {
                         {person.name} · <span className="muted-line">{person.role}</span>
                       </strong>
                       <span className="muted-line">
-                        {state === "offline"
-                          ? p?.online === false && p?.lastSeen
+                        {s === "offline"
+                          ? p?.lastSeen && p?.clockedIn === false && p.manualStatus
                             ? `Last seen ${relativeTime(p.lastSeen, now)}`
-                            : "Not clocked in yet"
+                            : "Not clocked in"
                           : current
                             ? `On: ${current.title}`
-                            : state === "working"
-                              ? "Working"
-                              : "Clocked in, on a break"}
+                            : meta.label}
                       </span>
-                      <span className="muted-line">{open} open task{open === 1 ? "" : "s"}</span>
+                      <span className="muted-line">
+                        {open} open task{open === 1 ? "" : "s"}
+                      </span>
                     </div>
                     <div className="wf-meta">
-                      <span className={`presence-badge ${state}`}>
-                        <span className={`presence-dot ${state}`} aria-hidden />
-                        {stateLabel(state)}
+                      <span className={`presence-badge ${s}`}>
+                        <span className={`presence-dot ${s}`} aria-hidden />
+                        {meta.emoji} {meta.label}
                       </span>
                     </div>
                   </div>
@@ -173,69 +156,44 @@ export function WorkforceStatusStudio() {
               })}
             </div>
           )}
+
+          <h3 style={{ marginTop: "1.1rem" }}>Status legend</h3>
+          <div className="status-legend">
+            {[...EMPLOYEE_STATUSES, { id: "offline" as const, label: "Offline", emoji: "🔴" }].map(
+              (s) => (
+                <span className="presence-badge" key={s.id}>
+                  <span className={`presence-dot ${s.id}`} aria-hidden />
+                  {s.emoji} {s.label}
+                </span>
+              ),
+            )}
+          </div>
+          <p className="muted-line" style={{ marginTop: "0.6rem" }}>
+            Employees set Working, On break, In meeting, On customer job, and Waiting/blocked. Atlas
+            auto-detects <strong>Away</strong> (idle) and <strong>Offline</strong> (app closed) from
+            basic activity — no screen or keystroke monitoring.
+          </p>
         </section>
 
         <section className="panel">
-          <h2>Assign a task</h2>
-          <p className="panel-lead">Assign work to an employee — it appears on their own page.</p>
-          <form className="form-grid" onSubmit={onAssign}>
-            <label>
-              Employee
-              <select value={assignId} onChange={(e) => setAssignId(e.target.value)}>
-                {members.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} · {person.role}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Task
-              <input
-                value={taskTitle}
-                onChange={(e) => setTaskTitle(e.target.value)}
-                placeholder="Call Elena Brooks before noon"
-                required
-              />
-            </label>
-            <label>
-              Notes
-              <input
-                value={taskNotes}
-                onChange={(e) => setTaskNotes(e.target.value)}
-                placeholder="Optional details"
-              />
-            </label>
-            <button className="btn btn-dark" type="submit" disabled={members.length === 0}>
-              Assign task
-            </button>
-          </form>
-          {note ? (
-            <p className="muted-line" style={{ marginTop: "0.85rem" }}>
-              {note}
-            </p>
-          ) : null}
+          <h2>Employee sign-in details</h2>
+          <p className="panel-lead">
+            Share each person&apos;s email and access code so they can sign in at{" "}
+            <Link href="/employee/login">/employee/login</Link>.
+          </p>
+          <div className="list">
+            {members.map((person) => (
+              <div className="list-row" key={person.id}>
+                <span className="badge">{employeeAccessCode(person)}</span>
+                <p>
+                  <strong>{person.name}</strong>
+                  <span className="muted-line">{person.email}</span>
+                </p>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
-
-      <section className="panel">
-        <h2>Employee sign-in details</h2>
-        <p className="panel-lead">
-          Share each person&apos;s email and access code so they can sign in at{" "}
-          <Link href="/employee/login">/employee/login</Link> and see their tasks.
-        </p>
-        <div className="list">
-          {members.map((person) => (
-            <div className="list-row" key={person.id}>
-              <span className="badge">{employeeAccessCode(person)}</span>
-              <p>
-                <strong>{person.name}</strong>
-                <span className="muted-line">{person.email}</span>
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

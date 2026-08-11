@@ -42,7 +42,7 @@ export default function EmployeeLoginPage() {
       return;
     }
     saveEmployeeSession(member.id);
-    updatePresence(member.id, { online: true, working: false });
+    updatePresence(member.id, { clockedIn: true, manualStatus: "working", touchActive: true });
     router.push("/employee");
   }
 

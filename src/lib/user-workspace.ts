@@ -357,17 +357,63 @@ export type TeamPerson = {
   jobsThisWeek: number;
   /** Short code the employee uses (with their email) to sign in to their page. */
   accessCode?: string;
+  department?: string;
+  shiftStart?: string;
+  shiftEnd?: string;
   createdAt: string;
 };
+
+export type TaskStatus = "not_started" | "in_progress" | "waiting" | "blocked" | "completed";
+export type TaskPriority = "Low" | "Normal" | "High" | "Urgent";
+export type TaskKind = "task" | "meeting";
+export type TaskRecurrence = "one-time" | "daily" | "weekly" | "monthly";
+export type ApprovalStatus = "not_required" | "pending" | "approved";
+
+export type ChecklistItem = { id: string; label: string; done: boolean };
+export type TaskAttachment = { id: string; name: string; addedBy: "manager" | "employee"; addedAt: string };
+export type TaskNote = { id: string; text: string; author: "manager" | "employee"; at: string };
 
 export type TeamTask = {
   id: string;
   memberId: string;
   title: string;
-  notes: string;
-  status: "todo" | "doing" | "done";
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  kind: TaskKind;
+  startDate: string;
+  dueDate: string;
+  estimatedTime: string;
+  department: string;
+  project: string;
+  goal: string;
+  requiredResult: string;
+  checklist: ChecklistItem[];
+  attachments: TaskAttachment[];
+  notes: TaskNote[];
+  recurrence: TaskRecurrence;
+  approvalRequired: boolean;
+  approvalStatus: ApprovalStatus;
   createdAt: string;
 };
+
+export const TASK_STATUSES: { id: TaskStatus; label: string }[] = [
+  { id: "not_started", label: "Not started" },
+  { id: "in_progress", label: "In progress" },
+  { id: "waiting", label: "Waiting" },
+  { id: "blocked", label: "Blocked" },
+  { id: "completed", label: "Completed" },
+];
+
+export const TASK_PRIORITIES: TaskPriority[] = ["Low", "Normal", "High", "Urgent"];
+
+export function taskStatusLabel(status: TaskStatus): string {
+  return TASK_STATUSES.find((s) => s.id === status)?.label ?? "Not started";
+}
+
+export function isOpenTask(status: TaskStatus): boolean {
+  return status !== "completed";
+}
 
 const TEAM_KEY = "atlas-user-team-v1";
 const TEAM_TASKS_KEY = "atlas-user-team-tasks-v1";
@@ -405,6 +451,9 @@ export function createTeamMember(input: {
     rating: "—",
     jobsThisWeek: 0,
     accessCode: makeAccessCode(),
+    department: "Operations",
+    shiftStart: "8:00 AM",
+    shiftEnd: "4:30 PM",
     createdAt: nowIso(),
   };
 }
@@ -415,8 +464,53 @@ export function employeeAccessCode(member: TeamPerson): string {
   return member.id.replace(/[^a-z0-9]/gi, "").slice(-6).toUpperCase().padStart(6, "X");
 }
 
+const LEGACY_STATUS_MAP: Record<string, TaskStatus> = {
+  todo: "not_started",
+  doing: "in_progress",
+  done: "completed",
+};
+
+type RawTask = Omit<Partial<TeamTask>, "notes" | "status"> & { notes?: unknown; status?: string };
+
+/** Upgrade older/simpler task records to the rich shape. */
+function normalizeTask(raw: RawTask): TeamTask {
+  const status = (LEGACY_STATUS_MAP[raw.status ?? ""] ??
+    (TASK_STATUSES.some((s) => s.id === raw.status) ? (raw.status as TaskStatus) : "not_started")) as TaskStatus;
+
+  let notes: TaskNote[] = [];
+  if (Array.isArray(raw.notes)) {
+    notes = raw.notes as TaskNote[];
+  } else if (typeof raw.notes === "string" && raw.notes.trim()) {
+    notes = [{ id: newId("note"), text: raw.notes.trim(), author: "manager", at: raw.createdAt || nowIso() }];
+  }
+
+  return {
+    id: raw.id || newId("ttask"),
+    memberId: raw.memberId || "",
+    title: raw.title || "Untitled task",
+    description: raw.description || "",
+    status,
+    priority: (raw.priority as TaskPriority) || "Normal",
+    kind: (raw.kind as TaskKind) || "task",
+    startDate: raw.startDate || "",
+    dueDate: raw.dueDate || "",
+    estimatedTime: raw.estimatedTime || "",
+    department: raw.department || "",
+    project: raw.project || "",
+    goal: raw.goal || "",
+    requiredResult: raw.requiredResult || "",
+    checklist: Array.isArray(raw.checklist) ? (raw.checklist as ChecklistItem[]) : [],
+    attachments: Array.isArray(raw.attachments) ? (raw.attachments as TaskAttachment[]) : [],
+    notes,
+    recurrence: (raw.recurrence as TaskRecurrence) || "one-time",
+    approvalRequired: Boolean(raw.approvalRequired),
+    approvalStatus: (raw.approvalStatus as ApprovalStatus) || (raw.approvalRequired ? "pending" : "not_required"),
+    createdAt: raw.createdAt || nowIso(),
+  };
+}
+
 export function loadTeamTasks(): TeamTask[] {
-  return loadJson(TEAM_TASKS_KEY, []);
+  return loadJson<RawTask[]>(TEAM_TASKS_KEY, []).map(normalizeTask);
 }
 
 export function saveTeamTasks(tasks: TeamTask[]) {
@@ -426,15 +520,155 @@ export function saveTeamTasks(tasks: TeamTask[]) {
 export function createTeamTask(input: {
   memberId: string;
   title: string;
+  description?: string;
   notes?: string;
+  priority?: TaskPriority;
+  kind?: TaskKind;
+  startDate?: string;
+  dueDate?: string;
+  estimatedTime?: string;
+  department?: string;
+  project?: string;
+  goal?: string;
+  requiredResult?: string;
+  checklist?: string[];
+  attachments?: string[];
+  recurrence?: TaskRecurrence;
+  approvalRequired?: boolean;
 }): TeamTask {
+  const now = nowIso();
+  const notes: TaskNote[] = input.notes?.trim()
+    ? [{ id: newId("note"), text: input.notes.trim(), author: "manager", at: now }]
+    : [];
   return {
     id: newId("ttask"),
     memberId: input.memberId,
     title: input.title.trim() || "Untitled task",
-    notes: (input.notes || "").trim(),
-    status: "todo",
-    createdAt: nowIso(),
+    description: (input.description || "").trim(),
+    status: "not_started",
+    priority: input.priority || "Normal",
+    kind: input.kind || "task",
+    startDate: input.startDate || "",
+    dueDate: input.dueDate || "",
+    estimatedTime: (input.estimatedTime || "").trim(),
+    department: (input.department || "").trim(),
+    project: (input.project || "").trim(),
+    goal: (input.goal || "").trim(),
+    requiredResult: (input.requiredResult || "").trim(),
+    checklist: (input.checklist || [])
+      .map((label) => label.trim())
+      .filter(Boolean)
+      .map((label) => ({ id: newId("chk"), label, done: false })),
+    attachments: (input.attachments || [])
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((name) => ({ id: newId("att"), name, addedBy: "manager" as const, addedAt: now })),
+    notes,
+    recurrence: input.recurrence || "one-time",
+    approvalRequired: Boolean(input.approvalRequired),
+    approvalStatus: input.approvalRequired ? "pending" : "not_required",
+    createdAt: now,
+  };
+}
+
+/* ─── Task board grouping + daily summary ──────────────────────────────── */
+
+export function todayISO(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function isToday(dateStr: string, today = todayISO()): boolean {
+  return Boolean(dateStr) && dateStr.slice(0, 10) === today;
+}
+
+function isPast(dateStr: string, today = todayISO()): boolean {
+  return Boolean(dateStr) && dateStr.slice(0, 10) < today;
+}
+
+export type TaskBoard = {
+  urgent: TeamTask[];
+  today: TeamTask[];
+  upcoming: TeamTask[];
+  completed: TeamTask[];
+};
+
+export function groupTasksForBoard(tasks: TeamTask[], today = todayISO()): TaskBoard {
+  const board: TaskBoard = { urgent: [], today: [], upcoming: [], completed: [] };
+  for (const task of tasks) {
+    if (task.status === "completed") {
+      board.completed.push(task);
+      continue;
+    }
+    if (task.priority === "Urgent" || task.priority === "High" || task.status === "blocked" || isPast(task.dueDate, today)) {
+      board.urgent.push(task);
+    } else if (isToday(task.dueDate, today) || !task.dueDate) {
+      board.today.push(task);
+    } else {
+      board.upcoming.push(task);
+    }
+  }
+  return board;
+}
+
+export type DailySummary = {
+  dueToday: number;
+  highPriority: number;
+  meetings: number;
+  shift: string;
+  percentComplete: number;
+};
+
+export function dailySummary(member: TeamPerson, tasks: TeamTask[], today = todayISO()): DailySummary {
+  const mine = tasks.filter((t) => t.memberId === member.id);
+  const todaysWork = mine.filter((t) => isToday(t.dueDate, today) || isPast(t.dueDate, today));
+  const dueToday = mine.filter((t) => t.kind === "task" && isToday(t.dueDate, today) && t.status !== "completed").length;
+  const highPriority = mine.filter(
+    (t) => (t.priority === "High" || t.priority === "Urgent") && t.status !== "completed",
+  ).length;
+  const meetings = mine.filter((t) => t.kind === "meeting" && isToday(t.dueDate, today)).length;
+  const done = todaysWork.filter((t) => t.status === "completed").length;
+  const percentComplete = todaysWork.length ? Math.round((done / todaysWork.length) * 100) : 0;
+  const shift =
+    member.shiftStart && member.shiftEnd ? `${member.shiftStart}–${member.shiftEnd}` : "Not set";
+  return { dueToday, highPriority, meetings, shift, percentComplete };
+}
+
+export function greeting(now: Date = new Date()): string {
+  const h = now.getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/** Replace one task in a list (or prepend if new). */
+export function replaceTask(all: TeamTask[], updated: TeamTask): TeamTask[] {
+  return all.some((t) => t.id === updated.id)
+    ? all.map((t) => (t.id === updated.id ? updated : t))
+    : [updated, ...all];
+}
+
+export function addTaskNote(task: TeamTask, text: string, author: "manager" | "employee"): TeamTask {
+  const trimmed = text.trim();
+  if (!trimmed) return task;
+  return {
+    ...task,
+    notes: [...task.notes, { id: newId("note"), text: trimmed, author, at: nowIso() }],
+  };
+}
+
+export function addTaskAttachment(task: TeamTask, name: string, addedBy: "manager" | "employee"): TeamTask {
+  const trimmed = name.trim();
+  if (!trimmed) return task;
+  return {
+    ...task,
+    attachments: [...task.attachments, { id: newId("att"), name: trimmed, addedBy, addedAt: nowIso() }],
+  };
+}
+
+export function toggleChecklistItem(task: TeamTask, itemId: string): TeamTask {
+  return {
+    ...task,
+    checklist: task.checklist.map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)),
   };
 }
 
@@ -443,28 +677,85 @@ export function createTeamTask(input: {
 const EMPLOYEE_SESSION_KEY = "atlas-employee-session-v1";
 const PRESENCE_KEY = "atlas-employee-presence-v1";
 
-/** How long after the last heartbeat an online employee is treated as offline. */
-export const PRESENCE_STALE_MS = 90_000;
+/** No heartbeat within this window ⇒ treated as offline (the page/tab is closed). */
+export const PRESENCE_OFFLINE_MS = 120_000;
+/** While "Working", no interaction within this window ⇒ Atlas auto-marks "Away". */
+export const PRESENCE_AWAY_MS = 60_000;
+
+/** Statuses an employee can set for themselves. */
+export type ManualStatus = "working" | "break" | "meeting" | "job" | "blocked" | "away";
+/** Displayed status — manual choices plus the auto-detected "offline". */
+export type EmployeeStatus = ManualStatus | "offline";
+
+export const EMPLOYEE_STATUSES: { id: ManualStatus; label: string; emoji: string }[] = [
+  { id: "working", label: "Working", emoji: "🟢" },
+  { id: "break", label: "On break", emoji: "🟡" },
+  { id: "meeting", label: "In meeting", emoji: "🔵" },
+  { id: "job", label: "On customer job", emoji: "🟣" },
+  { id: "blocked", label: "Waiting / blocked", emoji: "🟠" },
+  { id: "away", label: "Away", emoji: "⚪" },
+];
+
+export const STATUS_META: Record<EmployeeStatus, { label: string; emoji: string }> = {
+  working: { label: "Working", emoji: "🟢" },
+  break: { label: "On break", emoji: "🟡" },
+  meeting: { label: "In meeting", emoji: "🔵" },
+  job: { label: "On customer job", emoji: "🟣" },
+  blocked: { label: "Waiting / blocked", emoji: "🟠" },
+  away: { label: "Away", emoji: "⚪" },
+  offline: { label: "Offline", emoji: "🔴" },
+};
 
 export type EmployeePresence = {
   memberId: string;
-  online: boolean;
-  working: boolean;
+  clockedIn: boolean;
+  manualStatus: ManualStatus;
   currentTaskId: string | null;
   note: string;
+  /** Updated by the heartbeat while the page is open (session liveness). */
   lastSeen: string;
+  /** Updated on real interaction — the "basic activity" Atlas uses for auto-away. */
+  lastActiveAt: string;
 };
 
-export type PresenceState = "offline" | "working" | "break";
-
 function defaultPresence(memberId: string): EmployeePresence {
+  const now = nowIso();
   return {
     memberId,
-    online: false,
-    working: false,
+    clockedIn: false,
+    manualStatus: "working",
     currentTaskId: null,
     note: "",
-    lastSeen: nowIso(),
+    lastSeen: now,
+    lastActiveAt: now,
+  };
+}
+
+type LegacyPresence = Partial<EmployeePresence> & { online?: boolean; working?: boolean };
+
+/** Upgrade older presence records (online/working booleans) to the status model. */
+function normalizePresence(memberId: string, raw: LegacyPresence | undefined): EmployeePresence {
+  if (!raw) return defaultPresence(memberId);
+  if (raw.clockedIn === undefined && (raw.online !== undefined || raw.working !== undefined)) {
+    const now = raw.lastSeen || nowIso();
+    return {
+      memberId,
+      clockedIn: Boolean(raw.online),
+      manualStatus: raw.working ? "working" : "break",
+      currentTaskId: raw.currentTaskId ?? null,
+      note: raw.note || "",
+      lastSeen: now,
+      lastActiveAt: now,
+    };
+  }
+  return {
+    memberId,
+    clockedIn: Boolean(raw.clockedIn),
+    manualStatus: (raw.manualStatus as ManualStatus) || "working",
+    currentTaskId: raw.currentTaskId ?? null,
+    note: raw.note || "",
+    lastSeen: raw.lastSeen || nowIso(),
+    lastActiveAt: raw.lastActiveAt || raw.lastSeen || nowIso(),
   };
 }
 
@@ -502,7 +793,10 @@ export function loadSignedInEmployee(): TeamPerson | null {
 }
 
 export function loadPresenceMap(): Record<string, EmployeePresence> {
-  return loadJson<Record<string, EmployeePresence>>(PRESENCE_KEY, {});
+  const raw = loadJson<Record<string, LegacyPresence>>(PRESENCE_KEY, {});
+  const map: Record<string, EmployeePresence> = {};
+  for (const [id, value] of Object.entries(raw)) map[id] = normalizePresence(id, value);
+  return map;
 }
 
 export function savePresenceMap(map: Record<string, EmployeePresence>) {
@@ -513,38 +807,60 @@ export function getPresence(memberId: string): EmployeePresence {
   return loadPresenceMap()[memberId] ?? defaultPresence(memberId);
 }
 
-/** Merge a presence update for one employee and bump lastSeen. */
+/**
+ * Merge a presence update for one employee and bump lastSeen. Pass
+ * `touchActive: true` for real user interactions so auto-away resets.
+ */
 export function updatePresence(
   memberId: string,
-  patch: Partial<Omit<EmployeePresence, "memberId" | "lastSeen">>,
+  patch: Partial<Omit<EmployeePresence, "memberId" | "lastSeen" | "lastActiveAt">> & {
+    touchActive?: boolean;
+  },
 ): EmployeePresence {
   const map = loadPresenceMap();
   const current = map[memberId] ?? defaultPresence(memberId);
+  const { touchActive, ...rest } = patch;
+  const now = nowIso();
   const next: EmployeePresence = {
     ...current,
-    ...patch,
+    ...rest,
     memberId,
-    lastSeen: nowIso(),
+    lastSeen: now,
+    lastActiveAt: touchActive ? now : current.lastActiveAt,
   };
   map[memberId] = next;
   savePresenceMap(map);
   return next;
 }
 
-/** Keep an online employee's lastSeen fresh without changing other fields. */
+/** Session liveness ping — keeps the employee "online" but does NOT count as activity. */
 export function heartbeat(memberId: string): EmployeePresence {
-  return updatePresence(memberId, {});
+  const map = loadPresenceMap();
+  const current = map[memberId] ?? defaultPresence(memberId);
+  const next: EmployeePresence = { ...current, lastSeen: nowIso() };
+  map[memberId] = next;
+  savePresenceMap(map);
+  return next;
 }
 
-/** Resolve a presence record to a display state, honoring staleness. */
-export function presenceState(
+/** Record a real interaction (resets the auto-away idle timer). */
+export function touchActivity(memberId: string): EmployeePresence {
+  return updatePresence(memberId, { touchActive: true });
+}
+
+/** Resolve a presence record to a displayed status (auto offline/away applied). */
+export function derivedStatus(
   presence: EmployeePresence | null | undefined,
   now: number = Date.now(),
-): PresenceState {
-  if (!presence || !presence.online) return "offline";
-  const last = new Date(presence.lastSeen).getTime();
-  if (Number.isFinite(last) && now - last > PRESENCE_STALE_MS) return "offline";
-  return presence.working ? "working" : "break";
+): EmployeeStatus {
+  if (!presence || !presence.clockedIn) return "offline";
+  const seen = new Date(presence.lastSeen).getTime();
+  if (!Number.isFinite(seen) || now - seen > PRESENCE_OFFLINE_MS) return "offline";
+  const active = new Date(presence.lastActiveAt).getTime();
+  if (presence.manualStatus === "working" && Number.isFinite(active) && now - active > PRESENCE_AWAY_MS) {
+    return "away";
+  }
+  return presence.manualStatus;
 }
 
 export function relativeTime(iso: string, now: number = Date.now()): string {
@@ -560,31 +876,92 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-const DEMO_EMPLOYEES: { name: string; role: string; email: string; accessCode: string; starterTask: string }[] = [
+type DemoTaskSeed = {
+  title: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  kind?: TaskKind;
+  due?: "today" | "friday" | "";
+  description?: string;
+  goal?: string;
+  requiredResult?: string;
+  estimatedTime?: string;
+  checklist?: string[];
+  approvalRequired?: boolean;
+};
+
+type DemoEmployee = {
+  name: string;
+  role: string;
+  department: string;
+  email: string;
+  accessCode: string;
+  rating: string;
+  jobsThisWeek: number;
+  tasks: DemoTaskSeed[];
+};
+
+const DEMO_EMPLOYEES: DemoEmployee[] = [
+  {
+    name: "Sarah Williams",
+    role: "Office Manager",
+    department: "Front office",
+    email: "sarah@business.local",
+    accessCode: "SARAH1",
+    rating: "4.9",
+    jobsThisWeek: 12,
+    tasks: [
+      { title: "Call Johnson Construction", priority: "Urgent", due: "today", description: "Confirm the start date and 40% deposit.", goal: "Confirm the schedule", requiredResult: "Log the call outcome", estimatedTime: "30m" },
+      { title: "Send revised quote", priority: "High", due: "today", description: "Apply the updated pricing and resend to the customer.", estimatedTime: "20m" },
+      { title: "Update customer records", priority: "Normal", due: "today", status: "in_progress", estimatedTime: "45m" },
+      { title: "Complete inventory check", priority: "Normal", due: "today", checklist: ["Filters", "Coolant", "Hand tools", "Safety gear"], estimatedTime: "1h" },
+      { title: "Prepare Friday sales report", priority: "Normal", due: "friday", description: "Summarize the week's revenue and pipeline.", approvalRequired: true },
+      { title: "Approve team timesheets", priority: "Normal", due: "today", status: "completed" },
+      { title: "Morning route planning", priority: "Normal", due: "today", status: "completed" },
+      { title: "Team standup", kind: "meeting", due: "today", description: "Daily 9:00 AM sync." },
+      { title: "Client call: Elena Brooks", kind: "meeting", due: "today", description: "Review the maintenance plan." },
+    ],
+  },
   {
     name: "Alex Rivera",
     role: "Lead Technician",
+    department: "Field ops",
     email: "alex@business.local",
     accessCode: "ALEX24",
-    starterTask: "Finish the Johnson AC install and photograph the unit",
+    rating: "4.8",
+    jobsThisWeek: 9,
+    tasks: [
+      { title: "Finish the Johnson AC install", priority: "High", due: "today", requiredResult: "Photograph the finished unit" },
+      { title: "Restock the truck", priority: "Normal", due: "today", checklist: ["Filters", "Refrigerant", "Fittings"] },
+    ],
   },
   {
     name: "Sam Patel",
     role: "Field Technician",
+    department: "Field ops",
     email: "sam@business.local",
     accessCode: "SAM24X",
-    starterTask: "Restock filters on the truck before the morning route",
+    rating: "4.7",
+    jobsThisWeek: 7,
+    tasks: [
+      { title: "Morning maintenance route", priority: "Normal", due: "today" },
+    ],
   },
 ];
 
 /**
- * Seed a couple of demo employees (with known access codes and a starter task)
- * the first time the workforce features are opened, so the portal is usable
+ * Seed a small demo team (with known access codes and realistic tasks) the
+ * first time the workforce features are opened, so the portal is usable
  * immediately. No-op once any team member exists.
  */
 export function seedDemoTeamIfEmpty(): TeamPerson[] {
   const existing = loadTeamMembers();
   if (existing.length > 0) return existing;
+
+  const today = todayISO();
+  const friday = todayISO(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000));
+  const dueFor = (due?: DemoTaskSeed["due"]) =>
+    due === "today" ? today : due === "friday" ? friday : "";
 
   const members: TeamPerson[] = [];
   const tasks: TeamTask[] = [];
@@ -595,13 +972,32 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
       role: demo.role,
       email: demo.email,
       status: "Available",
-      rating: "4.9",
-      jobsThisWeek: 3,
+      rating: demo.rating,
+      jobsThisWeek: demo.jobsThisWeek,
       accessCode: demo.accessCode,
+      department: demo.department,
+      shiftStart: "8:00 AM",
+      shiftEnd: "4:30 PM",
       createdAt: nowIso(),
     };
     members.push(member);
-    tasks.push(createTeamTask({ memberId: member.id, title: demo.starterTask }));
+    for (const seed of demo.tasks) {
+      const base = createTeamTask({
+        memberId: member.id,
+        title: seed.title,
+        description: seed.description,
+        priority: seed.priority,
+        kind: seed.kind,
+        dueDate: dueFor(seed.due),
+        estimatedTime: seed.estimatedTime,
+        department: demo.department,
+        goal: seed.goal,
+        requiredResult: seed.requiredResult,
+        checklist: seed.checklist,
+        approvalRequired: seed.approvalRequired,
+      });
+      tasks.push(seed.status ? { ...base, status: seed.status } : base);
+    }
   }
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);

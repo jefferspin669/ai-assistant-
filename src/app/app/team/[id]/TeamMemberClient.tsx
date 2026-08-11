@@ -7,9 +7,11 @@ import { AppShell } from "@/components/AppShell";
 import { useLanguage } from "@/components/LanguageProvider";
 import {
   createTeamTask,
+  isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
   saveTeamTasks,
+  TASK_STATUSES,
   type TeamPerson,
   type TeamTask,
 } from "@/lib/user-workspace";
@@ -33,7 +35,7 @@ export function TeamMemberClient() {
   }, [id]);
 
   const openCount = useMemo(
-    () => tasks.filter((task) => task.status !== "done").length,
+    () => tasks.filter((task) => isOpenTask(task.status)).length,
     [tasks],
   );
 
@@ -153,15 +155,19 @@ export function TeamMemberClient() {
                     value={task.status}
                     onChange={(e) => setStatus(task.id, e.target.value as TeamTask["status"])}
                   >
-                    <option value="todo">Todo</option>
-                    <option value="doing">Doing</option>
-                    <option value="done">Done</option>
+                    {TASK_STATUSES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
                   </select>
                   <div style={{ flex: 1 }}>
                     <p>
                       <strong>{task.title}</strong>
                     </p>
-                    {task.notes ? <small className="muted-line">{task.notes}</small> : null}
+                    {task.notes.length ? (
+                      <small className="muted-line">{task.notes[task.notes.length - 1].text}</small>
+                    ) : null}
                   </div>
                   <button
                     type="button"

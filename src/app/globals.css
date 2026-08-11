@@ -4335,8 +4335,27 @@ html[data-a11y-motion="reduce"] *::after {
   box-shadow: 0 0 0 4px rgba(224, 169, 46, 0.18);
 }
 
-.presence-dot.offline {
+.presence-dot.meeting {
+  background: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+}
+
+.presence-dot.job {
+  background: #8b5cf6;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+}
+
+.presence-dot.blocked {
+  background: #e0762e;
+  box-shadow: 0 0 0 4px rgba(224, 118, 46, 0.18);
+}
+
+.presence-dot.away {
   background: #b7c0c2;
+}
+
+.presence-dot.offline {
+  background: #d1495b;
 }
 
 .presence-badge {
@@ -4364,8 +4383,84 @@ html[data-a11y-motion="reduce"] *::after {
   color: #94690f;
 }
 
-.presence-badge.offline {
+.presence-badge.meeting {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #1d4ed8;
+}
+
+.presence-badge.job {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #6d28d9;
+}
+
+.presence-badge.blocked {
+  background: rgba(224, 118, 46, 0.14);
+  border-color: rgba(224, 118, 46, 0.42);
+  color: #a8500f;
+}
+
+.presence-badge.away {
   color: var(--ink-soft);
+}
+
+.presence-badge.offline {
+  background: rgba(209, 73, 91, 0.1);
+  border-color: rgba(209, 73, 91, 0.35);
+  color: #b23145;
+}
+
+/* Employee status picker + legend + task-assignment form rows */
+.status-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status-chip.active,
+.status-chip:hover {
+  border-color: var(--teal);
+  background: var(--foam);
+}
+
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.check-inline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: end;
+}
+
+@media (max-width: 640px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .workforce-row {
