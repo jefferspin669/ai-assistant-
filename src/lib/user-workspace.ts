@@ -3230,7 +3230,9 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     contract.dependsOn = [approve.id];
     const send = createTeamTask({ memberId: ashley.id, title: "Send contract", project: "Johnson Expansion", assignedBy: "Michael" });
     send.dependsOn = [contract.id];
-    projectTasks.push(prep, approve, contract, send);
+    const review = createTeamTask({ memberId: sarah.id, title: "Review approved pricing", project: "Johnson Expansion", assignedBy: "Michael" });
+    review.dependsOn = [approve.id];
+    projectTasks.push(prep, approve, contract, send, review);
 
     const shared = createTeamTask({ memberId: sarah.id, title: "Launch Customer Website", project: "Website Launch", assignedBy: "Michael", dueDate: friday });
     shared.parts = [
