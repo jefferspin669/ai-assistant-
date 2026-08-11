@@ -5,6 +5,7 @@ import {
   grantTempAccess,
   isGrantActive,
   loadAudit,
+  logAudit,
   loadGrants,
   loadTeamMembers,
   revokeGrant,
@@ -62,7 +63,9 @@ export function AccessStudio() {
   }
 
   function onRevoke(id: string) {
+    const g = grants.find((x) => x.id === id);
     revokeGrant(id);
+    if (g) logAudit("Owner", "revoked temporary access", `${g.memberName}: ${g.resource}`);
     refresh();
   }
 
@@ -106,7 +109,7 @@ export function AccessStudio() {
               const active = isGrantActive(g);
               return (
                 <div className="list-row" key={g.id}>
-                  <span className={active ? "badge ok" : "badge"}>{active ? "Active" : g.revoked ? "Revoked" : "Expired"}</span>
+                  <span className={active ? "badge ok" : "badge warn"}>{active ? "Active" : g.revoked ? "Revoked" : "Expired"}</span>
                   <div style={{ flex: 1 }}>
                     <p>
                       <strong>{g.memberName} · {g.resource}</strong>

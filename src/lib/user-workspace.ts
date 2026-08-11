@@ -2366,7 +2366,7 @@ export function grantTempAccess(input: { memberId: string; memberName: string; r
     revoked: false,
   };
   saveGrants([g, ...loadGrants()]);
-  logAudit(input.grantedBy, "granted temporary access", `${input.memberName}: ${g.resource} until ${input.expiresAt}`);
+  logAudit(input.grantedBy, "granted temporary access", `${input.memberName}: ${g.resource} until ${new Date(input.expiresAt).toLocaleString()}`);
   return g;
 }
 export function revokeGrant(id: string): TempGrant[] {
