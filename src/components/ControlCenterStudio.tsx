@@ -131,7 +131,10 @@ export function ControlCenterStudio() {
 
   function addRole(e: FormEvent) {
     e.preventDefault();
-    if (!roleForm.name.trim()) return;
+    if (!roleForm.name.trim()) {
+      setFlash("Enter a role name to create a custom role.");
+      return;
+    }
     createCustomRole({
       name: roleForm.name,
       region: roleForm.region,
@@ -421,7 +424,7 @@ export function ControlCenterStudio() {
         <p className="panel-lead">Create your own roles, like a Regional Manager.</p>
         <form className="form-grid" onSubmit={addRole}>
           <div className="field-row">
-            <label>Role name<input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} placeholder="Regional Manager" required /></label>
+            <label>Role name<input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} placeholder="Regional Manager" /></label>
             <label>Region<input value={roleForm.region} onChange={(e) => setRoleForm({ ...roleForm, region: e.target.value })} placeholder="e.g. Midwest" /></label>
             <label>Expense approval limit ($)<input type="number" min={0} value={roleForm.expenseLimit} onChange={(e) => setRoleForm({ ...roleForm, expenseLimit: e.target.value })} placeholder="25000" /></label>
           </div>
