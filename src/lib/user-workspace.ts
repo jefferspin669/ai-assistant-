@@ -376,8 +376,22 @@ export type TeamPerson = {
   // Skills used for shift qualification, and physical work location.
   qualifications?: string[];
   location?: string;
+  // Profile.
+  employeeId?: string;
+  startDate?: string;
+  skills?: { name: string; level: number }[];
+  earnedAchievements?: string[];
   createdAt: string;
 };
+
+export const ACHIEVEMENT_BADGES: { id: string; emoji: string; title: string; desc: string }[] = [
+  { id: "perfect_week", emoji: "🏆", title: "Perfect Week", desc: "All tasks completed on time." },
+  { id: "streak10", emoji: "🔥", title: "10-Day Streak", desc: "Active ten days running." },
+  { id: "customer_favorite", emoji: "⭐", title: "Customer Favorite", desc: "Top customer ratings." },
+  { id: "goal_crusher", emoji: "🎯", title: "Goal Crusher", desc: "Beat a goal." },
+  { id: "problem_solver", emoji: "💡", title: "Problem Solver", desc: "Unblocked a tricky issue." },
+  { id: "team_player", emoji: "🤝", title: "Team Player", desc: "Helped teammates." },
+];
 
 export type TaskStatus = "not_started" | "in_progress" | "waiting" | "blocked" | "completed";
 export type TaskPriority = "Low" | "Normal" | "High" | "Urgent";
@@ -1324,6 +1338,95 @@ export const HELP_CATEGORIES: { id: string; label: string; route: string }[] = [
   { id: "equipment", label: "Equipment Problem", route: "the ops team" },
   { id: "atlas", label: "Atlas AI Help", route: "Atlas" },
 ];
+
+/* ─── Personal inbox (unified notifications) ───────────────────────────── */
+
+export type InboxItem = { id: string; emoji: string; text: string; ago: string; ts: number };
+
+export function inboxItems(member: TeamPerson, now: number = Date.now()): InboxItem[] {
+  const items: InboxItem[] = [];
+  const mine = loadTeamTasks().filter((t) => t.memberId === member.id);
+
+  for (const t of mine) {
+    for (const e of t.approvalLog) {
+      if (e.by !== "manager") continue;
+      const label =
+        e.action === "changes_requested"
+          ? `Manager requested changes to ${t.title}`
+          : e.action === "approved"
+            ? `${t.title} was approved`
+            : e.action === "rejected"
+              ? `${t.title} was rejected`
+              : "";
+      if (label) items.push({ id: `appr-${t.id}-${e.at}`, emoji: e.action === "approved" ? "✅" : "✏️", text: label, ago: relativeTime(e.at, now), ts: new Date(e.at).getTime() });
+    }
+    if (t.status === "not_started") {
+      items.push({ id: `task-${t.id}`, emoji: "🗒️", text: `New task assigned: ${t.title}`, ago: relativeTime(t.createdAt, now), ts: new Date(t.createdAt).getTime() });
+    }
+  }
+
+  for (const r of loadTimeOff().filter((r) => r.memberId === member.id)) {
+    if (r.status !== "pending" && r.decidedAt) {
+      items.push({ id: `pto-${r.id}`, emoji: r.status === "approved" ? "✅" : "⛔", text: `PTO request ${r.status}`, ago: relativeTime(r.decidedAt, now), ts: new Date(r.decidedAt).getTime() });
+    }
+  }
+
+  for (const c of certsForMember(member.id)) {
+    const days = Math.ceil((new Date(c.expires).getTime() - now) / 86_400_000);
+    if (days <= 30) {
+      items.push({ id: `cert-${c.id}`, emoji: "📅", text: days < 0 ? `${c.name} expired` : `${c.name} expires in ${days} day${days === 1 ? "" : "s"}`, ago: "", ts: now });
+    }
+  }
+
+  const chanIds = new Set(channelsForEmployee(member).map((c) => c.id));
+  for (const m of loadMessages()) {
+    if (chanIds.has(m.channelId) && m.authorId !== member.id) {
+      items.push({ id: `msg-${m.id}`, emoji: "💬", text: `New message from ${m.authorName}`, ago: relativeTime(m.at, now), ts: new Date(m.at).getTime() });
+    }
+  }
+
+  for (const a of loadAnnouncements().filter((a) => !a.acks.includes(member.id))) {
+    items.push({ id: `ann-${a.id}`, emoji: "📢", text: `Announcement: ${a.title}`, ago: relativeTime(a.at, now), ts: new Date(a.at).getTime() });
+  }
+
+  return items.sort((a, b) => b.ts - a.ts).slice(0, 12);
+}
+
+/* ─── Employee projects ────────────────────────────────────────────────── */
+
+export type ProjectSummary = {
+  name: string;
+  progress: number;
+  team: string[];
+  myTasks: number;
+  projectTasks: number;
+  nextDeadline: string;
+};
+
+export function employeeProjects(member: TeamPerson, allTasks: TeamTask[]): string[] {
+  return [...new Set(allTasks.filter((t) => t.memberId === member.id && t.project).map((t) => t.project))];
+}
+
+export function projectSummary(name: string, allTasks: TeamTask[], members: TeamPerson[], memberId: string): ProjectSummary {
+  const pt = allTasks.filter((t) => t.project === name);
+  const progress = pt.length ? Math.round(pt.reduce((s, t) => s + taskProgress(t), 0) / pt.length) : 0;
+  const team = new Set<string>();
+  for (const t of pt) {
+    const m = members.find((x) => x.id === t.memberId);
+    if (m) team.add(m.name);
+    t.people.forEach((p) => team.add(p));
+    if (t.assignedBy) team.add(t.assignedBy);
+  }
+  const openDated = pt.filter((t) => isOpenTask(t.status) && t.dueDate).map((t) => t.dueDate.slice(0, 10)).sort();
+  return {
+    name,
+    progress,
+    team: [...team],
+    myTasks: pt.filter((t) => t.memberId === memberId).length,
+    projectTasks: pt.length,
+    nextDeadline: openDated[0] ?? "",
+  };
+}
 
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
 
@@ -2896,12 +2999,63 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   setPres("Ashley Kim", "break");
   setPres("Jordan Ellis", "away");
 
+  // Profiles (skills, ids, start dates) + earned achievements.
+  if (sarah) {
+    sarah.employeeId = "E-1042";
+    sarah.startDate = "2023-03-06";
+    sarah.skills = [
+      { name: "Customer Service", level: 5 },
+      { name: "Salesforce", level: 4 },
+      { name: "Excel", level: 3 },
+      { name: "Sales", level: 5 },
+    ];
+    sarah.earnedAchievements = ["perfect_week", "customer_favorite", "goal_crusher", "team_player"];
+  }
+  if (alex) {
+    alex.employeeId = "E-1088";
+    alex.startDate = "2024-01-15";
+    alex.skills = [
+      { name: "HVAC", level: 5 },
+      { name: "Diagnostics", level: 4 },
+      { name: "Customer Service", level: 4 },
+    ];
+    alex.earnedAchievements = ["streak10", "problem_solver"];
+  }
+  if (sam) {
+    sam.employeeId = "E-1120";
+    sam.startDate = "2024-06-01";
+    sam.skills = [
+      { name: "HVAC", level: 3 },
+      { name: "Route planning", level: 4 },
+    ];
+    sam.earnedAchievements = ["team_player"];
+  }
+
+  // Extra "Johnson Expansion" project tasks across teammates.
+  const david = byName("David Chen");
+  const mike = byName("Mike Ross");
+  const projectTasks: TeamTask[] = [];
+  if (david) projectTasks.push(createTeamTask({ memberId: david.id, title: "Johnson site survey", project: "Johnson Expansion", assignedBy: "Michael", dueDate: today }));
+  if (mike) {
+    projectTasks.push(createTeamTask({ memberId: mike.id, title: "Johnson budget model", project: "Johnson Expansion", assignedBy: "Michael" }));
+    projectTasks.push(createTeamTask({ memberId: mike.id, title: "Johnson permits", project: "Johnson Expansion", assignedBy: "Michael" }));
+  }
+  tasks.push(...projectTasks);
+
+  const meeting: Announcement = {
+    id: newId("ann"),
+    title: "Company meeting tomorrow at 9 AM",
+    body: "All-hands in the main room and on the call link.",
+    at: nowIso(),
+    acks: [],
+  };
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
   saveShifts([...shifts, ...loadShifts()]);
   savePresenceMap({ ...loadPresenceMap(), ...presenceSeed });
   saveGoals([...goals, ...loadGoals()]);
-  saveAnnouncements([labor, ...loadAnnouncements()]);
+  saveAnnouncements([meeting, labor, ...loadAnnouncements()]);
   saveMessages([...loadMessages(), ...seededMessages]);
   saveTimeOff([...timeoff, ...loadTimeOff()]);
   saveScheduledShifts([...scheduled, ...loadScheduledShifts()]);

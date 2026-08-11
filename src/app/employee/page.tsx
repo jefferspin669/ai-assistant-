@@ -8,10 +8,14 @@ import {
   acknowledgeAnnouncement,
   addTaskAttachment,
   addTaskComment,
+  ACHIEVEMENT_BADGES,
   atlasSidebarReply,
   awaitingApproval,
   BLOCK_REASONS,
   blockTask,
+  employeeProjects,
+  inboxItems,
+  projectSummary,
   buildDaySchedule,
   bumpTraining,
   createTeamTask,
@@ -122,6 +126,19 @@ function dueLabel(dueDate: string) {
   return dueDate ? `Due ${dueDate.slice(0, 10)}` : "No due date";
 }
 
+function estMinutes(est: string): number {
+  const h = /(\d+)\s*h/.exec(est);
+  const m = /(\d+)\s*m/.exec(est);
+  const mins = (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
+  return mins > 0 ? mins : 47;
+}
+
+function formatCountdown(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export default function EmployeeDashboardPage() {
   const router = useRouter();
   const [employee, setEmployee] = useState<TeamPerson | null>(null);
@@ -177,6 +194,11 @@ export default function EmployeeDashboardPage() {
   const [eodOpen, setEodOpen] = useState(false);
   const [eodNote, setEodNote] = useState("");
   const [actionFlash, setActionFlash] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusSeconds, setFocusSeconds] = useState(0);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [projectTab, setProjectTab] = useState<"tasks" | "files" | "messages" | "timeline">("tasks");
+  const [achievementsPublic, setAchievementsPublic] = useState(true);
   const idRef = useRef<string | null>(null);
   const lastActivityPush = useRef(0);
 
@@ -253,6 +275,13 @@ export default function EmployeeDashboardPage() {
     };
   }, [ready]);
 
+  // Focus Mode countdown.
+  useEffect(() => {
+    if (!focusMode) return;
+    const t = window.setInterval(() => setFocusSeconds((s) => Math.max(0, s - 1)), 1000);
+    return () => window.clearInterval(t);
+  }, [focusMode]);
+
   const status = derivedStatus(presence, now);
   const summary = useMemo(() => (employee ? dailySummary(employee, tasks) : null), [employee, tasks]);
   const timesheet = useMemo(
@@ -294,6 +323,11 @@ export default function EmployeeDashboardPage() {
   );
   const salesGoal = useMemo(() => goals.find((g) => g.kind === "amount") ?? null, [goals]);
   const appointments = useMemo(() => tasks.filter((t) => t.kind === "meeting"), [tasks]);
+  // Recompute when the underlying stores change (helpers read from storage).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const inbox = useMemo(() => (employee ? inboxItems(employee, now) : []), [employee, now, tasks, messages, announcements]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const projectNames = useMemo(() => (employee ? employeeProjects(employee, loadTeamTasks()) : []), [employee, tasks]);
   const perf = useMemo(() => (employee ? performanceSummary(employee, tasks) : null), [employee, tasks]);
   const goalsDone = useMemo(
     () => (employee ? goalsCompletedFor(employee.id) : { done: 0, total: 0 }),
@@ -458,6 +492,13 @@ export default function EmployeeDashboardPage() {
     setBlockFlash(
       `⚠️ Atlas notified ${reason.notify}: ${employee.name.split(" ")[0]} can't complete "${task.title}" because ${clause}.`,
     );
+  }
+
+  function enterFocus(task: TeamTask) {
+    if (!employee) return;
+    if (task.status !== "in_progress" || !task.startedAt) beginTask(task);
+    setFocusSeconds(estMinutes(task.estimatedTime) * 60);
+    setFocusMode(true);
   }
 
   function askSidebar(e: FormEvent) {
@@ -931,9 +972,9 @@ export default function EmployeeDashboardPage() {
                 Clock out
               </button>
             )}
-            <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-announcements")} aria-label="Notifications">
+            <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-inbox")} aria-label="Notifications">
               🔔
-              {announcements.length ? <span className="dot-count">{announcements.length}</span> : null}
+              {inbox.length ? <span className="dot-count">{inbox.length}</span> : null}
             </button>
             <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-messages")}>
               Messages
@@ -1115,6 +1156,9 @@ export default function EmployeeDashboardPage() {
                 <button className="btn btn-outline" type="button" onClick={() => setBlockingTaskId(runningTask.id)}>
                   I&apos;m Blocked
                 </button>
+                <button className="btn btn-outline" type="button" onClick={() => enterFocus(runningTask)}>
+                  Focus mode
+                </button>
               </div>
             </div>
           ) : null}
@@ -1193,6 +1237,27 @@ export default function EmployeeDashboardPage() {
             </div>
           </section>
 
+          <section className="panel" id="emp-inbox">
+            <h2>Inbox</h2>
+            <p className="panel-lead">Everything that needs your attention, in one place.</p>
+            {focusMode ? <p className="muted-line">🔕 Notifications are paused during Focus Mode.</p> : null}
+            {inbox.length === 0 ? (
+              <p className="muted-line">You&apos;re all caught up.</p>
+            ) : (
+              <div className="list">
+                {inbox.map((it) => (
+                  <div className="list-row" key={it.id}>
+                    <span className="badge" style={{ fontSize: "1rem" }}>{it.emoji}</span>
+                    <p>
+                      <strong>{it.text}</strong>
+                      {it.ago ? <span className="muted-line">{it.ago}</span> : null}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {perf ? (
             <section className="panel">
               <h2>My performance — this month</h2>
@@ -1211,6 +1276,158 @@ export default function EmployeeDashboardPage() {
               ) : null}
             </section>
           ) : null}
+
+          <section className="panel">
+            <h2>Projects</h2>
+            {projectNames.length === 0 ? (
+              <p className="muted-line">You&apos;re not on any projects yet.</p>
+            ) : selectedProject ? (() => {
+              const ps = projectSummary(selectedProject, loadTeamTasks(), allMembers, employee.id);
+              const ptasks = loadTeamTasks().filter((t) => t.project === selectedProject);
+              return (
+                <>
+                  <div className="train-head">
+                    <div>
+                      <h3>{ps.name}</h3>
+                      <p className="panel-lead">Progress {ps.progress}%</p>
+                    </div>
+                    <button className="btn btn-outline" type="button" onClick={() => setSelectedProject(null)}>
+                      All projects
+                    </button>
+                  </div>
+                  <div className="stat-grid metrics-dense">
+                    <div className="stat"><span>Progress</span><strong>{ps.progress}%</strong></div>
+                    <div className="stat"><span>My tasks</span><strong>{ps.myTasks}</strong></div>
+                    <div className="stat"><span>Project tasks</span><strong>{ps.projectTasks}</strong></div>
+                    <div className="stat"><span>Next deadline</span><strong style={{ fontSize: "0.95rem" }}>{ps.nextDeadline || "—"}</strong></div>
+                  </div>
+                  <p className="muted-line" style={{ marginTop: "0.5rem" }}>Team: {ps.team.join(", ")}</p>
+                  <div className="training-tabs" role="tablist" aria-label="Project tabs" style={{ marginTop: "0.6rem" }}>
+                    {(["tasks", "files", "messages", "timeline"] as const).map((t) => (
+                      <button key={t} type="button" role="tab" aria-selected={projectTab === t} className={projectTab === t ? "training-tab active" : "training-tab"} onClick={() => setProjectTab(t)}>
+                        {t[0].toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  {projectTab === "tasks" ? (
+                    <div className="list">
+                      {ptasks.map((t) => {
+                        const who = allMembers.find((m) => m.id === t.memberId);
+                        return (
+                          <div className="list-row" key={t.id}>
+                            <span className={t.status === "completed" ? "badge ok" : "badge"}>{TASK_STATUSES.find((s) => s.id === t.status)?.label}</span>
+                            <p><strong>{t.title}</strong><span className="muted-line">{who?.name}{t.memberId === employee.id ? " (you)" : ""}</span></p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  {projectTab === "files" ? (
+                    <div className="list">
+                      {docs.length ? docs.map((d) => (
+                        <div className="list-row" key={d.id}><span className="badge">{d.category}</span><p>{d.title}</p></div>
+                      )) : <p className="muted-line">No files.</p>}
+                    </div>
+                  ) : null}
+                  {projectTab === "messages" ? (
+                    <p className="muted-line">Project chat lives in <button className="btn btn-outline" type="button" onClick={() => scrollTo("emp-messages")}>Messages</button>.</p>
+                  ) : null}
+                  {projectTab === "timeline" ? (
+                    <div className="timeline">
+                      {[...ptasks].filter((t) => t.dueDate).sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1)).map((t) => (
+                        <div className="timeline-item" key={t.id}>
+                          <strong>{t.dueDate.slice(0, 10)}{t.dueTime ? ` ${t.dueTime}` : ""} — {t.title}</strong>
+                          <p className="muted-line">{TASK_STATUSES.find((s) => s.id === t.status)?.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              );
+            })() : (
+              <div className="task-cards">
+                {projectNames.map((p) => {
+                  const ps = projectSummary(p, loadTeamTasks(), allMembers, employee.id);
+                  return (
+                    <div className="task-card" key={p}>
+                      <div className="tc-top"><h4>{p}</h4><span className="badge">{ps.progress}%</span></div>
+                      <span className="bar-track"><span className="bar-fill" style={{ width: `${ps.progress}%` }} /></span>
+                      <div className="tc-meta">{ps.myTasks} of {ps.projectTasks} tasks yours · next {ps.nextDeadline || "—"}</div>
+                      <div className="tc-meta">Team: {ps.team.slice(0, 4).join(", ")}</div>
+                      <div className="tc-actions">
+                        <button className="btn btn-dark" type="button" onClick={() => { setSelectedProject(p); setProjectTab("tasks"); }}>Open</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2>My profile</h2>
+            <div className="split">
+              <div>
+                <h3>Personal</h3>
+                <div className="list">
+                  <div className="list-row"><span className="badge">Name</span><p>{employee.name}</p></div>
+                  <div className="list-row"><span className="badge">Title</span><p>{employee.role}</p></div>
+                  <div className="list-row"><span className="badge">Department</span><p>{employee.department || "—"}</p></div>
+                  <div className="list-row"><span className="badge">Manager</span><p>Michael</p></div>
+                </div>
+                <h3 style={{ marginTop: "1rem" }}>Work</h3>
+                <div className="list">
+                  <div className="list-row"><span className="badge">Email</span><p>{employee.email}</p></div>
+                  <div className="list-row"><span className="badge">Employee ID</span><p>{employee.employeeId || "—"}</p></div>
+                  <div className="list-row"><span className="badge">Location</span><p>{employee.location || "—"}</p></div>
+                  <div className="list-row"><span className="badge">Start date</span><p>{employee.startDate || "—"}</p></div>
+                </div>
+              </div>
+              <div>
+                <h3>Skills</h3>
+                {employee.skills && employee.skills.length ? (
+                  employee.skills.map((sk) => (
+                    <div className="skill-row" key={sk.name}>
+                      <span>{sk.name}</span>
+                      <span className="stars">{"★".repeat(sk.level)}{"☆".repeat(Math.max(0, 5 - sk.level))}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="muted-line">No skills listed.</p>
+                )}
+                <h3 style={{ marginTop: "1rem" }}>Certifications</h3>
+                <div className="list">
+                  {certs.length ? certs.map((c) => (
+                    <div className="list-row" key={c.id}>
+                      <span className={certState(c, trainingNow) === "valid" ? "badge ok" : "badge warn"}>
+                        {certState(c, trainingNow) === "valid" ? "✅" : "⏳"}
+                      </span>
+                      <p>{c.name}</p>
+                    </div>
+                  )) : <p className="muted-line">No certifications.</p>}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h2>Achievements</h2>
+            <label className="check-inline">
+              <input type="checkbox" checked={achievementsPublic} onChange={(e) => setAchievementsPublic(e.target.checked)} /> Show my achievements to teammates
+            </label>
+            <div className="achv-grid" style={{ marginTop: "0.8rem" }}>
+              {ACHIEVEMENT_BADGES.map((b) => {
+                const earned = (employee.earnedAchievements || []).includes(b.id);
+                return (
+                  <div className={earned ? "achv-card" : "achv-card locked"} key={b.id}>
+                    <div className="achv-emoji">{b.emoji}</div>
+                    <strong>{b.title}</strong>
+                    <p className="muted-line">{earned ? b.desc : "Locked"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
           <div className="split">
             <section className="panel">
@@ -1287,7 +1504,7 @@ export default function EmployeeDashboardPage() {
             </section>
           </div>
 
-          <section className="panel">
+          <section className="panel" id="emp-priorities">
             <h2>Priorities</h2>
             <p className="panel-lead">Atlas organizes your work so you know what matters — no guessing.</p>
             {tasks.length === 0 ? (
@@ -1793,24 +2010,28 @@ export default function EmployeeDashboardPage() {
             </form>
           </section>
 
-          <section className="panel">
-            <h2>What Atlas tracks</h2>
-            <p className="panel-lead">
-              Atlas tracks your <strong>work status</strong>, <strong>time punches</strong>, and{" "}
-              <strong>task activity</strong> only:
-            </p>
-            <div className="list">
-              <div className="list-row">
-                <span className="badge ok">Tracked</span>
-                <p>Clock in/out and breaks, the status you set, and your task updates.</p>
+          <section className="panel" id="emp-privacy">
+            <h2>Privacy center</h2>
+            <p className="panel-lead">You can see exactly what Atlas records — and what it never does.</p>
+            <div className="split">
+              <div>
+                <h3>Atlas tracks</h3>
+                <div className="list">
+                  <div className="list-row"><span className="badge ok">✅</span><p>Clock-in / clock-out</p></div>
+                  <div className="list-row"><span className="badge ok">✅</span><p>Task status</p></div>
+                  <div className="list-row"><span className="badge ok">✅</span><p>Business application activity</p></div>
+                  <div className="list-row"><span className="badge ok">✅</span><p>Assigned work progress</p></div>
+                </div>
               </div>
-              <div className="list-row">
-                <span className="badge ok">Tracked</span>
-                <p>When the app was last active, so &quot;Away&quot; and &quot;Offline&quot; update automatically.</p>
-              </div>
-              <div className="list-row">
-                <span className="badge">Never</span>
-                <p>No screen recording, no keystroke logging, no hidden monitoring.</p>
+              <div>
+                <h3>Atlas does not track</h3>
+                <div className="list">
+                  <div className="list-row"><span className="badge warn">❌</span><p>Personal browser activity</p></div>
+                  <div className="list-row"><span className="badge warn">❌</span><p>Personal messages</p></div>
+                  <div className="list-row"><span className="badge warn">❌</span><p>Webcam</p></div>
+                  <div className="list-row"><span className="badge warn">❌</span><p>Microphone recordings without consent</p></div>
+                  <div className="list-row"><span className="badge warn">❌</span><p>Keystrokes</p></div>
+                </div>
               </div>
             </div>
           </section>
@@ -1938,6 +2159,41 @@ export default function EmployeeDashboardPage() {
           </div>
         );
       })() : null}
+
+      {/* Focus Mode */}
+      {focusMode && runningTask ? (() => {
+        const nextUp = priorities.today.find((t) => t.id !== runningTask.id) ?? priorities.doNow.find((t) => t.id !== runningTask.id) ?? null;
+        const pct = taskProgress(runningTask);
+        return (
+          <div className="focus-overlay">
+            <div className="focus-card">
+              <div className="focus-label">Current task</div>
+              <h1>{runningTask.title}</h1>
+              <div className="focus-timer">{formatCountdown(focusSeconds)}</div>
+              <div className="focus-label">{Math.ceil(focusSeconds / 60)} minutes remaining</div>
+              <div className="focus-bar"><span style={{ width: `${pct}%` }} /></div>
+              {nextUp ? (
+                <p style={{ opacity: 0.85 }}>Next: {nextUp.title}{nextUp.dueTime ? ` at ${nextUp.dueTime}` : ""}</p>
+              ) : null}
+              <p className="focus-label" style={{ marginTop: "0.6rem" }}>🔕 Non-urgent notifications are paused</p>
+              <div className="focus-actions">
+                <button className="btn btn-dark" type="button" onClick={() => { setFocusMode(false); setSelectedId(runningTask.id); setCompleting(true); }}>Complete</button>
+                <button className="btn btn-outline" type="button" onClick={() => { setFocusMode(false); setBlockingTaskId(runningTask.id); }}>I&apos;m Blocked</button>
+                <button className="btn btn-outline" type="button" onClick={() => setFocusMode(false)}>Exit focus</button>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
+
+      {/* Mobile bottom navigation */}
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><strong>🏠</strong>Home</button>
+        <button type="button" onClick={() => scrollTo("emp-priorities")}><strong>✓</strong>Tasks</button>
+        <button type="button" onClick={() => setSidebarOpen(true)}><strong>✨</strong>Atlas</button>
+        <button type="button" onClick={() => scrollTo("emp-messages")}><strong>✉️</strong>Messages</button>
+        <button type="button" onClick={() => setQuickOpen((v) => !v)}><strong>⋯</strong>More</button>
+      </nav>
     </div>
   );
 }
