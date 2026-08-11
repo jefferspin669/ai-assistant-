@@ -96,6 +96,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/inventory", label: "AI Inventory" },
       { href: "/app/purchasing", label: "Purchasing AI" },
       { href: "/app/team", label: "Employee Hub" },
+      { href: "/app/workforce-status", label: "Workforce Status" },
       { href: "/app/training", label: "Atlas Academy" },
       { href: "/app/quality", label: "Quality Control" },
       { href: "/app/compliance", label: "Compliance" },

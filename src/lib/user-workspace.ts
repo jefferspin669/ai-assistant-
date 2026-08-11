@@ -355,6 +355,8 @@ export type TeamPerson = {
   status: string;
   rating: string;
   jobsThisWeek: number;
+  /** Short code the employee uses (with their email) to sign in to their page. */
+  accessCode?: string;
   createdAt: string;
 };
 
@@ -378,6 +380,16 @@ export function saveTeamMembers(members: TeamPerson[]) {
   saveJson(TEAM_KEY, members);
 }
 
+function makeAccessCode() {
+  // 6-char human-friendly code (no ambiguous 0/O/1/I).
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i += 1) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
+}
+
 export function createTeamMember(input: {
   name: string;
   role?: string;
@@ -392,8 +404,15 @@ export function createTeamMember(input: {
     status: "Available",
     rating: "—",
     jobsThisWeek: 0,
+    accessCode: makeAccessCode(),
     createdAt: nowIso(),
   };
+}
+
+/** Access code for a member, deriving a stable fallback for older records. */
+export function employeeAccessCode(member: TeamPerson): string {
+  if (member.accessCode) return member.accessCode;
+  return member.id.replace(/[^a-z0-9]/gi, "").slice(-6).toUpperCase().padStart(6, "X");
 }
 
 export function loadTeamTasks(): TeamTask[] {
@@ -417,4 +436,174 @@ export function createTeamTask(input: {
     status: "todo",
     createdAt: nowIso(),
   };
+}
+
+/* ─── Employee portal: sign-in, presence, seeding ──────────────────────── */
+
+const EMPLOYEE_SESSION_KEY = "atlas-employee-session-v1";
+const PRESENCE_KEY = "atlas-employee-presence-v1";
+
+/** How long after the last heartbeat an online employee is treated as offline. */
+export const PRESENCE_STALE_MS = 90_000;
+
+export type EmployeePresence = {
+  memberId: string;
+  online: boolean;
+  working: boolean;
+  currentTaskId: string | null;
+  note: string;
+  lastSeen: string;
+};
+
+export type PresenceState = "offline" | "working" | "break";
+
+function defaultPresence(memberId: string): EmployeePresence {
+  return {
+    memberId,
+    online: false,
+    working: false,
+    currentTaskId: null,
+    note: "",
+    lastSeen: nowIso(),
+  };
+}
+
+/** Match an employee by email + access code (both case-insensitive). */
+export function authenticateEmployee(email: string, code: string): TeamPerson | null {
+  const wantEmail = email.trim().toLowerCase();
+  const wantCode = code.trim().toUpperCase();
+  if (!wantEmail || !wantCode) return null;
+  const member = loadTeamMembers().find(
+    (person) =>
+      person.email.trim().toLowerCase() === wantEmail &&
+      employeeAccessCode(person).toUpperCase() === wantCode,
+  );
+  return member ?? null;
+}
+
+export function loadEmployeeSession(): string | null {
+  return loadJson<string | null>(EMPLOYEE_SESSION_KEY, null);
+}
+
+export function saveEmployeeSession(memberId: string | null) {
+  if (typeof window === "undefined") return;
+  if (memberId) {
+    localStorage.setItem(EMPLOYEE_SESSION_KEY, JSON.stringify(memberId));
+  } else {
+    localStorage.removeItem(EMPLOYEE_SESSION_KEY);
+  }
+}
+
+/** The currently signed-in employee for this device, if any. */
+export function loadSignedInEmployee(): TeamPerson | null {
+  const id = loadEmployeeSession();
+  if (!id) return null;
+  return loadTeamMembers().find((person) => person.id === id) ?? null;
+}
+
+export function loadPresenceMap(): Record<string, EmployeePresence> {
+  return loadJson<Record<string, EmployeePresence>>(PRESENCE_KEY, {});
+}
+
+export function savePresenceMap(map: Record<string, EmployeePresence>) {
+  saveJson(PRESENCE_KEY, map);
+}
+
+export function getPresence(memberId: string): EmployeePresence {
+  return loadPresenceMap()[memberId] ?? defaultPresence(memberId);
+}
+
+/** Merge a presence update for one employee and bump lastSeen. */
+export function updatePresence(
+  memberId: string,
+  patch: Partial<Omit<EmployeePresence, "memberId" | "lastSeen">>,
+): EmployeePresence {
+  const map = loadPresenceMap();
+  const current = map[memberId] ?? defaultPresence(memberId);
+  const next: EmployeePresence = {
+    ...current,
+    ...patch,
+    memberId,
+    lastSeen: nowIso(),
+  };
+  map[memberId] = next;
+  savePresenceMap(map);
+  return next;
+}
+
+/** Keep an online employee's lastSeen fresh without changing other fields. */
+export function heartbeat(memberId: string): EmployeePresence {
+  return updatePresence(memberId, {});
+}
+
+/** Resolve a presence record to a display state, honoring staleness. */
+export function presenceState(
+  presence: EmployeePresence | null | undefined,
+  now: number = Date.now(),
+): PresenceState {
+  if (!presence || !presence.online) return "offline";
+  const last = new Date(presence.lastSeen).getTime();
+  if (Number.isFinite(last) && now - last > PRESENCE_STALE_MS) return "offline";
+  return presence.working ? "working" : "break";
+}
+
+export function relativeTime(iso: string, now: number = Date.now()): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "—";
+  const diff = Math.max(0, now - then);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+const DEMO_EMPLOYEES: { name: string; role: string; email: string; accessCode: string; starterTask: string }[] = [
+  {
+    name: "Alex Rivera",
+    role: "Lead Technician",
+    email: "alex@business.local",
+    accessCode: "ALEX24",
+    starterTask: "Finish the Johnson AC install and photograph the unit",
+  },
+  {
+    name: "Sam Patel",
+    role: "Field Technician",
+    email: "sam@business.local",
+    accessCode: "SAM24X",
+    starterTask: "Restock filters on the truck before the morning route",
+  },
+];
+
+/**
+ * Seed a couple of demo employees (with known access codes and a starter task)
+ * the first time the workforce features are opened, so the portal is usable
+ * immediately. No-op once any team member exists.
+ */
+export function seedDemoTeamIfEmpty(): TeamPerson[] {
+  const existing = loadTeamMembers();
+  if (existing.length > 0) return existing;
+
+  const members: TeamPerson[] = [];
+  const tasks: TeamTask[] = [];
+  for (const demo of DEMO_EMPLOYEES) {
+    const member: TeamPerson = {
+      id: newId("member"),
+      name: demo.name,
+      role: demo.role,
+      email: demo.email,
+      status: "Available",
+      rating: "4.9",
+      jobsThisWeek: 3,
+      accessCode: demo.accessCode,
+      createdAt: nowIso(),
+    };
+    members.push(member);
+    tasks.push(createTeamTask({ memberId: member.id, title: demo.starterTask }));
+  }
+  saveTeamMembers(members);
+  saveTeamTasks([...tasks, ...loadTeamTasks()]);
+  return members;
 }
