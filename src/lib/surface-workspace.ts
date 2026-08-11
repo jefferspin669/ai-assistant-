@@ -329,6 +329,57 @@ export function createCrmCustomer(input: {
   };
 }
 
+/* ─── Contacts permissions ─────────────────────────────────────────────── */
+
+export type ContactsAbility = "view" | "add" | "edit" | "export" | "delete";
+export const CONTACTS_ABILITIES: { id: ContactsAbility; label: string }[] = [
+  { id: "view", label: "View" },
+  { id: "add", label: "Add" },
+  { id: "edit", label: "Edit" },
+  { id: "export", label: "Export" },
+  { id: "delete", label: "Delete" },
+];
+export type ContactsPerm = { memberId: string; view: boolean; add: boolean; edit: boolean; export: boolean; delete: boolean };
+
+const CONTACTS_PERM_KEY = "atlas-contacts-perms-v1";
+export function loadContactsPerms(): ContactsPerm[] {
+  return loadJson<ContactsPerm[]>(CONTACTS_PERM_KEY, []);
+}
+export function saveContactsPerms(list: ContactsPerm[]) {
+  saveJson(CONTACTS_PERM_KEY, list);
+}
+
+type PermMember = { id: string; role?: string; department?: string };
+/** Sensible role-based defaults when a company hasn't set an explicit policy. */
+export function defaultContactsPerm(member: PermMember): ContactsPerm {
+  const role = (member.role || "").toLowerCase();
+  const dept = member.department || "";
+  const isManager = role.includes("manager") || role.includes("lead") || role.includes("owner") || dept === "Management";
+  return {
+    memberId: member.id,
+    view: true,
+    add: true,
+    edit: true,
+    export: isManager,
+    delete: isManager,
+  };
+}
+/** Effective permissions for a member: an explicit record if set, else defaults. */
+export function contactsPermFor(member: PermMember): ContactsPerm {
+  const explicit = loadContactsPerms().find((p) => p.memberId === member.id);
+  return explicit ?? defaultContactsPerm(member);
+}
+/** Upsert a single ability for a member and return the full list. */
+export function setContactsPerm(member: PermMember, ability: ContactsAbility, value: boolean): ContactsPerm[] {
+  const list = loadContactsPerms();
+  const idx = list.findIndex((p) => p.memberId === member.id);
+  const base = idx >= 0 ? list[idx] : defaultContactsPerm(member);
+  const next: ContactsPerm = { ...base, [ability]: value };
+  const result = idx >= 0 ? list.map((p) => (p.memberId === member.id ? next : p)) : [...list, next];
+  saveContactsPerms(result);
+  return result;
+}
+
 /* ─── Security center ──────────────────────────────────────────────────── */
 
 export type SecurityItem = {
