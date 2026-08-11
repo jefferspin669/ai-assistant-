@@ -502,22 +502,9 @@ export default function EmployeeDashboardPage() {
         <div className="tc-meta">{pct}% · {TASK_STATUSES.find((s) => s.id === task.status)?.label}</div>
         <div className="tc-actions">
           {task.status !== "completed" ? (
-            task.status === "in_progress" ? (
-              <button
-                className="btn btn-dark"
-                type="button"
-                onClick={() => {
-                  setSelectedId(task.id);
-                  setCompleting(true);
-                }}
-              >
-                Continue Task
-              </button>
-            ) : (
-              <button className="btn btn-dark" type="button" onClick={() => beginTask(task)}>
-                Start Task
-              </button>
-            )
+            <button className="btn btn-dark" type="button" onClick={() => beginTask(task)}>
+              {task.status === "in_progress" ? "Continue Task" : "Start Task"}
+            </button>
           ) : (
             <span className="badge ok">Completed</span>
           )}
