@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  addTaskComment,
+  awaitingApproval,
   createTeamTask,
+  decideApproval,
   isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
@@ -46,6 +49,8 @@ export function TaskAssignmentStudio() {
   const [checklist, setChecklist] = useState("");
   const [recurrence, setRecurrence] = useState<TaskRecurrence>("one-time");
   const [approvalRequired, setApprovalRequired] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
 
   const refresh = useCallback(() => {
     setMembers(loadTeamMembers());
@@ -64,10 +69,8 @@ export function TaskAssignmentStudio() {
     () => tasks.filter((t) => t.memberId === memberId),
     [tasks, memberId],
   );
-  const pendingApprovals = useMemo(
-    () => tasks.filter((t) => t.approvalRequired && t.approvalStatus === "pending"),
-    [tasks],
-  );
+  const pendingApprovals = useMemo(() => tasks.filter((t) => awaitingApproval(t)), [tasks]);
+  const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
 
   function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -109,10 +112,20 @@ export function TaskAssignmentStudio() {
     setApprovalRequired(false);
   }
 
-  function approve(task: TeamTask) {
-    saveTeamTasks(replaceTask(loadTeamTasks(), { ...task, approvalStatus: "approved" }));
+  function decide(task: TeamTask, action: "approved" | "changes_requested" | "rejected") {
+    saveTeamTasks(replaceTask(loadTeamTasks(), decideApproval(task, action)));
     refresh();
-    setNote(`Approved "${task.title}".`);
+    const verb = action === "approved" ? "Approved" : action === "rejected" ? "Rejected" : "Requested changes on";
+    setNote(`${verb} "${task.title}".`);
+  }
+
+  function comment(task: TeamTask, text: string) {
+    if (!text.trim()) return;
+    const { task: updated, autoWaiting } = addTaskComment(task, text, "manager");
+    saveTeamTasks(replaceTask(loadTeamTasks(), updated));
+    refresh();
+    setCommentDraft("");
+    setNote(autoWaiting ? `Comment added — Atlas set the task to "Waiting on ${autoWaiting}".` : "Comment added.");
   }
 
   return (
@@ -253,12 +266,13 @@ export function TaskAssignmentStudio() {
           ) : (
             <div className="list">
               {memberTasks.map((task) => (
-                <div className="list-row" key={task.id}>
-                  <span
-                    className={
-                      task.priority === "Urgent" || task.priority === "High" ? "badge warn" : "badge"
-                    }
-                  >
+                <button
+                  key={task.id}
+                  type="button"
+                  className={selectedTaskId === task.id ? "compliance-row active" : "compliance-row"}
+                  onClick={() => setSelectedTaskId(task.id)}
+                >
+                  <span className={task.priority === "Urgent" || task.priority === "High" ? "badge warn" : "badge"}>
                     {task.priority}
                   </span>
                   <p>
@@ -272,10 +286,45 @@ export function TaskAssignmentStudio() {
                       {task.approvalRequired ? ` · approval ${task.approvalStatus}` : ""}
                     </span>
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           )}
+
+          {selectedTask ? (
+            <div className="memory-card" style={{ marginTop: "0.9rem" }}>
+              <div className="label">Conversation · {selectedTask.title}</div>
+              <div className="list">
+                {selectedTask.notes.length ? (
+                  selectedTask.notes.map((n) => (
+                    <div className="list-row" key={n.id}>
+                      <span className={n.author === "manager" ? "badge" : n.author === "atlas" ? "badge warn" : "badge ok"}>
+                        {n.author}
+                      </span>
+                      <p>{n.text}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="muted-line">No comments yet.</p>
+                )}
+              </div>
+              <form
+                className="train-form"
+                style={{ marginTop: "0.6rem" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  comment(selectedTask, commentDraft);
+                }}
+              >
+                <input
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  placeholder="Comment… (e.g. 'waiting on Finance' auto-sets status)"
+                />
+                <button className="btn btn-dark" type="submit">Comment</button>
+              </form>
+            </div>
+          ) : null}
 
           <h3 style={{ marginTop: "1rem" }}>Awaiting approval</h3>
           {pendingApprovals.length === 0 ? (
@@ -286,16 +335,27 @@ export function TaskAssignmentStudio() {
                 const who = members.find((m) => m.id === task.memberId);
                 return (
                   <div className="list-row" key={task.id}>
-                    <span className="badge warn">Pending</span>
-                    <p>
-                      <strong>{task.title}</strong>
-                      <span className="muted-line">
-                        {who?.name ?? "Employee"} · {taskStatusLabel(task.status)}
-                      </span>
-                    </p>
-                    <button className="btn btn-ghost" type="button" onClick={() => approve(task)}>
-                      Approve
-                    </button>
+                    <span className="badge warn">Awaiting</span>
+                    <div style={{ flex: 1 }}>
+                      <p>
+                        <strong>{task.title}</strong>
+                        <span className="muted-line">
+                          {who?.name ?? "Employee"}
+                          {task.result ? ` · result: ${task.result}` : ""}
+                        </span>
+                      </p>
+                      <div className="train-actions" style={{ marginTop: "0.4rem" }}>
+                        <button className="btn btn-dark" type="button" onClick={() => decide(task, "approved")}>
+                          Approve
+                        </button>
+                        <button className="btn btn-outline" type="button" onClick={() => decide(task, "changes_requested")}>
+                          Request changes
+                        </button>
+                        <button className="btn btn-outline" type="button" onClick={() => decide(task, "rejected")}>
+                          Reject
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}

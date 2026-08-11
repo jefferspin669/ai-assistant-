@@ -379,11 +379,13 @@ export type TaskStatus = "not_started" | "in_progress" | "waiting" | "blocked" |
 export type TaskPriority = "Low" | "Normal" | "High" | "Urgent";
 export type TaskKind = "task" | "meeting";
 export type TaskRecurrence = "one-time" | "daily" | "weekly" | "monthly";
-export type ApprovalStatus = "not_required" | "pending" | "approved";
+export type ApprovalStatus = "not_required" | "pending" | "approved" | "changes_requested" | "rejected";
+export type ApprovalAction = "submitted" | "approved" | "changes_requested" | "rejected";
 
 export type ChecklistItem = { id: string; label: string; done: boolean };
 export type TaskAttachment = { id: string; name: string; addedBy: "manager" | "employee"; addedAt: string };
-export type TaskNote = { id: string; text: string; author: "manager" | "employee"; at: string };
+export type TaskNote = { id: string; text: string; author: "manager" | "employee" | "atlas"; at: string };
+export type ApprovalEntry = { action: ApprovalAction; by: string; at: string; note?: string };
 
 export type TeamTask = {
   id: string;
@@ -406,10 +408,12 @@ export type TeamTask = {
   recurrence: TaskRecurrence;
   approvalRequired: boolean;
   approvalStatus: ApprovalStatus;
+  approvalLog: ApprovalEntry[];
   startedAt: string;
   completedAt: string;
   result: string;
   blockedAt: string;
+  dueTime: string;
   createdAt: string;
 };
 
@@ -521,10 +525,12 @@ function normalizeTask(raw: RawTask): TeamTask {
     recurrence: (raw.recurrence as TaskRecurrence) || "one-time",
     approvalRequired: Boolean(raw.approvalRequired),
     approvalStatus: (raw.approvalStatus as ApprovalStatus) || (raw.approvalRequired ? "pending" : "not_required"),
+    approvalLog: Array.isArray(raw.approvalLog) ? (raw.approvalLog as ApprovalEntry[]) : [],
     startedAt: raw.startedAt || "",
     completedAt: raw.completedAt || "",
     result: raw.result || "",
     blockedAt: raw.blockedAt || "",
+    dueTime: raw.dueTime || "",
     createdAt: raw.createdAt || nowIso(),
   };
 }
@@ -555,6 +561,7 @@ export function createTeamTask(input: {
   attachments?: string[];
   recurrence?: TaskRecurrence;
   approvalRequired?: boolean;
+  dueTime?: string;
 }): TeamTask {
   const now = nowIso();
   const notes: TaskNote[] = input.notes?.trim()
@@ -586,29 +593,100 @@ export function createTeamTask(input: {
     notes,
     recurrence: input.recurrence || "one-time",
     approvalRequired: Boolean(input.approvalRequired),
-    approvalStatus: input.approvalRequired ? "pending" : "not_required",
+    approvalStatus: "not_required",
+    approvalLog: [],
     startedAt: "",
     completedAt: "",
     result: "",
     blockedAt: "",
+    dueTime: (input.dueTime || "").trim(),
     createdAt: now,
   };
 }
 
-/* ─── Task timing + blocking ───────────────────────────────────────────── */
+/* ─── Task timing + blocking + approval workflow ───────────────────────── */
 
 export function startTask(task: TeamTask): TeamTask {
   return { ...task, status: "in_progress", startedAt: task.startedAt || nowIso(), blockedAt: "" };
 }
 
+/**
+ * Complete a task. If it requires approval, the work is submitted and held in
+ * "Awaiting manager approval" (approvalStatus "pending") instead of finishing.
+ */
 export function completeTask(task: TeamTask, input: { result?: string; note?: string }): TeamTask {
-  const completed: TeamTask = {
+  const now = nowIso();
+  let updated: TeamTask = {
     ...task,
     status: "completed",
-    completedAt: nowIso(),
+    completedAt: now,
     result: (input.result || "").trim() || task.result,
   };
-  return input.note?.trim() ? addTaskNote(completed, input.note, "employee") : completed;
+  if (task.approvalRequired) {
+    updated = {
+      ...updated,
+      approvalStatus: "pending",
+      approvalLog: [...task.approvalLog, { action: "submitted", by: "employee", at: now }],
+    };
+  }
+  return input.note?.trim() ? addTaskNote(updated, input.note, "employee") : updated;
+}
+
+export function awaitingApproval(task: TeamTask): boolean {
+  return task.approvalRequired && task.approvalStatus === "pending";
+}
+
+/** Manager decision on a submitted task; keeps an audit trail. */
+export function decideApproval(
+  task: TeamTask,
+  action: "approved" | "changes_requested" | "rejected",
+  note?: string,
+): TeamTask {
+  const entry: ApprovalEntry = { action, by: "manager", at: nowIso(), note: note?.trim() || undefined };
+  const log = [...task.approvalLog, entry];
+  if (action === "approved") {
+    return { ...task, approvalStatus: "approved", approvalLog: log };
+  }
+  // Changes requested / rejected send the task back to the employee.
+  const bounced: TeamTask = {
+    ...task,
+    approvalStatus: action,
+    status: "in_progress",
+    completedAt: "",
+    approvalLog: log,
+  };
+  return note?.trim()
+    ? addTaskNote(bounced, `${action === "rejected" ? "Rejected" : "Changes requested"}: ${note.trim()}`, "manager")
+    : bounced;
+}
+
+/** Detect "waiting on X" in a comment so Atlas can set the status automatically. */
+export function detectWaitingOn(text: string): string | null {
+  const m = text.match(/waiting on (?:the )?([a-z0-9][a-z0-9 &'-]{1,40})/i);
+  if (!m) return null;
+  let who = m[1].trim().replace(/[.,;!?]+$/, "");
+  // Trim trailing filler words.
+  who = who.replace(/\b(report|number|numbers|data|team|department|dept|to|for|before)\b\s*$/i, "").trim();
+  if (!who) return null;
+  return who.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Add a comment to a task. If the text says "waiting on X", Atlas sets the
+ * status to Waiting and appends a short system note.
+ */
+export function addTaskComment(
+  task: TeamTask,
+  text: string,
+  author: "manager" | "employee",
+): { task: TeamTask; autoWaiting: string | null } {
+  let updated = addTaskNote(task, text, author);
+  const who = detectWaitingOn(text);
+  if (who && updated.status !== "completed") {
+    updated = addTaskNote({ ...updated, status: "waiting" }, `Atlas set status: Waiting on ${who}`, "atlas");
+    return { task: updated, autoWaiting: who };
+  }
+  return { task: updated, autoWaiting: null };
 }
 
 export function blockTask(task: TeamTask, reason?: string): TeamTask {
@@ -692,7 +770,7 @@ export function replaceTask(all: TeamTask[], updated: TeamTask): TeamTask[] {
     : [updated, ...all];
 }
 
-export function addTaskNote(task: TeamTask, text: string, author: "manager" | "employee"): TeamTask {
+export function addTaskNote(task: TeamTask, text: string, author: "manager" | "employee" | "atlas"): TeamTask {
   const trimmed = text.trim();
   if (!trimmed) return task;
   return {
@@ -1357,12 +1435,308 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
+/* ─── Employee goals ───────────────────────────────────────────────────── */
+
+export type GoalKind = "amount" | "count";
+export type EmployeeGoal = {
+  id: string;
+  memberId: string; // "" for a team goal
+  department: string;
+  title: string;
+  kind: GoalKind;
+  target: number;
+  current: number;
+  unit: string;
+  period: string;
+  createdAt: string;
+};
+
+const EMP_GOALS_KEY = "atlas-user-emp-goals-v1";
+export function loadGoals(): EmployeeGoal[] {
+  return loadJson<EmployeeGoal[]>(EMP_GOALS_KEY, []);
+}
+export function saveGoals(goals: EmployeeGoal[]) {
+  saveJson(EMP_GOALS_KEY, goals);
+}
+export function createGoal(input: {
+  memberId?: string;
+  department?: string;
+  title: string;
+  kind: GoalKind;
+  target: number;
+  current?: number;
+  unit?: string;
+  period?: string;
+}): EmployeeGoal {
+  return {
+    id: newId("goal"),
+    memberId: input.memberId || "",
+    department: input.department || "",
+    title: input.title.trim() || "Goal",
+    kind: input.kind,
+    target: Math.max(1, input.target || 1),
+    current: Math.max(0, input.current || 0),
+    unit: (input.unit || "").trim(),
+    period: (input.period || "").trim(),
+    createdAt: nowIso(),
+  };
+}
+export function updateGoalProgress(goals: EmployeeGoal[], id: string, current: number): EmployeeGoal[] {
+  return goals.map((g) => (g.id === id ? { ...g, current: Math.max(0, current) } : g));
+}
+export function goalPct(goal: EmployeeGoal): number {
+  return Math.min(100, Math.round((goal.current / goal.target) * 100));
+}
+export function formatGoalValue(goal: EmployeeGoal): string {
+  if (goal.kind === "amount") {
+    return `$${goal.current.toLocaleString()} / $${goal.target.toLocaleString()}`;
+  }
+  return `${goal.current.toLocaleString()} / ${goal.target.toLocaleString()}${goal.unit ? ` ${goal.unit}` : ""}`;
+}
+
+/* ─── Internal messaging ───────────────────────────────────────────────── */
+
+export type ChatMessage = {
+  id: string;
+  channelId: string;
+  authorId: string; // "owner" or memberId
+  authorName: string;
+  text: string;
+  at: string;
+};
+
+export type ProjectChannel = { id: string; name: string };
+
+const MESSAGES_KEY = "atlas-user-messages-v1";
+const PROJECTS_KEY = "atlas-user-channels-v1";
+
+export function loadMessages(): ChatMessage[] {
+  return loadJson<ChatMessage[]>(MESSAGES_KEY, []);
+}
+export function saveMessages(messages: ChatMessage[]) {
+  saveJson(MESSAGES_KEY, messages);
+}
+export function sendMessage(channelId: string, authorId: string, authorName: string, text: string): ChatMessage {
+  const msg: ChatMessage = {
+    id: newId("msg"),
+    channelId,
+    authorId,
+    authorName,
+    text: text.trim(),
+    at: nowIso(),
+  };
+  saveMessages([...loadMessages(), msg]);
+  return msg;
+}
+export function messagesFor(channelId: string, messages = loadMessages()): ChatMessage[] {
+  return messages
+    .filter((m) => m.channelId === channelId)
+    .sort((a, b) => (a.at < b.at ? -1 : 1));
+}
+export function dmChannelId(memberId: string) {
+  return `dm:${memberId}`;
+}
+export function teamChannelId(department: string) {
+  return `team:${department.toLowerCase().replace(/\s+/g, "-")}`;
+}
+export function loadProjectChannels(): ProjectChannel[] {
+  return loadJson<ProjectChannel[]>(PROJECTS_KEY, []);
+}
+export function saveProjectChannels(channels: ProjectChannel[]) {
+  saveJson(PROJECTS_KEY, channels);
+}
+export function createProjectChannel(name: string): ProjectChannel {
+  const channel: ProjectChannel = {
+    id: `project:${name.toLowerCase().replace(/\s+/g, "-").slice(0, 32)}-${Math.random().toString(36).slice(2, 5)}`,
+    name: name.trim() || "New project",
+  };
+  saveProjectChannels([...loadProjectChannels(), channel]);
+  return channel;
+}
+export type ChannelRef = { id: string; label: string };
+export function channelsForEmployee(member: TeamPerson, projects = loadProjectChannels()): ChannelRef[] {
+  return [
+    { id: dmChannelId(member.id), label: "My manager" },
+    { id: teamChannelId(member.department || "Team"), label: `Team · ${member.department || "General"}` },
+    ...projects.map((p) => ({ id: p.id, label: `# ${p.name}` })),
+  ];
+}
+export function extractMentions(text: string): string[] {
+  return (text.match(/@([a-z][a-z0-9._-]*)/gi) || []).map((m) => m.slice(1));
+}
+
+/* ─── Company announcements ────────────────────────────────────────────── */
+
+export type Announcement = { id: string; title: string; body: string; at: string; acks: string[] };
+const ANNOUNCEMENTS_KEY = "atlas-user-announcements-v1";
+
+export function loadAnnouncements(): Announcement[] {
+  return loadJson<Announcement[]>(ANNOUNCEMENTS_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveAnnouncements(list: Announcement[]) {
+  saveJson(ANNOUNCEMENTS_KEY, list);
+}
+export function postAnnouncement(title: string, body: string): Announcement {
+  const ann: Announcement = { id: newId("ann"), title: title.trim() || "Announcement", body: body.trim(), at: nowIso(), acks: [] };
+  saveAnnouncements([ann, ...loadAnnouncements()]);
+  return ann;
+}
+export function acknowledgeAnnouncement(id: string, memberId: string): Announcement[] {
+  const next = loadAnnouncements().map((a) =>
+    a.id === id && !a.acks.includes(memberId) ? { ...a, acks: [...a.acks, memberId] } : a,
+  );
+  saveAnnouncements(next);
+  return next;
+}
+export function unacknowledgedFor(memberId: string): Announcement[] {
+  return loadAnnouncements().filter((a) => !a.acks.includes(memberId));
+}
+
+/* ─── PTO / time-off requests + staffing ───────────────────────────────── */
+
+export type TimeOffType = "Vacation" | "Sick" | "Personal";
+export type TimeOffStatus = "pending" | "approved" | "rejected";
+export type TimeOffRequest = {
+  id: string;
+  memberId: string;
+  startDate: string;
+  endDate: string;
+  type: TimeOffType;
+  note: string;
+  status: TimeOffStatus;
+  createdAt: string;
+  decidedAt?: string;
+};
+
+const TIMEOFF_KEY = "atlas-user-timeoff-v1";
+const RECOMMENDED_STAFFING: Record<string, number> = {
+  "Customer Support": 6,
+  Sales: 5,
+  Operations: 15,
+  Marketing: 4,
+  Management: 3,
+  "Field ops": 3,
+  "Front office": 2,
+};
+
+export function loadTimeOff(): TimeOffRequest[] {
+  return loadJson<TimeOffRequest[]>(TIMEOFF_KEY, []).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+export function saveTimeOff(list: TimeOffRequest[]) {
+  saveJson(TIMEOFF_KEY, list);
+}
+export function createTimeOffRequest(input: {
+  memberId: string;
+  startDate: string;
+  endDate: string;
+  type: TimeOffType;
+  note?: string;
+}): TimeOffRequest {
+  const req: TimeOffRequest = {
+    id: newId("pto"),
+    memberId: input.memberId,
+    startDate: input.startDate,
+    endDate: input.endDate || input.startDate,
+    type: input.type,
+    note: (input.note || "").trim(),
+    status: "pending",
+    createdAt: nowIso(),
+  };
+  saveTimeOff([req, ...loadTimeOff()]);
+  return req;
+}
+export function decideTimeOff(id: string, status: TimeOffStatus): TimeOffRequest[] {
+  const next = loadTimeOff().map((r) => (r.id === id ? { ...r, status, decidedAt: nowIso() } : r));
+  saveTimeOff(next);
+  return next;
+}
+function rangesOverlap(a1: string, a2: string, b1: string, b2: string): boolean {
+  return a1 <= b2 && b1 <= a2;
+}
+export function recommendedStaff(department: string, deptSize: number): number {
+  return RECOMMENDED_STAFFING[department] ?? Math.max(1, Math.ceil(deptSize * 0.7));
+}
+export type StaffingImpact = { department: string; deptSize: number; available: number; recommended: number; short: boolean };
+export function staffingImpact(
+  members: TeamPerson[],
+  requests: TimeOffRequest[],
+  req: TimeOffRequest,
+): StaffingImpact {
+  const member = members.find((m) => m.id === req.memberId);
+  const department = member?.department || "General";
+  const deptMembers = members.filter((m) => (m.department || "General") === department);
+  const off = new Set<string>([req.memberId]);
+  for (const r of requests) {
+    if (r.id === req.id) continue;
+    if (r.status === "rejected") continue;
+    const m = members.find((x) => x.id === r.memberId);
+    if ((m?.department || "General") !== department) continue;
+    if (rangesOverlap(req.startDate, req.endDate, r.startDate, r.endDate)) off.add(r.memberId);
+  }
+  const available = Math.max(0, deptMembers.length - off.size);
+  const recommended = recommendedStaff(department, deptMembers.length);
+  return { department, deptSize: deptMembers.length, available, recommended, short: available < recommended };
+}
+
+/* ─── Departments / team pages ─────────────────────────────────────────── */
+
+export type DepartmentSummary = { department: string; count: number };
+export function departmentsOf(members: TeamPerson[]): DepartmentSummary[] {
+  const map = new Map<string, number>();
+  for (const m of members) {
+    const d = m.department || "General";
+    map.set(d, (map.get(d) ?? 0) + 1);
+  }
+  return [...map.entries()].map(([department, count]) => ({ department, count })).sort((a, b) => b.count - a.count);
+}
+
+/* ─── Daily schedule (calendar events + tasks combined) ────────────────── */
+
+export type ScheduleEntry = { minutes: number; time: string; label: string; kind: "clock" | "meeting" | "task" | "break"; taskId?: string };
+
+export function buildDaySchedule(member: TeamPerson, tasks: TeamTask[], now: number = Date.now()): ScheduleEntry[] {
+  const today = todayISO(new Date(now));
+  const shifts = loadShifts();
+  const todayShift = shifts.find((s) => s.memberId === member.id && s.date === today) ?? null;
+  const startMin = parseClockToMinutes(member.shiftStart);
+  const endMin = parseClockToMinutes(member.shiftEnd);
+
+  const entries: ScheduleEntry[] = [];
+  entries.push({
+    minutes: startMin,
+    time: todayShift ? formatClock(todayShift.clockIn) : member.shiftStart || "8:00 AM",
+    label: "Clock in",
+    kind: "clock",
+  });
+  for (const t of tasks) {
+    if (t.memberId !== member.id || !t.dueTime) continue;
+    const onToday = !t.dueDate || t.dueDate.slice(0, 10) === today;
+    if (!onToday || t.status === "completed") continue;
+    entries.push({
+      minutes: parseClockToMinutes(t.dueTime),
+      time: t.dueTime,
+      label: t.title,
+      kind: t.kind === "meeting" ? "meeting" : "task",
+      taskId: t.id,
+    });
+  }
+  entries.push({ minutes: 12 * 60, time: "12:00 PM", label: "Lunch", kind: "break" });
+  entries.push({
+    minutes: endMin,
+    time: todayShift?.clockOut ? formatClock(todayShift.clockOut) : member.shiftEnd || "4:30 PM",
+    label: "Clock out",
+    kind: "clock",
+  });
+  return entries.sort((a, b) => a.minutes - b.minutes);
+}
+
 type DemoTaskSeed = {
   title: string;
   status?: TaskStatus;
   priority?: TaskPriority;
   kind?: TaskKind;
   due?: "today" | "friday" | "";
+  time?: string;
   description?: string;
   goal?: string;
   requiredResult?: string;
@@ -1396,7 +1770,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
   {
     name: "Sarah Williams",
     role: "Office Manager",
-    department: "Front office",
+    department: "Management",
     email: "sarah@business.local",
     accessCode: "SARAH1",
     rating: "4.9",
@@ -1412,21 +1786,21 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     goals: ["Lift on-time completion to 98%", "Finish the CRM certification"],
     achievements: ["100-task streak", "Top CSAT in Q2"],
     tasks: [
-      { title: "Call Johnson Construction", priority: "Urgent", due: "today", description: "Confirm the start date and 40% deposit.", goal: "Confirm the schedule", requiredResult: "Log the call outcome", estimatedTime: "30m" },
-      { title: "Send revised quote", priority: "High", due: "today", description: "Apply the updated pricing and resend to the customer.", estimatedTime: "20m" },
-      { title: "Update customer records", priority: "Normal", due: "today", status: "in_progress", estimatedTime: "45m" },
+      { title: "Call Johnson Construction", priority: "Urgent", due: "today", time: "10:30 AM", description: "Confirm the start date and 40% deposit.", goal: "Confirm the schedule", requiredResult: "Log the call outcome", estimatedTime: "30m" },
+      { title: "Send revised quote", priority: "High", due: "today", time: "3:00 PM", description: "Apply the updated pricing and resend to the customer.", estimatedTime: "20m" },
+      { title: "Update customer records", priority: "Normal", due: "today", time: "11:00 AM", status: "in_progress", estimatedTime: "45m" },
       { title: "Complete inventory check", priority: "Normal", due: "today", checklist: ["Filters", "Coolant", "Hand tools", "Safety gear"], estimatedTime: "1h" },
       { title: "Prepare Friday sales report", priority: "Normal", due: "friday", description: "Summarize the week's revenue and pipeline.", approvalRequired: true },
       { title: "Approve team timesheets", priority: "Normal", due: "today", status: "completed" },
       { title: "Morning route planning", priority: "Normal", due: "today", status: "completed" },
-      { title: "Team standup", kind: "meeting", due: "today", description: "Daily 9:00 AM sync." },
-      { title: "Client call: Elena Brooks", kind: "meeting", due: "today", description: "Review the maintenance plan." },
+      { title: "Team standup", kind: "meeting", due: "today", time: "9:00 AM", description: "Daily sync." },
+      { title: "Client demo: Elena Brooks", kind: "meeting", due: "today", time: "1:00 PM", description: "Review the maintenance plan." },
     ],
   },
   {
     name: "Alex Rivera",
     role: "Lead Technician",
-    department: "Field ops",
+    department: "Operations",
     email: "alex@business.local",
     accessCode: "ALEX24",
     rating: "4.8",
@@ -1449,7 +1823,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
   {
     name: "Sam Patel",
     role: "Field Technician",
-    department: "Field ops",
+    department: "Operations",
     email: "sam@business.local",
     accessCode: "SAM24X",
     rating: "4.7",
@@ -1570,13 +1944,89 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
         requiredResult: seed.requiredResult,
         checklist: seed.checklist,
         approvalRequired: seed.approvalRequired,
+        dueTime: seed.time,
       });
       tasks.push(seed.status ? { ...base, status: seed.status } : base);
     }
   });
 
+  // Wider org roster so Team pages show real departments (lightweight members).
+  const roster: { name: string; role: string; department: string }[] = [
+    { name: "Jordan Blake", role: "Account Executive", department: "Sales" },
+    { name: "Riley Chen", role: "Sales Rep", department: "Sales" },
+    { name: "Morgan Lee", role: "Support Lead", department: "Customer Support" },
+    { name: "Priya Shah", role: "Support Specialist", department: "Customer Support" },
+    { name: "Diego Ruiz", role: "Support Specialist", department: "Customer Support" },
+    { name: "Taylor Kim", role: "Marketing Manager", department: "Marketing" },
+    { name: "Casey Nolan", role: "Ops Coordinator", department: "Operations" },
+  ];
+  const goals: EmployeeGoal[] = [];
+  roster.forEach((r) => {
+    const m = createTeamMember({ name: r.name, role: r.role });
+    m.department = r.department;
+    members.push(m);
+  });
+
+  const byName = (name: string) => members.find((m) => m.name === name);
+  const sarah = byName("Sarah Williams");
+  const jordan = byName("Jordan Blake");
+
+  // Goals (individual + a team goal).
+  if (jordan) {
+    goals.push(
+      createGoal({ memberId: jordan.id, department: "Sales", title: "August Sales Goal", kind: "amount", target: 50000, current: 42000, period: "August" }),
+    );
+  }
+  if (sarah) {
+    goals.push(
+      createGoal({ memberId: sarah.id, department: "Management", title: "Customer Calls", kind: "count", target: 200, current: 173, unit: "calls", period: "This month" }),
+    );
+  }
+  goals.push(
+    createGoal({ department: "Customer Support", title: "CSAT above 4.7", kind: "count", target: 100, current: 82, unit: "%", period: "Q3" }),
+  );
+
+  // A seeded announcement (with a few acknowledgements already).
+  const labor: Announcement = {
+    id: newId("ann"),
+    title: "Office closed Monday for Labor Day",
+    body: "The office is closed Monday, September 1 for Labor Day. Emergency on-call only.",
+    at: nowIso(),
+    acks: members.slice(3).map((m) => m.id),
+  };
+
+  // A manager message to Sarah, plus a team-channel note.
+  const seededMessages: ChatMessage[] = [];
+  if (sarah) {
+    seededMessages.push(
+      { id: newId("msg"), channelId: dmChannelId(sarah.id), authorId: "owner", authorName: "Owner", text: "@Sarah please prioritize the Johnson account.", at: nowIso() },
+      { id: newId("msg"), channelId: teamChannelId(sarah.department || "Management"), authorId: "owner", authorName: "Owner", text: "Great work closing out July — let's keep the momentum.", at: nowIso() },
+    );
+  }
+
+  // A pending time-off request that would understaff Customer Support.
+  const priya = byName("Priya Shah");
+  const timeoff: TimeOffRequest[] = priya
+    ? [
+        {
+          id: newId("pto"),
+          memberId: priya.id,
+          startDate: "2026-08-21",
+          endDate: "2026-08-23",
+          type: "Vacation",
+          note: "Family trip",
+          status: "pending",
+          createdAt: nowIso(),
+        },
+      ]
+    : [];
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
   saveShifts([...shifts, ...loadShifts()]);
+  saveGoals([...goals, ...loadGoals()]);
+  saveAnnouncements([labor, ...loadAnnouncements()]);
+  saveMessages([...loadMessages(), ...seededMessages]);
+  saveTimeOff([...timeoff, ...loadTimeOff()]);
   return members;
 }

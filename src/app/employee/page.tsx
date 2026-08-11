@@ -4,30 +4,41 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  acknowledgeAnnouncement,
   addTaskAttachment,
-  addTaskNote,
+  addTaskComment,
+  awaitingApproval,
   blockTask,
+  buildDaySchedule,
+  channelsForEmployee,
   clockIn as apiClockIn,
   clockOut as apiClockOut,
   completeTask,
+  createTimeOffRequest,
   dailySummary,
   derivedStatus,
   employeeAssistantReply,
   EMPLOYEE_STATUSES,
   endBreak as apiEndBreak,
   formatClock,
+  formatGoalValue,
   formatHours,
   getOpenShift,
   getPresence,
+  goalPct,
   greeting,
   groupTasksForBoard,
   heartbeat,
   isOnBreak,
+  loadGoals,
+  loadMessages,
   loadSignedInEmployee,
   loadTeamTasks,
+  messagesFor,
   replaceTask,
   saveEmployeeSession,
   saveTeamTasks,
+  sendMessage,
   startBreak as apiStartBreak,
   startTask,
   STATUS_META,
@@ -35,15 +46,22 @@ import {
   timesheetFor,
   toggleChecklistItem,
   touchActivity,
+  unacknowledgedFor,
   updatePresence,
+  type Announcement,
   type AssistantAction,
+  type ChannelRef,
+  type ChatMessage,
+  type EmployeeGoal,
   type EmployeePresence,
   type ManualStatus,
+  type ScheduleEntry,
   type TaskPriority,
   type TaskStatus,
   type TeamPerson,
   type TeamTask,
   type TimeShift,
+  type TimeOffType,
 } from "@/lib/user-workspace";
 
 type ChatMsg = { role: "user" | "ai"; text: string; actions?: AssistantAction[] };
@@ -72,6 +90,16 @@ export default function EmployeeDashboardPage() {
   const [completeNote, setCompleteNote] = useState("");
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [ask, setAsk] = useState("");
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [goals, setGoals] = useState<EmployeeGoal[]>([]);
+  const [channels, setChannels] = useState<ChannelRef[]>([]);
+  const [channelId, setChannelId] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [msgDraft, setMsgDraft] = useState("");
+  const [ptoStart, setPtoStart] = useState("");
+  const [ptoEnd, setPtoEnd] = useState("");
+  const [ptoType, setPtoType] = useState<TimeOffType>("Vacation");
+  const [ptoMsg, setPtoMsg] = useState<string | null>(null);
   const idRef = useRef<string | null>(null);
   const lastActivityPush = useRef(0);
 
@@ -86,6 +114,12 @@ export default function EmployeeDashboardPage() {
     setTasks(loadTeamTasks().filter((t) => t.memberId === me.id));
     setPresence(getPresence(me.id));
     setShift(getOpenShift(me.id));
+    setAnnouncements(unacknowledgedFor(me.id));
+    setGoals(loadGoals().filter((g) => g.memberId === me.id));
+    const chans = channelsForEmployee(me);
+    setChannels(chans);
+    setChannelId(chans[0]?.id ?? "");
+    setMessages(loadMessages());
     setChat([
       {
         role: "ai",
@@ -140,6 +174,11 @@ export default function EmployeeDashboardPage() {
   const board = useMemo(() => groupTasksForBoard(tasks), [tasks]);
   const selected = tasks.find((t) => t.id === selectedId) ?? null;
   const onBreak = isOnBreak(shift);
+  const schedule = useMemo<ScheduleEntry[]>(
+    () => (employee ? buildDaySchedule(employee, tasks, now) : []),
+    [employee, tasks, now],
+  );
+  const thread = useMemo(() => messagesFor(channelId, messages), [channelId, messages]);
 
   const saveMyTasks = useCallback((memberId: string, mine: TeamTask[]) => {
     setTasks(mine);
@@ -220,8 +259,35 @@ export default function EmployeeDashboardPage() {
   function addNote(e: FormEvent) {
     e.preventDefault();
     if (!selected || !noteDraft.trim()) return;
-    updateTask(addTaskNote(selected, noteDraft, "employee"));
+    const { task: updated, autoWaiting } = addTaskComment(selected, noteDraft, "employee");
+    updateTask(updated);
+    if (autoWaiting && presence?.currentTaskId === selected.id) {
+      setPresence(updatePresence(employee!.id, { manualStatus: "blocked", currentTaskId: null, touchActive: true }));
+    }
     setNoteDraft("");
+  }
+
+  function ackAnnouncement(id: string) {
+    if (!employee) return;
+    acknowledgeAnnouncement(id, employee.id);
+    setAnnouncements(unacknowledgedFor(employee.id));
+  }
+
+  function sendChannelMessage(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !msgDraft.trim() || !channelId) return;
+    sendMessage(channelId, employee.id, employee.name, msgDraft);
+    setMessages(loadMessages());
+    setMsgDraft("");
+  }
+
+  function requestTimeOff(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !ptoStart) return;
+    createTimeOffRequest({ memberId: employee.id, startDate: ptoStart, endDate: ptoEnd || ptoStart, type: ptoType });
+    setPtoMsg(`Requested ${ptoType} ${ptoStart}${ptoEnd && ptoEnd !== ptoStart ? `–${ptoEnd}` : ""}. Your manager will review it.`);
+    setPtoStart("");
+    setPtoEnd("");
   }
   function addAttachment(e: FormEvent) {
     e.preventDefault();
@@ -334,6 +400,28 @@ export default function EmployeeDashboardPage() {
 
       <main className="emp-main">
         <div className="container">
+          {announcements.length ? (
+            <section className="panel" style={{ borderLeft: "4px solid var(--sand)" }}>
+              <h2>Company announcements</h2>
+              <div className="list">
+                {announcements.map((a) => (
+                  <div className="list-row" key={a.id}>
+                    <span className="badge warn">New</span>
+                    <div style={{ flex: 1 }}>
+                      <p>
+                        <strong>{a.title}</strong>
+                        {a.body ? <span className="muted-line">{a.body}</span> : null}
+                      </p>
+                    </div>
+                    <button className="btn btn-dark" type="button" onClick={() => ackAnnouncement(a.id)}>
+                      Acknowledge
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section className="panel">
             <h2>
               {greeting()}, {employee.name.split(" ")[0]}
@@ -371,6 +459,52 @@ export default function EmployeeDashboardPage() {
               </div>
             </div>
           </section>
+
+          <div className="split">
+            <section className="panel">
+              <h2>Today&apos;s schedule</h2>
+              <p className="panel-lead">Your calendar and tasks combined.</p>
+              <div className="timeline" style={{ marginTop: "0.6rem" }}>
+                {schedule.map((e, i) => (
+                  <div className="timeline-item" key={`${e.minutes}-${i}`}>
+                    <strong>
+                      {e.time} · {e.label}
+                    </strong>
+                    <p className="muted-line">
+                      {e.kind === "clock" ? "Time clock" : e.kind === "meeting" ? "Meeting" : e.kind === "break" ? "Break" : "Task"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel">
+              <h2>My goals</h2>
+              {goals.length === 0 ? (
+                <p className="muted-line">No goals assigned yet.</p>
+              ) : (
+                <div className="list">
+                  {goals.map((g) => (
+                    <div className="list-row" key={g.id}>
+                      <span className="badge">{goalPct(g)}%</span>
+                      <div style={{ flex: 1 }}>
+                        <p>
+                          <strong>{g.title}</strong>
+                          <span className="muted-line">
+                            {formatGoalValue(g)}
+                            {g.period ? ` · ${g.period}` : ""}
+                          </span>
+                        </p>
+                        <span className="bar-track" style={{ display: "block", marginTop: "0.35rem" }}>
+                          <span className="bar-fill" style={{ width: `${goalPct(g)}%` }} />
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
 
           <div className="split">
             <section className="panel">
@@ -484,6 +618,30 @@ export default function EmployeeDashboardPage() {
                     {selected.priority} priority · {dueLabel(selected.dueDate)}
                     {selected.project ? ` · ${selected.project}` : ""}
                   </p>
+
+                  {selected.approvalRequired ? (
+                    <div
+                      className={awaitingApproval(selected) ? "confirm-card" : "memory-card"}
+                      style={{ marginTop: "0.5rem" }}
+                    >
+                      <div className="label">
+                        {awaitingApproval(selected)
+                          ? "Awaiting manager approval"
+                          : selected.approvalStatus === "approved"
+                            ? "✓ Approved by manager"
+                            : selected.approvalStatus === "changes_requested"
+                              ? "Manager requested changes"
+                              : selected.approvalStatus === "rejected"
+                                ? "Rejected by manager"
+                                : "Approval required before this is final"}
+                      </div>
+                      <p className="muted-line">
+                        {awaitingApproval(selected)
+                          ? "Your completed work was submitted and is waiting for a manager decision."
+                          : "This task needs manager sign-off when you complete it."}
+                      </p>
+                    </div>
+                  ) : null}
 
                   <div className="train-actions" style={{ marginTop: "0.4rem" }}>
                     {selected.status !== "completed" ? (
@@ -629,6 +787,67 @@ export default function EmployeeDashboardPage() {
                   <p className="muted-line">Select a task to start it, complete it, tick the checklist, and add notes or attachments.</p>
                 </>
               )}
+            </section>
+          </div>
+
+          <div className="split">
+            <section className="panel command-panel">
+              <h2>Messages</h2>
+              <div className="status-picker" role="group" aria-label="Channels">
+                {channels.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={channelId === c.id ? "status-chip active" : "status-chip"}
+                    onClick={() => setChannelId(c.id)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <div className="command-thread" style={{ marginTop: "0.6rem" }}>
+                {thread.length === 0 ? (
+                  <p className="muted-line">No messages yet.</p>
+                ) : (
+                  thread.map((m) => (
+                    <div key={m.id} className={`bubble ${m.authorId === employee.id ? "bubble-user" : "bubble-ai"}`}>
+                      <span className="agent-tag">{m.authorName}</span>
+                      {m.text}
+                    </div>
+                  ))
+                )}
+              </div>
+              <form className="command-form" onSubmit={sendChannelMessage}>
+                <input value={msgDraft} onChange={(e) => setMsgDraft(e.target.value)} placeholder="Message…" />
+                <button className="btn btn-dark" type="submit">Send</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <h2>Request time off</h2>
+              <p className="panel-lead">Atlas checks staffing before your manager approves.</p>
+              <form className="form-grid" onSubmit={requestTimeOff}>
+                <div className="field-row">
+                  <label>
+                    Start
+                    <input type="date" value={ptoStart} onChange={(e) => setPtoStart(e.target.value)} required />
+                  </label>
+                  <label>
+                    End
+                    <input type="date" value={ptoEnd} onChange={(e) => setPtoEnd(e.target.value)} />
+                  </label>
+                </div>
+                <label>
+                  Type
+                  <select value={ptoType} onChange={(e) => setPtoType(e.target.value as TimeOffType)}>
+                    <option value="Vacation">Vacation</option>
+                    <option value="Sick">Sick</option>
+                    <option value="Personal">Personal</option>
+                  </select>
+                </label>
+                <button className="btn btn-dark" type="submit">Request time off</button>
+              </form>
+              {ptoMsg ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{ptoMsg}</p> : null}
             </section>
           </div>
 
