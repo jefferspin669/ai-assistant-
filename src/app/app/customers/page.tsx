@@ -10,7 +10,7 @@ import {
   type CrmCustomer,
 } from "@/lib/surface-workspace";
 
-export function CrmStudio() {
+function CrmStudio() {
   const [customers, setCustomers] = useState<CrmCustomer[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);

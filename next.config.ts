@@ -11,6 +11,23 @@ const pagesBasePath = "/ai-assistant-";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Server-only modules (e.g. the file-backed DB in src/lib/db/file-persist.ts)
+  // are reached through isomorphic helpers that some client components import.
+  // Those helpers guard every Node call behind `typeof window === "undefined"`,
+  // so the browser never executes them — we just need webpack to stop trying to
+  // bundle Node built-ins into the client bundle (otherwise: "Can't resolve 'fs'").
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve = config.resolve ?? {};
+      config.resolve.fallback = {
+        ...(config.resolve.fallback ?? {}),
+        fs: false,
+        path: false,
+        os: false,
+      };
+    }
+    return config;
+  },
   ...(isGitHubPages
     ? {
         output: "export" as const,

@@ -11,7 +11,7 @@ import {
 
 const CHANNELS = ["Phone", "Text", "Email", "Quote", "Job", "Payment", "Review", "Photo", "Note"];
 
-export function TimelineStudio() {
+function TimelineStudio() {
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [customer, setCustomer] = useState("Elena Brooks");
   const [channel, setChannel] = useState("Note");
