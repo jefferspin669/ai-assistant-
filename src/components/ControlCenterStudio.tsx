@@ -2,28 +2,39 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  applyTemplate,
   approverForAmount,
   createApprovalRequest,
   createCustomRole,
+  createDelegation,
   createEmergencyAccess,
+  delegationStatus,
   deptProfileFor,
   evaluateAction,
   formatLimit,
   formatTierRange,
   loadCustomRoles,
+  loadDelegations,
+  loadSensitiveMethods,
   loadTiers,
   locationsForMember,
   normalizeTiers,
+  PERMISSION_TEMPLATES,
+  removeCustomRole,
+  removeDelegation,
   seedApprovalsIfEmpty,
+  SENSITIVE_ACTIONS,
+  setCategoryPerm,
+  setSensitiveMethod,
   PERM_CATEGORIES,
   PERM_LEVELS,
   permissionsFor,
-  removeCustomRole,
-  setCategoryPerm,
   type ActionDecision,
   type ApprovalTier,
   type CustomRole,
+  type Delegation,
   type PermLevel,
+  type SensitiveMethod,
 } from "@/lib/surface-workspace";
 import {
   activeGrantsFor,
@@ -65,6 +76,14 @@ export function ControlCenterStudio() {
   const [grantExpiry, setGrantExpiry] = useState(grantExpiryDefault());
   const [breakResource, setBreakResource] = useState("Restricted customer records");
   const [breakReason, setBreakReason] = useState("");
+  const [templateId, setTemplateId] = useState("manager");
+  const [delegations, setDelegations] = useState<Delegation[]>([]);
+  const [delegPowers, setDelegPowers] = useState("Act as CEO");
+  const [delegStart, setDelegStart] = useState("2026-08-14");
+  const [delegEnd, setDelegEnd] = useState("2026-08-18");
+  const [sensitive, setSensitive] = useState<Record<string, SensitiveMethod>>({});
+  const [stepUp, setStepUp] = useState<{ id: string; label: string; method: SensitiveMethod } | null>(null);
+  const [stepInput, setStepInput] = useState("");
 
   useEffect(() => {
     seedDemoTeamIfEmpty();
@@ -74,6 +93,8 @@ export function ControlCenterStudio() {
     setMemberId((prev) => prev || list[0]?.id || "");
     setTiers(loadTiers());
     setRoles(loadCustomRoles());
+    setDelegations(loadDelegations());
+    setSensitive(loadSensitiveMethods());
     setReady(true);
   }, []);
 
@@ -174,6 +195,47 @@ export function ControlCenterStudio() {
     setFlash("🚨 Emergency access granted and recorded. Leadership has been notified.");
   }
 
+  function applyTpl() {
+    if (!member) return;
+    const tpl = PERMISSION_TEMPLATES.find((t) => t.id === templateId);
+    applyTemplate(member, templateId);
+    logAudit("CEO", "applied permission template", `${tpl?.label} → ${member.name}`);
+    setTick((n) => n + 1);
+    setFlash(`Applied the "${tpl?.label}" template to ${member.name.split(" ")[0]}. Customize any category below.`);
+  }
+
+  function addDelegation(e: FormEvent) {
+    e.preventDefault();
+    if (!member || !delegStart || !delegEnd) return;
+    createDelegation({ toMemberId: member.id, toName: member.name, powers: delegPowers, startDate: delegStart, endDate: delegEnd });
+    logAudit("CEO", "delegated authority", `${member.name}: ${delegPowers} (${delegStart}–${delegEnd})`);
+    setDelegations(loadDelegations());
+    setFlash(`${member.name.split(" ")[0]} will ${delegPowers.toLowerCase()} from ${delegStart} to ${delegEnd} — access auto-expires afterward.`);
+  }
+
+  function delDelegation(id: string) {
+    removeDelegation(id);
+    setDelegations(loadDelegations());
+  }
+
+  function changeSensitive(id: string, method: SensitiveMethod) {
+    setSensitiveMethod(id, method);
+    setSensitive((s) => ({ ...s, [id]: method }));
+  }
+
+  function confirmStepUp() {
+    if (!stepUp) return;
+    const ok = stepUp.method === "twofactor" ? /^\d{6}$/.test(stepInput.trim()) : stepInput.trim().length >= 4;
+    if (!ok) {
+      setFlash(stepUp.method === "twofactor" ? "Enter the 6-digit code." : "Enter your password to continue.");
+      return;
+    }
+    logAudit("CEO", "verified sensitive action", `${stepUp.label} (${stepUp.method === "twofactor" ? "2FA" : "password"})`);
+    setFlash(`✅ Verified — "${stepUp.label}" is authorized and recorded in the audit log.`);
+    setStepUp(null);
+    setStepInput("");
+  }
+
   const simMeta = SIM_ACTIONS.find((a) => a.id === simAction)!;
 
   return (
@@ -207,6 +269,16 @@ export function ControlCenterStudio() {
               {members.map((m) => <option key={m.id} value={m.id}>{m.name} · {m.role}</option>)}
             </select>
           </label>
+        </div>
+        <div className="field-row" style={{ marginBottom: "0.6rem", alignItems: "flex-end" }}>
+          <label style={{ maxWidth: "18rem" }}>
+            Start from a template
+            <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+              {PERMISSION_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </label>
+          <button className="btn btn-outline" type="button" onClick={applyTpl}>Apply to {member ? member.name.split(" ")[0] : "employee"}</button>
+          <p className="muted-line" style={{ margin: 0 }}>A preset you can then customize per category.</p>
         </div>
         {!ready ? <p className="muted-line">Loading…</p> : null}
         {member ? (
@@ -457,6 +529,78 @@ export function ControlCenterStudio() {
           </div>
         ) : null}
       </section>
+
+      <section className="panel">
+        <h2>Delegated authority</h2>
+        <p className="panel-lead">Temporarily give an executive extra power — Atlas removes it automatically after the dates.</p>
+        <form onSubmit={addDelegation}>
+          <div className="field-row">
+            <label style={{ flex: 1 }}>Powers<input value={delegPowers} onChange={(e) => setDelegPowers(e.target.value)} placeholder="Act as CEO" /></label>
+            <label>From<input type="date" value={delegStart} onChange={(e) => setDelegStart(e.target.value)} /></label>
+            <label>To<input type="date" value={delegEnd} onChange={(e) => setDelegEnd(e.target.value)} /></label>
+          </div>
+          <button className="btn btn-dark" type="submit">Delegate to {member ? member.name.split(" ")[0] : "employee"}</button>
+        </form>
+        {delegations.length ? (
+          <div className="list" style={{ marginTop: "0.6rem" }}>
+            {delegations.map((d) => {
+              const st = delegationStatus(d);
+              return (
+                <div className="list-row" key={d.id}>
+                  <span className={st === "active" ? "badge ok" : st === "scheduled" ? "badge" : "badge warn"}>{st}</span>
+                  <div style={{ flex: 1 }}><p><strong>{d.toName} — {d.powers}</strong><span className="muted-line">{d.startDate} to {d.endDate}</span></p></div>
+                  <button className="btn btn-outline" type="button" onClick={() => delDelegation(d.id)}>Remove</button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="panel">
+        <h2>Sensitive actions</h2>
+        <p className="panel-lead">Require step-up verification before high-risk actions.</p>
+        <div className="table-wrap">
+          <table className="table">
+            <thead><tr><th>Action</th><th>Requires</th><th></th></tr></thead>
+            <tbody>
+              {SENSITIVE_ACTIONS.map((a) => {
+                const method = sensitive[a.id] || "twofactor";
+                return (
+                  <tr key={a.id}>
+                    <td><strong>{a.label}</strong></td>
+                    <td>
+                      <select value={method} onChange={(e) => changeSensitive(a.id, e.target.value as SensitiveMethod)}>
+                        <option value="password">Password re-entry</option>
+                        <option value="twofactor">Two-factor (2FA)</option>
+                      </select>
+                    </td>
+                    <td><button className="btn btn-outline" type="button" onClick={() => { setStepUp({ id: a.id, label: a.label, method }); setStepInput(""); }}>Verify &amp; run</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {stepUp ? (
+        <div className="modal-overlay" onClick={() => setStepUp(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>🔒 Verify to continue</h2>
+            <p className="panel-lead">{stepUp.label} requires {stepUp.method === "twofactor" ? "a two-factor code" : "your password"}.</p>
+            <label>
+              {stepUp.method === "twofactor" ? "6-digit code" : "Password"}
+              <input type={stepUp.method === "twofactor" ? "text" : "password"} value={stepInput} onChange={(e) => setStepInput(e.target.value)} placeholder={stepUp.method === "twofactor" ? "123456" : "••••••••"} />
+            </label>
+            <div className="train-actions" style={{ marginTop: "0.6rem" }}>
+              <button className="btn btn-dark" type="button" onClick={confirmStepUp}>Verify</button>
+              <button className="btn btn-outline" type="button" onClick={() => setStepUp(null)}>Cancel</button>
+            </div>
+            <p className="muted-line" style={{ marginTop: "0.4rem" }}>Demo: enter any 6 digits for 2FA, or any 4+ character password.</p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

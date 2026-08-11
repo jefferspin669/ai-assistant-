@@ -636,6 +636,7 @@ export type ApprovalRequest = {
   priority: ApprovalPriority;
   status: ApprovalReqStatus;
   question?: string;
+  overrideReason?: string;
   at: string;
 };
 const APPROVALS_KEY = "atlas-approval-requests-v1";
@@ -681,6 +682,122 @@ export function seedApprovalsIfEmpty() {
     { id: newId("apr"), kind: "Refund", title: "Refund — $940", amount: 940, requestedBy: "Sarah", customer: "Johnson Construction", reason: "Service failure", priority: "urgent", status: "pending", at: nowIso() },
     { id: newId("apr"), kind: "Purchase", title: "Purchase — $12,400", amount: 12400, requestedBy: "Mike", reason: "Equipment replacement", priority: "normal", status: "pending", at: new Date(Date.now() - 5 * 60000).toISOString() },
   ]);
+}
+
+/** CEO override — flip a decided request and record the reason. */
+export function overrideApprovalRequest(id: string, status: "approved" | "rejected", reason: string): ApprovalRequest[] {
+  const next = loadApprovalRequests().map((r) => (r.id === id ? { ...r, status, overrideReason: reason.trim() } : r));
+  saveApprovalRequests(next);
+  return next;
+}
+
+/* ─── Atlas AI approval recommendations ────────────────────────────────── */
+
+export type Recommendation = { verdict: "Approve" | "Reject" | "Caution"; reasons: string[]; confidence: "High" | "Medium" | "Low" };
+const CUSTOMER_LIFETIME: Record<string, { spend: number; years: number }> = {
+  "Johnson Construction": { spend: 184000, years: 4 },
+};
+/** A recommendation with reasoning — Atlas advises, the manager still decides. */
+export function recommendApproval(req: ApprovalRequest): Recommendation {
+  const amount = req.amount ?? 0;
+  if (/refund/i.test(req.kind)) {
+    const lt = (req.customer && CUSTOMER_LIFETIME[req.customer]) || { spend: 50000, years: 2 };
+    const pct = lt.spend > 0 ? (amount / lt.spend) * 100 : 100;
+    const reasons = [
+      `Customer has spent $${lt.spend.toLocaleString()} over ${lt.years} years.`,
+      `This is their first refund request.`,
+      `Requested refund represents ${pct.toFixed(1)}% of lifetime revenue.`,
+    ];
+    if (pct < 1) return { verdict: "Approve", reasons, confidence: "High" };
+    if (pct < 5) return { verdict: "Approve", reasons, confidence: "Medium" };
+    return { verdict: "Caution", reasons: [...reasons, "This is a large share of lifetime value — review before approving."], confidence: "Low" };
+  }
+  if (/purchase/i.test(req.kind)) {
+    if (amount < 15000) return { verdict: "Approve", reasons: [`${req.reason || "Purchase"} within normal budget.`, "Amount is under the $15,000 routine threshold."], confidence: "High" };
+    if (amount < 100000) return { verdict: "Caution", reasons: ["Above the routine threshold — confirm budget and vendor.", "Consider a competitive quote."], confidence: "Medium" };
+    return { verdict: "Caution", reasons: ["Major purchase — route through the full approval chain.", "Verify budget owner and terms."], confidence: "Low" };
+  }
+  return { verdict: "Caution", reasons: ["Review the details before deciding."], confidence: "Medium" };
+}
+
+/* ─── Delegated authority ──────────────────────────────────────────────── */
+
+export type Delegation = { id: string; toMemberId: string; toName: string; powers: string; startDate: string; endDate: string; createdAt: string };
+const DELEGATION_KEY = "atlas-delegations-v1";
+export function loadDelegations(): Delegation[] {
+  return loadJson<Delegation[]>(DELEGATION_KEY, []).sort((a, b) => (a.startDate < b.startDate ? 1 : -1));
+}
+export function createDelegation(input: { toMemberId: string; toName: string; powers: string; startDate: string; endDate: string }): Delegation {
+  const d: Delegation = { id: newId("deleg"), toMemberId: input.toMemberId, toName: input.toName, powers: input.powers.trim() || "Act with CEO authority", startDate: input.startDate, endDate: input.endDate, createdAt: nowIso() };
+  saveJson(DELEGATION_KEY, [d, ...loadDelegations()]);
+  return d;
+}
+export function removeDelegation(id: string) {
+  saveJson(DELEGATION_KEY, loadDelegations().filter((d) => d.id !== id));
+}
+export function delegationStatus(d: Delegation, today = todayISOLocal()): "active" | "scheduled" | "expired" {
+  if (today < d.startDate) return "scheduled";
+  if (today > d.endDate) return "expired";
+  return "active";
+}
+function todayISOLocal(now = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/* ─── Permission templates (presets) ───────────────────────────────────── */
+
+export type PermTemplate = { id: string; label: string; categories: Record<string, CategoryPerm> };
+function tplBase(overrides: Record<string, CategoryPerm>): Record<string, CategoryPerm> {
+  const base: Record<string, CategoryPerm> = {};
+  for (const c of PERM_CATEGORIES) base[c.id] = { level: "none" };
+  return { ...base, ...overrides };
+}
+const ALL_FULL = (): Record<string, CategoryPerm> => {
+  const o: Record<string, CategoryPerm> = {};
+  for (const c of PERM_CATEGORIES) o[c.id] = { level: "full" };
+  return o;
+};
+export const PERMISSION_TEMPLATES: PermTemplate[] = [
+  { id: "intern", label: "Intern", categories: tplBase({ view_customers: { level: "view" }, view_pricing: { level: "view" } }) },
+  { id: "contractor", label: "Contractor", categories: tplBase({ view_customers: { level: "view" }, add_customers: { level: "edit" }, view_pricing: { level: "view" } }) },
+  { id: "employee", label: "Employee", categories: tplBase({ view_customers: { level: "view" }, add_customers: { level: "edit" }, edit_customers: { level: "edit" }, view_pricing: { level: "view" }, issue_discounts: { level: "approval" }, refund_customers: { level: "approval" } }) },
+  { id: "teamlead", label: "Team Lead", categories: tplBase({ view_customers: { level: "full" }, add_customers: { level: "edit" }, edit_customers: { level: "edit" }, view_pricing: { level: "view" }, issue_discounts: { level: "auto", limit: 5 }, refund_customers: { level: "auto", limit: 250 }, view_performance: { level: "view" }, assign_tasks: { level: "edit" } }) },
+  { id: "manager", label: "Manager", categories: tplBase({ view_customers: { level: "full" }, add_customers: { level: "full" }, edit_customers: { level: "full" }, export_customers: { level: "edit" }, view_pricing: { level: "view" }, change_pricing: { level: "approval" }, issue_discounts: { level: "auto", limit: 10 }, refund_customers: { level: "auto", limit: 500 }, create_invoices: { level: "full" }, view_performance: { level: "view" }, assign_tasks: { level: "full" } }) },
+  { id: "director", label: "Director", categories: tplBase({ view_customers: { level: "full" }, add_customers: { level: "full" }, edit_customers: { level: "full" }, delete_customers: { level: "approval" }, export_customers: { level: "edit" }, view_pricing: { level: "edit" }, change_pricing: { level: "auto", limit: 15 }, issue_discounts: { level: "auto", limit: 20 }, refund_customers: { level: "auto", limit: 2500 }, create_invoices: { level: "full" }, approve_invoices: { level: "auto", limit: 25000 }, view_performance: { level: "full" }, assign_tasks: { level: "full" } }) },
+  { id: "vp", label: "Vice President", categories: tplBase({ view_customers: { level: "full" }, add_customers: { level: "full" }, edit_customers: { level: "full" }, delete_customers: { level: "full" }, export_customers: { level: "full" }, view_pricing: { level: "full" }, change_pricing: { level: "full" }, issue_discounts: { level: "auto", limit: 30 }, refund_customers: { level: "auto", limit: 10000 }, create_invoices: { level: "full" }, approve_invoices: { level: "auto", limit: 100000 }, view_payroll: { level: "view" }, view_performance: { level: "full" }, assign_tasks: { level: "full" } }) },
+  { id: "csuite", label: "C-Suite", categories: ALL_FULL() },
+  { id: "ceo", label: "CEO", categories: ALL_FULL() },
+];
+export function applyTemplate(member: PermMemberCC, templateId: string): EmployeePermissions | null {
+  const tpl = PERMISSION_TEMPLATES.find((t) => t.id === templateId);
+  if (!tpl) return null;
+  const list = loadAllPermissions();
+  const updated: EmployeePermissions = { memberId: member.id, categories: { ...tpl.categories } };
+  const idx = list.findIndex((p) => p.memberId === member.id);
+  saveAllPermissions(idx >= 0 ? list.map((p) => (p.memberId === member.id ? updated : p)) : [...list, updated]);
+  return updated;
+}
+
+/* ─── Sensitive actions (step-up authentication) ───────────────────────── */
+
+export type SensitiveMethod = "password" | "twofactor";
+export type SensitiveAction = { id: string; label: string };
+export const SENSITIVE_ACTIONS: SensitiveAction[] = [
+  { id: "delete_employee", label: "Delete an employee" },
+  { id: "change_payroll", label: "Change payroll" },
+  { id: "export_customers", label: "Export customer lists" },
+  { id: "change_bank", label: "Change bank accounts" },
+  { id: "approve_transfer", label: "Approve major transfers" },
+  { id: "change_ownership", label: "Change company ownership settings" },
+];
+const SENSITIVE_KEY = "atlas-sensitive-methods-v1";
+export function loadSensitiveMethods(): Record<string, SensitiveMethod> {
+  const defaults: Record<string, SensitiveMethod> = { delete_employee: "twofactor", change_payroll: "twofactor", export_customers: "password", change_bank: "twofactor", approve_transfer: "twofactor", change_ownership: "twofactor" };
+  return { ...defaults, ...loadJson<Record<string, SensitiveMethod>>(SENSITIVE_KEY, {}) };
+}
+export function setSensitiveMethod(id: string, method: SensitiveMethod) {
+  saveJson(SENSITIVE_KEY, { ...loadJson<Record<string, SensitiveMethod>>(SENSITIVE_KEY, {}), [id]: method });
 }
 
 /* ─── Security center ──────────────────────────────────────────────────── */
