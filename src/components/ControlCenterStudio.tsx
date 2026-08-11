@@ -14,6 +14,7 @@ import {
   loadTiers,
   locationsForMember,
   normalizeTiers,
+  seedApprovalsIfEmpty,
   PERM_CATEGORIES,
   PERM_LEVELS,
   permissionsFor,
@@ -54,6 +55,7 @@ export function ControlCenterStudio() {
   const [simAction, setSimAction] = useState("refund_customers");
   const [simAmount, setSimAmount] = useState("175");
   const [simResult, setSimResult] = useState<{ decision?: ActionDecision; tier?: ApprovalTier | null; amount: number } | null>(null);
+  const [simSent, setSimSent] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [tiers, setTiers] = useState<ApprovalTier[]>([]);
@@ -66,6 +68,7 @@ export function ControlCenterStudio() {
 
   useEffect(() => {
     seedDemoTeamIfEmpty();
+    seedApprovalsIfEmpty();
     const list = loadTeamMembers();
     setMembers(list);
     setMemberId((prev) => prev || list[0]?.id || "");
@@ -110,6 +113,7 @@ export function ControlCenterStudio() {
 
   function runSim() {
     if (!member) return;
+    setSimSent(false);
     const amount = Number(simAmount) || 0;
     if (simAction === "purchase") {
       setSimResult({ tier: approverForAmount(amount, tiers), amount });
@@ -121,6 +125,7 @@ export function ControlCenterStudio() {
   function requestApproval(kind: string, title: string, amount: number, reason: string) {
     if (!member) return;
     createApprovalRequest({ kind, title, amount, requestedBy: member.name.split(" ")[0], reason, priority: amount >= 500 ? "urgent" : "normal" });
+    setSimSent(true);
     setFlash("Sent to the manager's Approval Inbox for review.");
   }
 
@@ -303,6 +308,7 @@ export function ControlCenterStudio() {
                     <div className="train-actions" style={{ marginTop: "0.4rem" }}>
                       <button className="btn btn-dark" type="button" onClick={() => requestApproval("Purchase", `Purchase — $${simResult.amount.toLocaleString()}`, simResult.amount, "Purchase request")}>Send for {simResult.tier.approver}</button>
                     </div>
+                    {simSent ? <p className="muted-line" style={{ marginTop: "0.3rem" }}>✅ Sent to the Approval Inbox.</p> : null}
                   </>
                 ) : null}
               </div>
@@ -326,6 +332,7 @@ export function ControlCenterStudio() {
                     </button>
                   </div>
                 ) : null}
+                {simSent && simResult.decision.outcome === "needs_approval" ? <p className="muted-line" style={{ marginTop: "0.3rem" }}>✅ Sent to the manager&apos;s Approval Inbox.</p> : null}
               </div>
             ) : null
           ) : null}
