@@ -417,6 +417,11 @@ export type TeamTask = {
   result: string;
   blockedAt: string;
   dueTime: string;
+  assignedBy: string;
+  progress: number; // explicit 0-100; 0 means "derive from checklist/status"
+  timeSpentMs: number;
+  dependencies: string[];
+  people: string[];
   createdAt: string;
 };
 
@@ -534,6 +539,11 @@ function normalizeTask(raw: RawTask): TeamTask {
     result: raw.result || "",
     blockedAt: raw.blockedAt || "",
     dueTime: raw.dueTime || "",
+    assignedBy: raw.assignedBy || "Manager",
+    progress: typeof raw.progress === "number" ? raw.progress : 0,
+    timeSpentMs: typeof raw.timeSpentMs === "number" ? raw.timeSpentMs : 0,
+    dependencies: Array.isArray(raw.dependencies) ? (raw.dependencies as string[]) : [],
+    people: Array.isArray(raw.people) ? (raw.people as string[]) : [],
     createdAt: raw.createdAt || nowIso(),
   };
 }
@@ -565,6 +575,10 @@ export function createTeamTask(input: {
   recurrence?: TaskRecurrence;
   approvalRequired?: boolean;
   dueTime?: string;
+  assignedBy?: string;
+  progress?: number;
+  dependencies?: string[];
+  people?: string[];
 }): TeamTask {
   const now = nowIso();
   const notes: TaskNote[] = input.notes?.trim()
@@ -603,14 +617,52 @@ export function createTeamTask(input: {
     result: "",
     blockedAt: "",
     dueTime: (input.dueTime || "").trim(),
+    assignedBy: (input.assignedBy || "Manager").trim(),
+    progress: input.progress ?? 0,
+    timeSpentMs: 0,
+    dependencies: input.dependencies ?? [],
+    people: input.people ?? [],
     createdAt: now,
   };
 }
 
 /* ─── Task timing + blocking + approval workflow ───────────────────────── */
 
+/** 0-100 progress: explicit value if set, else checklist ratio, else status. */
+export function taskProgress(task: TeamTask): number {
+  if (task.status === "completed") return 100;
+  if (task.progress > 0) return Math.min(100, task.progress);
+  if (task.checklist.length) {
+    return Math.round((task.checklist.filter((c) => c.done).length / task.checklist.length) * 100);
+  }
+  if (task.status === "in_progress") return 50;
+  if (task.status === "waiting") return 30;
+  if (task.status === "blocked") return 20;
+  return 0;
+}
+
+/** Total time spent, including the live segment if the task is running. */
+export function elapsedMs(task: TeamTask, now: number = Date.now()): number {
+  const live = task.status === "in_progress" && task.startedAt ? now - new Date(task.startedAt).getTime() : 0;
+  return task.timeSpentMs + Math.max(0, live);
+}
+
+export function formatDuration(ms: number): string {
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
 export function startTask(task: TeamTask): TeamTask {
   return { ...task, status: "in_progress", startedAt: task.startedAt || nowIso(), blockedAt: "" };
+}
+
+/** Pause: bank the running segment into timeSpentMs and stop the timer. */
+export function pauseTask(task: TeamTask): TeamTask {
+  const banked = task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0;
+  return { ...task, timeSpentMs: task.timeSpentMs + Math.max(0, banked), startedAt: "" };
 }
 
 /**
@@ -619,10 +671,13 @@ export function startTask(task: TeamTask): TeamTask {
  */
 export function completeTask(task: TeamTask, input: { result?: string; note?: string }): TeamTask {
   const now = nowIso();
+  const banked = task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0;
   let updated: TeamTask = {
     ...task,
     status: "completed",
     completedAt: now,
+    startedAt: "",
+    timeSpentMs: task.timeSpentMs + Math.max(0, banked),
     result: (input.result || "").trim() || task.result,
   };
   if (task.approvalRequired) {
@@ -693,7 +748,14 @@ export function addTaskComment(
 }
 
 export function blockTask(task: TeamTask, reason?: string): TeamTask {
-  const blocked: TeamTask = { ...task, status: "blocked", blockedAt: nowIso() };
+  const banked = task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0;
+  const blocked: TeamTask = {
+    ...task,
+    status: "blocked",
+    blockedAt: nowIso(),
+    startedAt: "",
+    timeSpentMs: task.timeSpentMs + Math.max(0, banked),
+  };
   return reason?.trim() ? addTaskNote(blocked, `Blocked: ${reason.trim()}`, "employee") : blocked;
 }
 
@@ -717,6 +779,36 @@ export type TaskBoard = {
   upcoming: TeamTask[];
   completed: TeamTask[];
 };
+
+export type PriorityBoard = {
+  doNow: TeamTask[];
+  today: TeamTask[];
+  comingUp: TeamTask[];
+  whenever: TeamTask[];
+  completed: TeamTask[];
+};
+
+/** Auto-organize into Do Now / Today / Coming Up / Whenever. */
+export function smartPriorities(tasks: TeamTask[], today = todayISO()): PriorityBoard {
+  const b: PriorityBoard = { doNow: [], today: [], comingUp: [], whenever: [], completed: [] };
+  for (const t of tasks) {
+    if (t.status === "completed") {
+      b.completed.push(t);
+      continue;
+    }
+    const due = t.dueDate ? t.dueDate.slice(0, 10) : "";
+    if (t.priority === "Urgent" || t.status === "blocked" || (due && due < today)) {
+      b.doNow.push(t);
+    } else if (t.priority === "High" || due === today) {
+      b.today.push(t);
+    } else if (due && due > today) {
+      b.comingUp.push(t);
+    } else {
+      b.whenever.push(t);
+    }
+  }
+  return b;
+}
 
 export function groupTasksForBoard(tasks: TeamTask[], today = todayISO()): TaskBoard {
   const board: TaskBoard = { urgent: [], today: [], upcoming: [], completed: [] };
@@ -2131,6 +2223,11 @@ type DemoTaskSeed = {
   estimatedTime?: string;
   checklist?: string[];
   approvalRequired?: boolean;
+  assignedBy?: string;
+  progress?: number;
+  project?: string;
+  dependencies?: string[];
+  people?: string[];
 };
 
 type DemoEmployee = {
@@ -2174,6 +2271,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     goals: ["Lift on-time completion to 98%", "Finish the CRM certification"],
     achievements: ["100-task streak", "Top CSAT in Q2"],
     tasks: [
+      { title: "Johnson Proposal", priority: "High", due: "today", time: "2:00 PM", status: "in_progress", progress: 72, assignedBy: "Michael", project: "Johnson Expansion", estimatedTime: "3h", description: "Full expansion proposal for the Johnson account — scope, pricing, and timeline.", checklist: ["Scope & pricing", "Project timeline", "Executive summary"], dependencies: ["Finance Q2 numbers"], people: ["Michael", "Elena Brooks"], requiredResult: "Send to the client by 2 PM" },
       { title: "Call Johnson Construction", priority: "Urgent", due: "today", time: "10:30 AM", description: "Confirm the start date and 40% deposit.", goal: "Confirm the schedule", requiredResult: "Log the call outcome", estimatedTime: "30m" },
       { title: "Send revised quote", priority: "High", due: "today", time: "3:00 PM", description: "Apply the updated pricing and resend to the customer.", estimatedTime: "20m" },
       { title: "Update customer records", priority: "Normal", due: "today", time: "11:00 AM", status: "in_progress", estimatedTime: "45m" },
@@ -2333,6 +2431,11 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
         checklist: seed.checklist,
         approvalRequired: seed.approvalRequired,
         dueTime: seed.time,
+        assignedBy: seed.assignedBy,
+        progress: seed.progress,
+        project: seed.project,
+        dependencies: seed.dependencies,
+        people: seed.people,
       });
       tasks.push(seed.status ? { ...base, status: seed.status } : base);
     }

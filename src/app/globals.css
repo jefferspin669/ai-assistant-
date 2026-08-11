@@ -4318,6 +4318,154 @@ html[data-a11y-motion="reduce"] *::after {
   background: rgba(244, 248, 247, 0.12);
 }
 
+.emp-avatar {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--sand), #f0d48a);
+  flex: none;
+}
+
+.emp-iconbtn {
+  border: 1px solid rgba(244, 248, 247, 0.35);
+  background: transparent;
+  color: var(--foam);
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+}
+
+.emp-iconbtn:hover {
+  background: rgba(244, 248, 247, 0.12);
+}
+
+.emp-iconbtn .dot-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #d1495b;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  padding: 0.05rem 0.35rem;
+  font-weight: 700;
+}
+
+/* Hero: greeting + big Ask Atlas */
+.emp-hero h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.hero-ask {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.hero-ask input {
+  flex: 1;
+  padding: 0.9rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--foam);
+  font-size: 1rem;
+}
+
+.hero-answer {
+  margin-top: 0.9rem;
+}
+
+/* Current Work Mode banner */
+.work-banner {
+  background: linear-gradient(135deg, rgba(47, 143, 138, 0.14), rgba(217, 164, 65, 0.12));
+  border: 1px solid rgba(47, 143, 138, 0.35);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.work-banner .wb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.work-banner .wb-title {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+/* Smart priority task cards */
+.priority-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.1rem 0 0.6rem;
+  font-weight: 700;
+}
+
+.task-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.task-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: #fbfcfc;
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+
+.task-card.active {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(47, 143, 138, 0.18);
+}
+
+.task-card .tc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-card h4 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.task-card .tc-meta {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.task-card .tc-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .task-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .emp-main {
   padding: 1.5rem 0 3rem;
 }

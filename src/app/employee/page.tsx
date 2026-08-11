@@ -25,18 +25,22 @@ import {
   eligibleForShift,
   giveUpShift,
   derivedStatus,
+  elapsedMs,
   employeeAssistantReply,
   EMPLOYEE_STATUSES,
   endBreak as apiEndBreak,
   formatClock,
+  formatDuration,
   formatGoalValue,
   formatHours,
   getOpenShift,
   getPresence,
   goalPct,
   greeting,
-  groupTasksForBoard,
   heartbeat,
+  pauseTask,
+  smartPriorities,
+  taskProgress,
   isOnBreak,
   loadGoals,
   loadMessages,
@@ -132,6 +136,9 @@ export default function EmployeeDashboardPage() {
   const [suggestDraft, setSuggestDraft] = useState("");
   const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
   const [allMembers, setAllMembers] = useState<TeamPerson[]>([]);
+  const [heroAsk, setHeroAsk] = useState("");
+  const [heroAnswer, setHeroAnswer] = useState<ChatMsg | null>(null);
+  const [topNote, setTopNote] = useState<string | null>(null);
   const idRef = useRef<string | null>(null);
   const lastActivityPush = useRef(0);
 
@@ -209,9 +216,16 @@ export default function EmployeeDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [employee, now, shift],
   );
-  const board = useMemo(() => groupTasksForBoard(tasks), [tasks]);
+  const priorities = useMemo(() => smartPriorities(tasks), [tasks]);
   const selected = tasks.find((t) => t.id === selectedId) ?? null;
   const onBreak = isOnBreak(shift);
+  const runningTask = useMemo(
+    () => tasks.find((t) => t.status === "in_progress" && t.startedAt) ?? null,
+    [tasks],
+  );
+  const clockedInMs = shift
+    ? (shift.clockOut ? new Date(shift.clockOut).getTime() : now) - new Date(shift.clockIn).getTime()
+    : 0;
   const schedule = useMemo<ScheduleEntry[]>(
     () => (employee ? buildDaySchedule(employee, tasks, now) : []),
     [employee, tasks, now],
@@ -374,6 +388,41 @@ export default function EmployeeDashboardPage() {
     setSuggestMsg(`Thanks — Atlas grouped your idea under "${s.topic}" and shared it with leadership.`);
     setSuggestDraft("");
   }
+
+  function askHero(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !heroAsk.trim()) return;
+    const r = employeeAssistantReply(employee, tasks, heroAsk);
+    setHeroAnswer({ role: "ai", text: r.text, actions: r.actions });
+    setHeroAsk("");
+  }
+
+  function pauseCurrent(task: TeamTask) {
+    if (!employee) return;
+    saveMyTasks(employee.id, replaceTask(tasks, pauseTask(task)));
+    if (presence?.currentTaskId === task.id) {
+      setPresence(updatePresence(employee.id, { manualStatus: "break", currentTaskId: null, touchActive: true }));
+    }
+  }
+
+  function askAboutTask(task: TeamTask) {
+    const pct = taskProgress(task);
+    const spent = formatDuration(elapsedMs(task, Date.now()));
+    const dep = task.dependencies.length ? ` It depends on ${task.dependencies.join(", ")}.` : "";
+    const due = task.dueDate ? `due ${task.dueDate.slice(0, 10)}${task.dueTime ? ` at ${task.dueTime}` : ""}` : "no due date";
+    setChat((prev) => [
+      ...prev,
+      {
+        role: "ai",
+        text: `"${task.title}" is ${task.priority.toLowerCase()} priority, ${due}, ${pct}% done with ${spent} logged.${dep} ${pct >= 100 ? "It's complete." : "I'd finish this next given its priority and deadline."}`,
+      },
+    ]);
+    document.getElementById("emp-assistant")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function scrollTo(anchorId: string) {
+    document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth" });
+  }
   function addAttachment(e: FormEvent) {
     e.preventDefault();
     if (!selected || !attachDraft.trim()) return;
@@ -430,30 +479,76 @@ export default function EmployeeDashboardPage() {
 
   const meta = STATUS_META[status];
 
-  function taskRow(task: TeamTask) {
+  function taskCard(task: TeamTask) {
+    const pct = taskProgress(task);
     return (
-      <button
-        key={task.id}
-        type="button"
-        className={selectedId === task.id ? "compliance-row active" : "compliance-row"}
-        onClick={() => {
-          setSelectedId(task.id);
-          setCompleting(false);
-        }}
-      >
-        <span className={priorityBadge(task.priority)}>{task.priority}</span>
-        <p>
-          <strong>
+      <div className={selectedId === task.id ? "task-card active" : "task-card"} key={task.id}>
+        <div className="tc-top">
+          <h4>
             {task.kind === "meeting" ? "📅 " : ""}
             {task.title}
-          </strong>
-          <span className="muted-line">
-            {dueLabel(task.dueDate)}
-            {task.estimatedTime ? ` · ${task.estimatedTime}` : ""} ·{" "}
-            {TASK_STATUSES.find((s) => s.id === task.status)?.label}
-          </span>
-        </p>
-      </button>
+          </h4>
+          <span className={priorityBadge(task.priority)}>{task.priority}</span>
+        </div>
+        <div className="tc-meta">
+          {dueLabel(task.dueDate)}
+          {task.dueTime ? ` at ${task.dueTime}` : ""}
+          {task.assignedBy ? ` · by ${task.assignedBy}` : ""}
+          {task.project ? ` · ${task.project}` : ""}
+        </div>
+        <span className="bar-track">
+          <span className="bar-fill" style={{ width: `${pct}%` }} />
+        </span>
+        <div className="tc-meta">{pct}% · {TASK_STATUSES.find((s) => s.id === task.status)?.label}</div>
+        <div className="tc-actions">
+          {task.status !== "completed" ? (
+            task.status === "in_progress" ? (
+              <button
+                className="btn btn-dark"
+                type="button"
+                onClick={() => {
+                  setSelectedId(task.id);
+                  setCompleting(true);
+                }}
+              >
+                Continue Task
+              </button>
+            ) : (
+              <button className="btn btn-dark" type="button" onClick={() => beginTask(task)}>
+                Start Task
+              </button>
+            )
+          ) : (
+            <span className="badge ok">Completed</span>
+          )}
+          <button
+            className="btn btn-outline"
+            type="button"
+            onClick={() => {
+              setSelectedId(task.id);
+              setCompleting(false);
+              document.getElementById("emp-task-detail")?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            View Details
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function priorityGroup(emoji: string, label: string, list: TeamTask[], emptyText: string) {
+    return (
+      <>
+        <div className="priority-head">
+          {emoji} {label} <span className="muted-line">({list.length})</span>
+        </div>
+        {list.length ? (
+          <div className="task-cards">{list.map(taskCard)}</div>
+        ) : (
+          <p className="muted-line">{emptyText}</p>
+        )}
+      </>
     );
   }
 
@@ -462,7 +557,9 @@ export default function EmployeeDashboardPage() {
       <header className="emp-top">
         <div className="container">
           <div className="emp-id">
-            <span className={`presence-dot ${status}`} aria-hidden />
+            <span className="emp-avatar" aria-hidden>
+              {employee.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+            </span>
             <span>
               <strong>{employee.name}</strong>
               <span>
@@ -475,7 +572,34 @@ export default function EmployeeDashboardPage() {
             <span className={`presence-badge ${status}`}>
               <span className={`presence-dot ${status}`} aria-hidden />
               {meta.emoji} {meta.label}
+              {timesheet.clockedIn ? ` · ${formatDuration(clockedInMs)}` : ""}
             </span>
+            {!timesheet.clockedIn ? (
+              <button className="emp-iconbtn" type="button" onClick={doClockIn}>
+                Clock in
+              </button>
+            ) : (
+              <button className="emp-iconbtn" type="button" onClick={doClockOut}>
+                Clock out
+              </button>
+            )}
+            <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-announcements")} aria-label="Notifications">
+              🔔
+              {announcements.length ? <span className="dot-count">{announcements.length}</span> : null}
+            </button>
+            <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-messages")}>
+              Messages
+            </button>
+            <button className="emp-iconbtn" type="button" onClick={() => scrollTo("emp-assistant")}>
+              Atlas AI
+            </button>
+            <button
+              className="emp-iconbtn"
+              type="button"
+              onClick={() => setTopNote("Your profile and settings are managed by your admin.")}
+            >
+              Settings
+            </button>
             <button className="btn btn-outline" type="button" onClick={logout}>
               Sign out
             </button>
@@ -486,7 +610,7 @@ export default function EmployeeDashboardPage() {
       <main className="emp-main">
         <div className="container">
           {announcements.length ? (
-            <section className="panel" style={{ borderLeft: "4px solid var(--sand)" }}>
+            <section className="panel" id="emp-announcements" style={{ borderLeft: "4px solid var(--sand)" }}>
               <h2>Company announcements</h2>
               <div className="list">
                 {announcements.map((a) => (
@@ -507,12 +631,46 @@ export default function EmployeeDashboardPage() {
             </section>
           ) : null}
 
-          <section className="panel">
+          <section className="panel emp-hero">
             <h2>
               {greeting()}, {employee.name.split(" ")[0]}
             </h2>
-            <p className="panel-lead">Today&apos;s work at a glance.</p>
-            <div className="stat-grid metrics-dense">
+            <p className="panel-lead">
+              {meta.emoji} {meta.label}
+              {timesheet.clockedIn ? ` · Clocked in ${formatDuration(clockedInMs)}` : " · Not clocked in"}
+            </p>
+            <form className="hero-ask" onSubmit={askHero}>
+              <input
+                value={heroAsk}
+                onChange={(e) => setHeroAsk(e.target.value)}
+                placeholder="Ask Atlas — e.g. What should I work on next?"
+                aria-label="Ask Atlas"
+              />
+              <button className="btn btn-dark" type="submit">
+                Ask Atlas
+              </button>
+            </form>
+            {heroAnswer ? (
+              <div className="hero-answer memory-card">
+                <div className="label">Atlas</div>
+                <p>{heroAnswer.text}</p>
+                {heroAnswer.actions && heroAnswer.actions.length ? (
+                  <div className="train-actions" style={{ marginTop: "0.5rem" }}>
+                    {heroAnswer.actions.map((a) => (
+                      <button key={a.label} type="button" className="btn btn-outline" onClick={() => runAction(a)}>
+                        {a.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {topNote ? (
+              <p className="muted-line" style={{ marginTop: "0.6rem" }}>
+                {topNote}
+              </p>
+            ) : null}
+            <div className="stat-grid metrics-dense" style={{ marginTop: "1.1rem" }}>
               <div className="stat">
                 <span>Tasks due today</span>
                 <strong>{summary.dueToday}</strong>
@@ -545,21 +703,71 @@ export default function EmployeeDashboardPage() {
             </div>
           </section>
 
+          {runningTask ? (
+            <div className="work-banner">
+              <div className="wb-head">
+                <div>
+                  <div className="label">Currently working on</div>
+                  <div className="wb-title">{runningTask.title}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div className="muted-line">Started {formatClock(runningTask.startedAt)}</div>
+                  <strong>{formatDuration(elapsedMs(runningTask, now))}</strong>
+                </div>
+              </div>
+              <div className="bars">
+                <div className="bar-row">
+                  <span>Progress</span>
+                  <span className="bar-track">
+                    <span className="bar-fill" style={{ width: `${taskProgress(runningTask)}%` }} />
+                  </span>
+                  <strong>{taskProgress(runningTask)}%</strong>
+                </div>
+              </div>
+              <div className="train-actions">
+                <button className="btn btn-outline" type="button" onClick={() => pauseCurrent(runningTask)}>
+                  Pause
+                </button>
+                <button
+                  className="btn btn-dark"
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(runningTask.id);
+                    setCompleting(true);
+                  }}
+                >
+                  Complete
+                </button>
+                <button className="btn btn-outline" type="button" onClick={() => doBlock(runningTask)}>
+                  I&apos;m Blocked
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="split">
             <section className="panel">
-              <h2>Today&apos;s schedule</h2>
-              <p className="panel-lead">Your calendar and tasks combined.</p>
+              <h2>My Day</h2>
+              <p className="panel-lead">Your calendar, tasks, and meetings in one timeline.</p>
               <div className="timeline" style={{ marginTop: "0.6rem" }}>
-                {schedule.map((e, i) => (
-                  <div className="timeline-item" key={`${e.minutes}-${i}`}>
-                    <strong>
-                      {e.time} · {e.label}
-                    </strong>
-                    <p className="muted-line">
-                      {e.kind === "clock" ? "Time clock" : e.kind === "meeting" ? "Meeting" : e.kind === "break" ? "Break" : "Task"}
-                    </p>
-                  </div>
-                ))}
+                {schedule.map((e, i) => {
+                  const task = e.taskId ? tasks.find((t) => t.id === e.taskId) : null;
+                  let icon = "";
+                  if (task) icon = task.status === "completed" ? " ✅" : task.status === "in_progress" ? " 🟡" : "";
+                  else if (e.label === "Clock in") icon = timesheet.clockedIn || shift ? " ✅" : "";
+                  else if (e.label === "Clock out") icon = shift?.clockOut ? " ✅" : "";
+                  return (
+                    <div className="timeline-item" key={`${e.minutes}-${i}`}>
+                      <strong>
+                        {e.time} — {e.label}
+                        {icon}
+                      </strong>
+                      <p className="muted-line">
+                        {e.kind === "clock" ? "Time clock" : e.kind === "meeting" ? "Meeting" : e.kind === "break" ? "Break" : "Task"}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -666,43 +874,45 @@ export default function EmployeeDashboardPage() {
             </section>
           </div>
 
-          <div className="split">
-            <section className="panel">
-              <h2>My task board</h2>
-              {tasks.length === 0 ? (
-                <p className="muted-line">No tasks yet. Assigned work will appear here.</p>
-              ) : (
-                <>
-                  <h3 style={{ marginTop: "0.5rem" }}>Urgent</h3>
-                  <div className="list">
-                    {board.urgent.length ? board.urgent.map(taskRow) : <p className="muted-line">Nothing urgent.</p>}
-                  </div>
-                  <h3 style={{ marginTop: "1rem" }}>Today</h3>
-                  <div className="list">
-                    {board.today.length ? board.today.map(taskRow) : <p className="muted-line">Nothing due today.</p>}
-                  </div>
-                  <h3 style={{ marginTop: "1rem" }}>Upcoming</h3>
-                  <div className="list">
-                    {board.upcoming.length ? board.upcoming.map(taskRow) : <p className="muted-line">Nothing upcoming.</p>}
-                  </div>
-                  {board.completed.length ? (
-                    <>
-                      <h3 style={{ marginTop: "1rem" }}>Completed</h3>
-                      <div className="list">{board.completed.map(taskRow)}</div>
-                    </>
-                  ) : null}
-                </>
-              )}
-            </section>
+          <section className="panel">
+            <h2>Priorities</h2>
+            <p className="panel-lead">Atlas organizes your work so you know what matters — no guessing.</p>
+            {tasks.length === 0 ? (
+              <p className="muted-line">No tasks yet. Assigned work will appear here.</p>
+            ) : (
+              <>
+                {priorityGroup("🔴", "Do Now", priorities.doNow, "Nothing urgent.")}
+                {priorityGroup("🟠", "Today", priorities.today, "Nothing due today.")}
+                {priorityGroup("🟡", "Coming Up", priorities.comingUp, "Nothing coming up.")}
+                {priorityGroup("🟢", "Whenever Available", priorities.whenever, "Nothing here.")}
+                {priorities.completed.length ? priorityGroup("✅", "Completed", priorities.completed, "") : null}
+              </>
+            )}
+          </section>
 
+          <div id="emp-task-detail">
             <section className="panel">
               {selected ? (
                 <>
                   <h2>{selected.title}</h2>
                   <p className="panel-lead">
                     {selected.priority} priority · {dueLabel(selected.dueDate)}
+                    {selected.dueTime ? ` at ${selected.dueTime}` : ""}
                     {selected.project ? ` · ${selected.project}` : ""}
                   </p>
+                  <p className="muted-line">
+                    Assigned by {selected.assignedBy} · {taskProgress(selected)}% done ·{" "}
+                    {formatDuration(elapsedMs(selected, now))} logged
+                    {selected.estimatedTime ? ` of ${selected.estimatedTime} est.` : ""}
+                  </p>
+                  <span className="bar-track" style={{ display: "block", margin: "0.5rem 0" }}>
+                    <span className="bar-fill" style={{ width: `${taskProgress(selected)}%` }} />
+                  </span>
+                  <div className="train-actions" style={{ marginBottom: "0.3rem" }}>
+                    <button className="btn btn-outline" type="button" onClick={() => askAboutTask(selected)}>
+                      Ask Atlas About This Task
+                    </button>
+                  </div>
 
                   {selected.approvalRequired ? (
                     <div
@@ -796,7 +1006,7 @@ export default function EmployeeDashboardPage() {
                     </div>
                   ) : null}
 
-                  {(selected.goal || selected.requiredResult || selected.estimatedTime || selected.result) ? (
+                  {(selected.goal || selected.requiredResult || selected.estimatedTime || selected.result || selected.dependencies.length || selected.people.length) ? (
                     <div className="list" style={{ marginTop: "0.8rem" }}>
                       {selected.goal ? (
                         <div className="list-row"><span className="badge">Goal</span><p>{selected.goal}</p></div>
@@ -812,6 +1022,12 @@ export default function EmployeeDashboardPage() {
                       ) : null}
                       {selected.approvalRequired ? (
                         <div className="list-row"><span className="badge warn">Approval</span><p>Approval required · {selected.approvalStatus}</p></div>
+                      ) : null}
+                      {selected.dependencies.length ? (
+                        <div className="list-row"><span className="badge">Depends on</span><p>{selected.dependencies.join(", ")}</p></div>
+                      ) : null}
+                      {selected.people.length ? (
+                        <div className="list-row"><span className="badge">People</span><p>{selected.people.join(", ")}</p></div>
                       ) : null}
                     </div>
                   ) : null}
@@ -876,7 +1092,7 @@ export default function EmployeeDashboardPage() {
           </div>
 
           <div className="split">
-            <section className="panel command-panel">
+            <section className="panel command-panel" id="emp-messages">
               <h2>Messages</h2>
               <div className="status-picker" role="group" aria-label="Channels">
                 {channels.map((c) => (
@@ -1139,7 +1355,7 @@ export default function EmployeeDashboardPage() {
           </div>
 
           {/* Employee AI assistant */}
-          <section className="panel command-panel">
+          <section className="panel command-panel" id="emp-assistant">
             <h2>Ask Atlas</h2>
             <p className="panel-lead">Your own assistant — it knows your tasks and can flag blockers to your manager.</p>
             <div className="command-thread">
