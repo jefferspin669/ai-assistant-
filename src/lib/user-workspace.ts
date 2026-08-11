@@ -372,6 +372,9 @@ export type TeamPerson = {
   // Leave balances, in days.
   ptoDays?: number;
   sickDays?: number;
+  // Skills used for shift qualification, and physical work location.
+  qualifications?: string[];
+  location?: string;
   createdAt: string;
 };
 
@@ -1730,6 +1733,391 @@ export function buildDaySchedule(member: TeamPerson, tasks: TeamTask[], now: num
   return entries.sort((a, b) => a.minutes - b.minutes);
 }
 
+/* ─── Shift scheduling + swaps ─────────────────────────────────────────── */
+
+export type ScheduledShift = {
+  id: string;
+  memberId: string; // "" when open
+  date: string;
+  start: string;
+  end: string;
+  role: string;
+  location: string;
+  status: "assigned" | "open";
+  createdAt: string;
+};
+export type SwapRequest = {
+  id: string;
+  shiftId: string;
+  fromMemberId: string;
+  toMemberId: string;
+  status: "requested" | "accepted" | "declined";
+  createdAt: string;
+};
+
+const SCHED_KEY = "atlas-user-scheduled-shifts-v1";
+const SWAPS_KEY = "atlas-user-swaps-v1";
+
+export function loadScheduledShifts(): ScheduledShift[] {
+  return loadJson<ScheduledShift[]>(SCHED_KEY, []).sort((a, b) =>
+    a.date === b.date ? (a.start < b.start ? -1 : 1) : a.date < b.date ? -1 : 1,
+  );
+}
+export function saveScheduledShifts(shifts: ScheduledShift[]) {
+  saveJson(SCHED_KEY, shifts);
+}
+export function createScheduledShift(input: {
+  memberId?: string;
+  date: string;
+  start: string;
+  end: string;
+  role?: string;
+  location?: string;
+}): ScheduledShift {
+  return {
+    id: newId("sched"),
+    memberId: input.memberId || "",
+    date: input.date,
+    start: input.start,
+    end: input.end,
+    role: (input.role || "").trim(),
+    location: (input.location || "").trim(),
+    status: input.memberId ? "assigned" : "open",
+    createdAt: nowIso(),
+  };
+}
+export function giveUpShift(shifts: ScheduledShift[], shiftId: string): ScheduledShift[] {
+  return shifts.map((s) => (s.id === shiftId ? { ...s, memberId: "", status: "open" as const } : s));
+}
+export function acceptOpenShift(shifts: ScheduledShift[], shiftId: string, memberId: string): ScheduledShift[] {
+  return shifts.map((s) => (s.id === shiftId ? { ...s, memberId, status: "assigned" as const } : s));
+}
+export function qualifiedFor(shift: ScheduledShift, member: TeamPerson): boolean {
+  if (!shift.role) return true;
+  const quals = member.qualifications ?? [];
+  return quals.some((q) => q.toLowerCase() === shift.role.toLowerCase());
+}
+export function availableOn(memberId: string, date: string, shifts: ScheduledShift[], excludeShiftId?: string): boolean {
+  return !shifts.some(
+    (s) => s.memberId === memberId && s.date === date && s.status === "assigned" && s.id !== excludeShiftId,
+  );
+}
+export function eligibleForShift(shift: ScheduledShift, member: TeamPerson, shifts: ScheduledShift[]): boolean {
+  return qualifiedFor(shift, member) && availableOn(member.id, shift.date, shifts, shift.id);
+}
+export function loadSwaps(): SwapRequest[] {
+  return loadJson<SwapRequest[]>(SWAPS_KEY, []);
+}
+export function saveSwaps(list: SwapRequest[]) {
+  saveJson(SWAPS_KEY, list);
+}
+export function requestSwap(shiftId: string, fromMemberId: string, toMemberId: string): SwapRequest {
+  const req: SwapRequest = {
+    id: newId("swap"),
+    shiftId,
+    fromMemberId,
+    toMemberId,
+    status: "requested",
+    createdAt: nowIso(),
+  };
+  saveSwaps([req, ...loadSwaps()]);
+  return req;
+}
+/** Accept a swap: reassign the shift to the accepting member. */
+export function acceptSwap(swapId: string): { swaps: SwapRequest[]; shifts: ScheduledShift[] } {
+  const swaps = loadSwaps();
+  const swap = swaps.find((s) => s.id === swapId);
+  let shifts = loadScheduledShifts();
+  if (swap) {
+    shifts = shifts.map((s) => (s.id === swap.shiftId ? { ...s, memberId: swap.toMemberId, status: "assigned" as const } : s));
+    saveScheduledShifts(shifts);
+  }
+  const nextSwaps = swaps.map((s) => (s.id === swapId ? { ...s, status: "accepted" as const } : s));
+  saveSwaps(nextSwaps);
+  return { swaps: nextSwaps, shifts };
+}
+
+/* ─── Training center ──────────────────────────────────────────────────── */
+
+export type TrainingModule = { id: string; memberId: string; name: string; progress: number; dueDate: string };
+export type TrainingState = "complete" | "overdue" | "in_progress" | "not_started";
+
+const TRAINING_KEY = "atlas-user-training-v1";
+export function loadTraining(): TrainingModule[] {
+  return loadJson<TrainingModule[]>(TRAINING_KEY, []);
+}
+export function saveTraining(list: TrainingModule[]) {
+  saveJson(TRAINING_KEY, list);
+}
+export function trainingState(m: TrainingModule, now: number = Date.now()): TrainingState {
+  if (m.progress >= 100) return "complete";
+  if (m.dueDate && new Date(m.dueDate).getTime() < now) return "overdue";
+  if (m.progress > 0) return "in_progress";
+  return "not_started";
+}
+export function trainingForMember(memberId: string): TrainingModule[] {
+  return loadTraining().filter((m) => m.memberId === memberId);
+}
+export function bumpTraining(list: TrainingModule[], id: string, delta = 20): TrainingModule[] {
+  return list.map((m) => (m.id === id ? { ...m, progress: Math.min(100, m.progress + delta) } : m));
+}
+export function needsTraining(memberId: string, now: number = Date.now()): boolean {
+  return trainingForMember(memberId).some((m) => trainingState(m, now) !== "complete");
+}
+
+/* ─── Certifications ───────────────────────────────────────────────────── */
+
+export type Certification = { id: string; memberId: string; name: string; expires: string };
+export type CertState = "expired" | "expiring" | "valid";
+const CERTS_KEY = "atlas-user-certs-v1";
+const CERT_EXPIRING_DAYS = 30;
+
+export function loadCertifications(): Certification[] {
+  return loadJson<Certification[]>(CERTS_KEY, []);
+}
+export function saveCertifications(list: Certification[]) {
+  saveJson(CERTS_KEY, list);
+}
+export function certState(c: Certification, now: number = Date.now()): CertState {
+  const t = new Date(c.expires).getTime();
+  if (!Number.isFinite(t)) return "valid";
+  if (t < now) return "expired";
+  if (t - now < CERT_EXPIRING_DAYS * 24 * 60 * 60 * 1000) return "expiring";
+  return "valid";
+}
+export function certsForMember(memberId: string): Certification[] {
+  return loadCertifications().filter((c) => c.memberId === memberId);
+}
+
+/* ─── Employee documents (permission-scoped) ───────────────────────────── */
+
+export type DocCategory =
+  | "Handbook"
+  | "Pay"
+  | "Employment"
+  | "Training certificate"
+  | "Policy"
+  | "Contract"
+  | "Performance review";
+export type EmployeeDocument = {
+  id: string;
+  memberId: string;
+  title: string;
+  category: DocCategory;
+  visibility: "employee" | "manager";
+  addedAt: string;
+};
+const DOCS_KEY = "atlas-user-documents-v1";
+export function loadDocuments(): EmployeeDocument[] {
+  return loadJson<EmployeeDocument[]>(DOCS_KEY, []);
+}
+export function saveDocuments(list: EmployeeDocument[]) {
+  saveJson(DOCS_KEY, list);
+}
+/** Docs the employee themselves can see (manager-only docs are hidden). */
+export function documentsForEmployee(memberId: string): EmployeeDocument[] {
+  return loadDocuments().filter((d) => d.memberId === memberId && d.visibility === "employee");
+}
+
+/* ─── Recognition ──────────────────────────────────────────────────────── */
+
+export type Recognition = { id: string; memberId: string; emoji: string; title: string; detail: string; at: string };
+const RECOG_KEY = "atlas-user-recognition-v1";
+export function loadRecognitions(): Recognition[] {
+  return loadJson<Recognition[]>(RECOG_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveRecognitions(list: Recognition[]) {
+  saveJson(RECOG_KEY, list);
+}
+export function giveRecognition(input: { memberId: string; emoji?: string; title: string; detail?: string }): Recognition {
+  const r: Recognition = {
+    id: newId("recog"),
+    memberId: input.memberId,
+    emoji: input.emoji?.trim() || "🏆",
+    title: input.title.trim() || "Recognition",
+    detail: (input.detail || "").trim(),
+    at: nowIso(),
+  };
+  saveRecognitions([r, ...loadRecognitions()]);
+  return r;
+}
+export function recognitionsFor(memberId: string): Recognition[] {
+  return loadRecognitions().filter((r) => r.memberId === memberId);
+}
+
+/* ─── Employee suggestions (grouped intelligence) ──────────────────────── */
+
+export type Suggestion = { id: string; memberId: string; text: string; topic: string; at: string };
+const SUGGESTIONS_KEY = "atlas-user-suggestions-v1";
+const SUGGESTION_TOPICS: { match: RegExp; topic: string }[] = [
+  { match: /refund/i, topic: "Refund workflow" },
+  { match: /schedul|shift|roster/i, topic: "Scheduling" },
+  { match: /invent|stock|suppli/i, topic: "Inventory & supplies" },
+  { match: /train/i, topic: "Training" },
+  { match: /communicat|message|email/i, topic: "Communication" },
+  { match: /tool|equipment|software|app/i, topic: "Tools & equipment" },
+];
+export function topicOf(text: string): string {
+  for (const t of SUGGESTION_TOPICS) if (t.match.test(text)) return t.topic;
+  return "General";
+}
+export function loadSuggestions(): Suggestion[] {
+  return loadJson<Suggestion[]>(SUGGESTIONS_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveSuggestions(list: Suggestion[]) {
+  saveJson(SUGGESTIONS_KEY, list);
+}
+export function createSuggestion(memberId: string, text: string): Suggestion {
+  const s: Suggestion = { id: newId("sugg"), memberId, text: text.trim(), topic: topicOf(text), at: nowIso() };
+  saveSuggestions([s, ...loadSuggestions()]);
+  return s;
+}
+export type SuggestionGroup = { topic: string; count: number; items: Suggestion[] };
+export function groupSuggestions(suggestions = loadSuggestions()): SuggestionGroup[] {
+  const map = new Map<string, Suggestion[]>();
+  for (const s of suggestions) {
+    const arr = map.get(s.topic) ?? [];
+    arr.push(s);
+    map.set(s.topic, arr);
+  }
+  return [...map.entries()]
+    .map(([topic, items]) => ({ topic, count: items.length, items }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/* ─── Workforce map (by location) ──────────────────────────────────────── */
+
+export type LocationSummary = { location: string; working: number; onBreak: number; offline: number; total: number };
+export function workforceByLocation(
+  members: TeamPerson[],
+  presence: Record<string, EmployeePresence>,
+  now: number = Date.now(),
+): LocationSummary[] {
+  const map = new Map<string, LocationSummary>();
+  for (const m of members) {
+    const loc = m.location || "Unassigned";
+    const s = map.get(loc) ?? { location: loc, working: 0, onBreak: 0, offline: 0, total: 0 };
+    const status = derivedStatus(presence[m.id], now);
+    s.total += 1;
+    if (status === "offline") s.offline += 1;
+    else if (status === "break") s.onBreak += 1;
+    else s.working += 1;
+    map.set(loc, s);
+  }
+  return [...map.values()].sort((a, b) => b.total - a.total);
+}
+
+/* ─── Workforce assistant (CEO Q&A over the real system) ───────────────── */
+
+export type WorkforceAnswer = { text: string; items: string[] };
+
+export function workforceAssistantReply(input: string, now: number = Date.now()): WorkforceAnswer {
+  const q = input.toLowerCase();
+  const members = loadTeamMembers();
+  const tasks = loadTeamTasks();
+  const today = todayISO(new Date(now));
+  const presence: Record<string, EmployeePresence> = {};
+  for (const m of members) presence[m.id] = getPresence(m.id);
+  const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? "Someone";
+  const openCount = (id: string) => tasks.filter((t) => t.memberId === id && isOpenTask(t.status)).length;
+
+  if (/working right now|who.*working|who is online|clocked in/.test(q)) {
+    const working = members.filter((m) => derivedStatus(presence[m.id], now) !== "offline");
+    return {
+      text: `${working.length} employee${working.length === 1 ? " is" : "s are"} online right now.`,
+      items: working.map((m) => `${m.name} · ${STATUS_META[derivedStatus(presence[m.id], now)].label}`),
+    };
+  }
+  if (/too much work|overloaded|most tasks|workload/.test(q)) {
+    const ranked = members
+      .map((m) => ({ m, n: openCount(m.id) }))
+      .sort((a, b) => b.n - a.n)
+      .filter((x) => x.n > 0)
+      .slice(0, 5);
+    const avg = members.length ? members.reduce((s, m) => s + openCount(m.id), 0) / members.length : 0;
+    return {
+      text: `Team average is ${avg.toFixed(1)} open tasks. Most loaded:`,
+      items: ranked.map((x) => `${x.m.name}: ${x.n} open`),
+    };
+  }
+  if (/late|overdue/.test(q)) {
+    const late = tasks.filter((t) => isOpenTask(t.status) && t.dueDate && t.dueDate.slice(0, 10) < today);
+    return {
+      text: late.length ? `${late.length} task${late.length === 1 ? " is" : "s are"} overdue.` : "No overdue tasks — nice.",
+      items: late.map((t) => `${t.title} — ${nameOf(t.memberId)}`),
+    };
+  }
+  if (/another customer|take.*customer|who can take|available now|capacity/.test(q)) {
+    const avail = members
+      .filter((m) => derivedStatus(presence[m.id], now) === "working")
+      .map((m) => ({ m, n: openCount(m.id) }))
+      .sort((a, b) => a.n - b.n)
+      .slice(0, 5);
+    return {
+      text: avail.length ? "These people are working and have the lightest load:" : "No one is clocked in and working right now.",
+      items: avail.map((x) => `${x.m.name}: ${x.n} open task${x.n === 1 ? "" : "s"}`),
+    };
+  }
+  if (/sales.*goal|hitting its goal|preventing.*sales|sales team/.test(q)) {
+    const goals = loadGoals().filter((g) => g.department === "Sales");
+    const salesIds = new Set(members.filter((m) => (m.department || "") === "Sales").map((m) => m.id));
+    const blockers = tasks.filter((t) => salesIds.has(t.memberId) && (t.status === "blocked" || (t.dueDate && t.dueDate.slice(0, 10) < today && isOpenTask(t.status))));
+    const items = [
+      ...goals.map((g) => `Goal "${g.title}": ${formatGoalValue(g)} (${goalPct(g)}%)`),
+      ...blockers.map((t) => `Blocker: ${t.title} — ${nameOf(t.memberId)}`),
+    ];
+    return {
+      text: blockers.length
+        ? "Sales is tracking toward its goal but these blockers/overdue items are in the way:"
+        : "Sales goal progress:",
+      items: items.length ? items : ["No Sales goals or blockers found."],
+    };
+  }
+  if (/need training|training/.test(q)) {
+    const need = members.filter((m) => needsTraining(m.id, now));
+    return {
+      text: `${need.length} employee${need.length === 1 ? "" : "s"} ${need.length === 1 ? "has" : "have"} incomplete training.`,
+      items: need.map((m) => {
+        const open = trainingForMember(m.id).filter((t) => trainingState(t, now) !== "complete").map((t) => t.name);
+        return `${m.name}: ${open.join(", ") || "modules due"}`;
+      }),
+    };
+  }
+  if (/available (this |on )?(saturday|sunday|weekend|monday|tuesday|wednesday|thursday|friday)/.test(q)) {
+    const dayMatch = q.match(/saturday|sunday|monday|tuesday|wednesday|thursday|friday/);
+    const dayName = dayMatch ? dayMatch[0] : "saturday";
+    const target = nextDateForWeekday(dayName, now);
+    const shifts = loadScheduledShifts();
+    const off = loadTimeOff();
+    const free = members.filter((m) => {
+      const scheduled = shifts.some((s) => s.memberId === m.id && s.date === target && s.status === "assigned");
+      const onLeave = off.some((r) => r.status !== "rejected" && r.memberId === m.id && r.startDate <= target && target <= r.endDate);
+      return !scheduled && !onLeave;
+    });
+    return {
+      text: `${free.length} employee${free.length === 1 ? " is" : "s are"} available on ${dayName[0].toUpperCase()}${dayName.slice(1)} (${target}) — no shift and no time off.`,
+      items: free.slice(0, 12).map((m) => `${m.name} · ${m.department || m.role}`),
+    };
+  }
+
+  return {
+    text:
+      "Ask me about your workforce — for example: \u201cWho's working right now?\u201d, \u201cWho has too much work?\u201d, \u201cWhich tasks are late?\u201d, \u201cWho can take another customer?\u201d, \u201cWhich employees need training?\u201d, or \u201cWho is available Saturday?\u201d",
+    items: [],
+  };
+}
+
+function nextDateForWeekday(dayName: string, now: number): string {
+  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const target = days.indexOf(dayName);
+  const d = new Date(now);
+  const cur = d.getDay();
+  let add = (target - cur + 7) % 7;
+  if (add === 0) add = 7; // next occurrence, not today
+  d.setDate(d.getDate() + add);
+  return todayISO(d);
+}
+
 type DemoTaskSeed = {
   title: string;
   status?: TaskStatus;
@@ -2021,6 +2409,87 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
       ]
     : [];
 
+  // Location + shift qualifications by department (with a couple in Miami).
+  const locByDept: Record<string, string> = {
+    Management: "Headquarters",
+    Sales: "Headquarters",
+    Marketing: "Headquarters",
+    Operations: "Chicago",
+    "Customer Support": "Dallas",
+  };
+  const qualsByDept: Record<string, string[]> = {
+    Operations: ["HVAC"],
+    "Customer Support": ["Customer Service"],
+    Sales: ["Sales"],
+    Marketing: ["Marketing"],
+    Management: ["Management"],
+  };
+  members.forEach((m) => {
+    const d = m.department || "General";
+    if (!m.location) m.location = locByDept[d] || "Headquarters";
+    if (!m.qualifications) m.qualifications = qualsByDept[d] || [d];
+  });
+  const riley = byName("Riley Chen");
+  const diego = byName("Diego Ruiz");
+  const morgan = byName("Morgan Lee");
+  const priya2 = byName("Priya Shah");
+  const alex = byName("Alex Rivera");
+  const sam = byName("Sam Patel");
+  if (riley) riley.location = "Miami";
+  if (diego) diego.location = "Miami";
+
+  const saturday = nextDateForWeekday("saturday", Date.now());
+  const scheduled: ScheduledShift[] = [];
+  if (alex) scheduled.push(createScheduledShift({ memberId: alex.id, date: today, start: "8:00 AM", end: "4:30 PM", role: "HVAC", location: alex.location }));
+  if (sam) scheduled.push(createScheduledShift({ memberId: sam.id, date: today, start: "9:00 AM", end: "5:30 PM", role: "HVAC", location: sam.location }));
+  if (morgan) scheduled.push(createScheduledShift({ memberId: morgan.id, date: saturday, start: "10:00 AM", end: "6:00 PM", role: "Customer Service", location: morgan.location }));
+  scheduled.push(createScheduledShift({ date: saturday, start: "9:00 AM", end: "5:00 PM", role: "HVAC", location: "Chicago" })); // open shift
+
+  const training: TrainingModule[] = [];
+  const stdModules = (mid: string): TrainingModule[] =>
+    [
+      { name: "Workplace Safety", progress: 100, dueDate: "" },
+      { name: "Customer Service", progress: 100, dueDate: "" },
+      { name: "Atlas Basics", progress: 100, dueDate: "" },
+      { name: "Advanced Sales", progress: 70, dueDate: "" },
+      { name: "Cybersecurity", progress: 40, dueDate: "2026-08-30" },
+    ].map((x) => ({ id: newId("trn"), memberId: mid, ...x }));
+  [sarah, alex, sam].forEach((m) => {
+    if (m) training.push(...stdModules(m.id));
+  });
+
+  const certs: Certification[] = [];
+  if (alex) certs.push({ id: newId("cert"), memberId: alex.id, name: "HVAC Certification", expires: "2026-08-20" });
+  if (sam) certs.push({ id: newId("cert"), memberId: sam.id, name: "CDL (Commercial License)", expires: "2027-01-15" });
+  if (sarah) certs.push({ id: newId("cert"), memberId: sarah.id, name: "Food Safety Manager", expires: "2026-09-05" });
+
+  const docCategories: { title: string; category: DocCategory; visibility: "employee" | "manager" }[] = [
+    { title: "Employee Handbook", category: "Handbook", visibility: "employee" },
+    { title: "Pay stub — July", category: "Pay", visibility: "employee" },
+    { title: "Offer letter", category: "Employment", visibility: "employee" },
+    { title: "Cybersecurity Policy", category: "Policy", visibility: "employee" },
+    { title: "Q2 Performance Review", category: "Performance review", visibility: "manager" },
+  ];
+  const docs: EmployeeDocument[] = [];
+  [sarah, alex, sam].forEach((m) => {
+    if (m) docCategories.forEach((d) => docs.push({ id: newId("doc"), memberId: m.id, addedAt: nowIso(), ...d }));
+  });
+
+  const recognitions: Recognition[] = [];
+  if (sarah) {
+    recognitions.push({ id: newId("recog"), memberId: sarah.id, emoji: "🏆", title: "Customer Hero", detail: "Received five 5-star customer reviews this month.", at: nowIso() });
+    recognitions.push({ id: newId("recog"), memberId: sarah.id, emoji: "🎯", title: "100 Tasks Completed", detail: "Crossed 100 completed tasks in Atlas.", at: nowIso() });
+  }
+
+  const suggestions: Suggestion[] = [];
+  const addSugg = (mid: string | undefined, text: string) => {
+    if (mid) suggestions.push({ id: newId("sugg"), memberId: mid, text, topic: topicOf(text), at: nowIso() });
+  };
+  addSugg(morgan?.id, "Our current refund process takes too many steps.");
+  addSugg(priya2?.id, "Refunds require too many approvals — customers wait too long.");
+  addSugg(diego?.id, "The refund workflow is confusing for new hires.");
+  addSugg(jordan?.id, "We need better scheduling visibility across teams.");
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
   saveShifts([...shifts, ...loadShifts()]);
@@ -2028,5 +2497,11 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   saveAnnouncements([labor, ...loadAnnouncements()]);
   saveMessages([...loadMessages(), ...seededMessages]);
   saveTimeOff([...timeoff, ...loadTimeOff()]);
+  saveScheduledShifts([...scheduled, ...loadScheduledShifts()]);
+  saveTraining([...training, ...loadTraining()]);
+  saveCertifications([...certs, ...loadCertifications()]);
+  saveDocuments([...docs, ...loadDocuments()]);
+  saveRecognitions([...recognitions, ...loadRecognitions()]);
+  saveSuggestions([...suggestions, ...loadSuggestions()]);
   return members;
 }

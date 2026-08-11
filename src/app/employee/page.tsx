@@ -4,18 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  acceptOpenShift,
   acknowledgeAnnouncement,
   addTaskAttachment,
   addTaskComment,
   awaitingApproval,
   blockTask,
   buildDaySchedule,
+  bumpTraining,
+  certState,
+  certsForMember,
   channelsForEmployee,
   clockIn as apiClockIn,
   clockOut as apiClockOut,
   completeTask,
+  createSuggestion,
   createTimeOffRequest,
   dailySummary,
+  documentsForEmployee,
+  eligibleForShift,
+  giveUpShift,
   derivedStatus,
   employeeAssistantReply,
   EMPLOYEE_STATUSES,
@@ -32,12 +40,19 @@ import {
   isOnBreak,
   loadGoals,
   loadMessages,
+  loadScheduledShifts,
   loadSignedInEmployee,
+  loadTeamMembers,
   loadTeamTasks,
+  loadTraining,
   messagesFor,
+  recognitionsFor,
   replaceTask,
+  requestSwap,
   saveEmployeeSession,
+  saveScheduledShifts,
   saveTeamTasks,
+  saveTraining,
   sendMessage,
   startBreak as apiStartBreak,
   startTask,
@@ -46,22 +61,29 @@ import {
   timesheetFor,
   toggleChecklistItem,
   touchActivity,
+  trainingForMember,
+  trainingState,
   unacknowledgedFor,
   updatePresence,
   type Announcement,
   type AssistantAction,
+  type Certification,
   type ChannelRef,
   type ChatMessage,
+  type EmployeeDocument,
   type EmployeeGoal,
   type EmployeePresence,
   type ManualStatus,
+  type Recognition,
   type ScheduleEntry,
+  type ScheduledShift,
   type TaskPriority,
   type TaskStatus,
   type TeamPerson,
   type TeamTask,
   type TimeShift,
   type TimeOffType,
+  type TrainingModule,
 } from "@/lib/user-workspace";
 
 type ChatMsg = { role: "user" | "ai"; text: string; actions?: AssistantAction[] };
@@ -100,6 +122,16 @@ export default function EmployeeDashboardPage() {
   const [ptoEnd, setPtoEnd] = useState("");
   const [ptoType, setPtoType] = useState<TimeOffType>("Vacation");
   const [ptoMsg, setPtoMsg] = useState<string | null>(null);
+  const [allShifts, setAllShifts] = useState<ScheduledShift[]>([]);
+  const [training, setTraining] = useState<TrainingModule[]>([]);
+  const [certs, setCerts] = useState<Certification[]>([]);
+  const [docs, setDocs] = useState<EmployeeDocument[]>([]);
+  const [recognitions, setRecognitions] = useState<Recognition[]>([]);
+  const [swapShiftId, setSwapShiftId] = useState("");
+  const [swapToId, setSwapToId] = useState("");
+  const [suggestDraft, setSuggestDraft] = useState("");
+  const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
+  const [allMembers, setAllMembers] = useState<TeamPerson[]>([]);
   const idRef = useRef<string | null>(null);
   const lastActivityPush = useRef(0);
 
@@ -120,6 +152,12 @@ export default function EmployeeDashboardPage() {
     setChannels(chans);
     setChannelId(chans[0]?.id ?? "");
     setMessages(loadMessages());
+    setAllShifts(loadScheduledShifts());
+    setTraining(trainingForMember(me.id));
+    setCerts(certsForMember(me.id));
+    setDocs(documentsForEmployee(me.id));
+    setRecognitions(recognitionsFor(me.id));
+    setAllMembers(loadTeamMembers());
     setChat([
       {
         role: "ai",
@@ -179,6 +217,19 @@ export default function EmployeeDashboardPage() {
     [employee, tasks, now],
   );
   const thread = useMemo(() => messagesFor(channelId, messages), [channelId, messages]);
+  const myShifts = useMemo(
+    () => (employee ? allShifts.filter((s) => s.memberId === employee.id && s.status === "assigned") : []),
+    [allShifts, employee],
+  );
+  const openShifts = useMemo(
+    () => (employee ? allShifts.filter((s) => s.status === "open" && eligibleForShift(s, employee, allShifts)) : []),
+    [allShifts, employee],
+  );
+  const coworkers = useMemo(
+    () => (employee ? allMembers.filter((m) => m.id !== employee.id) : []),
+    [allMembers, employee],
+  );
+  const trainingNow = Date.now();
 
   const saveMyTasks = useCallback((memberId: string, mine: TeamTask[]) => {
     setTasks(mine);
@@ -288,6 +339,40 @@ export default function EmployeeDashboardPage() {
     setPtoMsg(`Requested ${ptoType} ${ptoStart}${ptoEnd && ptoEnd !== ptoStart ? `–${ptoEnd}` : ""}. Your manager will review it.`);
     setPtoStart("");
     setPtoEnd("");
+  }
+
+  function acceptShift(shiftId: string) {
+    if (!employee) return;
+    const next = acceptOpenShift(loadScheduledShifts(), shiftId, employee.id);
+    saveScheduledShifts(next);
+    setAllShifts(next);
+  }
+  function giveUp(shiftId: string) {
+    const next = giveUpShift(loadScheduledShifts(), shiftId);
+    saveScheduledShifts(next);
+    setAllShifts(next);
+  }
+  function submitSwap(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !swapShiftId || !swapToId) return;
+    requestSwap(swapShiftId, employee.id, swapToId);
+    setSwapShiftId("");
+    setSwapToId("");
+    setSuggestMsg(null);
+    setPtoMsg("Swap requested — your coworker can accept it from their page.");
+  }
+  function continueTraining(id: string) {
+    if (!employee) return;
+    const next = bumpTraining(loadTraining(), id, 20);
+    saveTraining(next);
+    setTraining(next.filter((m) => m.memberId === employee.id));
+  }
+  function submitSuggestion(e: FormEvent) {
+    e.preventDefault();
+    if (!employee || !suggestDraft.trim()) return;
+    const s = createSuggestion(employee.id, suggestDraft);
+    setSuggestMsg(`Thanks — Atlas grouped your idea under "${s.topic}" and shared it with leadership.`);
+    setSuggestDraft("");
   }
   function addAttachment(e: FormEvent) {
     e.preventDefault();
@@ -848,6 +933,208 @@ export default function EmployeeDashboardPage() {
                 <button className="btn btn-dark" type="submit">Request time off</button>
               </form>
               {ptoMsg ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{ptoMsg}</p> : null}
+            </section>
+          </div>
+
+          {recognitions.length ? (
+            <section className="panel">
+              <h2>Recognition</h2>
+              <div className="list">
+                {recognitions.map((r) => (
+                  <div className="list-row" key={r.id}>
+                    <span className="badge ok" style={{ fontSize: "1rem" }}>{r.emoji}</span>
+                    <p>
+                      <strong>{r.title}</strong>
+                      {r.detail ? <span className="muted-line">{r.detail}</span> : null}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <div className="split">
+            <section className="panel">
+              <h2>My shifts</h2>
+              {myShifts.length === 0 ? (
+                <p className="muted-line">No upcoming shifts.</p>
+              ) : (
+                <div className="list">
+                  {myShifts.map((s) => (
+                    <div className="list-row" key={s.id}>
+                      <span className="badge">{s.date}</span>
+                      <div style={{ flex: 1 }}>
+                        <p>
+                          <strong>
+                            {s.start}–{s.end}
+                          </strong>
+                          <span className="muted-line">
+                            {s.role || "Shift"}
+                            {s.location ? ` · ${s.location}` : ""}
+                          </span>
+                        </p>
+                      </div>
+                      <button className="btn btn-ghost" type="button" onClick={() => giveUp(s.id)}>
+                        Give up
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {myShifts.length && coworkers.length ? (
+                <form className="form-grid" onSubmit={submitSwap} style={{ marginTop: "0.8rem" }}>
+                  <div className="field-row">
+                    <label>
+                      Swap shift
+                      <select value={swapShiftId} onChange={(e) => setSwapShiftId(e.target.value)}>
+                        <option value="">Choose…</option>
+                        {myShifts.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.date} {s.start}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      With
+                      <select value={swapToId} onChange={(e) => setSwapToId(e.target.value)}>
+                        <option value="">Choose…</option>
+                        {coworkers.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <button className="btn btn-outline" type="submit" disabled={!swapShiftId || !swapToId}>
+                    Request swap
+                  </button>
+                </form>
+              ) : null}
+            </section>
+
+            <section className="panel">
+              <h2>Open shifts</h2>
+              <p className="panel-lead">Shifts you&apos;re qualified &amp; available for.</p>
+              {openShifts.length === 0 ? (
+                <p className="muted-line">No open shifts you can pick up.</p>
+              ) : (
+                <div className="list">
+                  {openShifts.map((s) => (
+                    <div className="list-row" key={s.id}>
+                      <span className="badge warn">Open</span>
+                      <div style={{ flex: 1 }}>
+                        <p>
+                          <strong>
+                            {s.date} · {s.start}–{s.end}
+                          </strong>
+                          <span className="muted-line">
+                            {s.role || "Any role"}
+                            {s.location ? ` · ${s.location}` : ""}
+                          </span>
+                        </p>
+                      </div>
+                      <button className="btn btn-dark" type="button" onClick={() => acceptShift(s.id)}>
+                        Accept
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className="split">
+            <section className="panel">
+              <h2>My training</h2>
+              {training.length === 0 ? (
+                <p className="muted-line">No training assigned.</p>
+              ) : (
+                <div className="list">
+                  {training.map((m) => {
+                    const state = trainingState(m, trainingNow);
+                    return (
+                      <div className="list-row" key={m.id}>
+                        <span className={state === "complete" ? "badge ok" : state === "overdue" ? "badge warn" : "badge"}>
+                          {state === "complete" ? "✅" : `${m.progress}%`}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <p>
+                            <strong>{m.name}</strong>
+                            <span className="muted-line">
+                              {state === "complete"
+                                ? "Complete"
+                                : m.dueDate
+                                  ? `Due ${m.dueDate}`
+                                  : "In progress"}
+                            </span>
+                          </p>
+                          {state !== "complete" ? (
+                            <span className="bar-track" style={{ display: "block", marginTop: "0.35rem" }}>
+                              <span className="bar-fill" style={{ width: `${m.progress}%` }} />
+                            </span>
+                          ) : null}
+                        </div>
+                        {state !== "complete" ? (
+                          <button className="btn btn-ghost" type="button" onClick={() => continueTraining(m.id)}>
+                            Continue
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <h3 style={{ marginTop: "1rem" }}>Certifications</h3>
+              {certs.length === 0 ? (
+                <p className="muted-line">No certifications on file.</p>
+              ) : (
+                <div className="list">
+                  {certs.map((c) => {
+                    const state = certState(c, trainingNow);
+                    return (
+                      <div className="list-row" key={c.id}>
+                        <span className={state === "valid" ? "badge ok" : "badge warn"}>
+                          {state === "expired" ? "Expired" : state === "expiring" ? "Expiring" : "Valid"}
+                        </span>
+                        <p>
+                          <strong>{c.name}</strong>
+                          <span className="muted-line">Expires {c.expires}</span>
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section className="panel">
+              <h2>My documents</h2>
+              {docs.length === 0 ? (
+                <p className="muted-line">No documents shared with you.</p>
+              ) : (
+                <div className="list">
+                  {docs.map((d) => (
+                    <div className="list-row" key={d.id}>
+                      <span className="badge">{d.category}</span>
+                      <p>{d.title}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <h3 style={{ marginTop: "1rem" }}>Suggest an improvement</h3>
+              <form className="train-form" onSubmit={submitSuggestion}>
+                <input
+                  value={suggestDraft}
+                  onChange={(e) => setSuggestDraft(e.target.value)}
+                  placeholder="e.g. Our refund process takes too many steps"
+                />
+                <button className="btn btn-dark" type="submit">Send</button>
+              </form>
+              {suggestMsg ? <p className="muted-line" style={{ marginTop: "0.6rem" }}>{suggestMsg}</p> : null}
             </section>
           </div>
 
