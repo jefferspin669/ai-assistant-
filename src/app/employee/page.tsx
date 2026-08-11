@@ -9,9 +9,22 @@ import {
   addTaskAttachment,
   addTaskComment,
   awaitingApproval,
+  BLOCK_REASONS,
   blockTask,
   buildDaySchedule,
   bumpTraining,
+  formatGoalNumber,
+  goalActionPlan,
+  goalProjection,
+  goalsCompletedFor,
+  isAvailableStatus,
+  loadWidgetLayout,
+  moveWidget,
+  performanceSummary,
+  reorderWidget,
+  saveWidgetLayout,
+  teammatesOf,
+  widgetTitle,
   certState,
   certsForMember,
   channelsForEmployee,
@@ -88,6 +101,7 @@ import {
   type TimeShift,
   type TimeOffType,
   type TrainingModule,
+  type WidgetPref,
 } from "@/lib/user-workspace";
 
 type ChatMsg = { role: "user" | "ai"; text: string; actions?: AssistantAction[] };
@@ -139,6 +153,12 @@ export default function EmployeeDashboardPage() {
   const [heroAsk, setHeroAsk] = useState("");
   const [heroAnswer, setHeroAnswer] = useState<ChatMsg | null>(null);
   const [topNote, setTopNote] = useState<string | null>(null);
+  const [blockingTaskId, setBlockingTaskId] = useState<string | null>(null);
+  const [blockFlash, setBlockFlash] = useState<string | null>(null);
+  const [layout, setLayout] = useState<WidgetPref[]>([]);
+  const [customizing, setCustomizing] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [goalPlanId, setGoalPlanId] = useState<string | null>(null);
   const idRef = useRef<string | null>(null);
   const lastActivityPush = useRef(0);
 
@@ -165,6 +185,7 @@ export default function EmployeeDashboardPage() {
     setDocs(documentsForEmployee(me.id));
     setRecognitions(recognitionsFor(me.id));
     setAllMembers(loadTeamMembers());
+    setLayout(loadWidgetLayout());
     setChat([
       {
         role: "ai",
@@ -242,6 +263,19 @@ export default function EmployeeDashboardPage() {
   const coworkers = useMemo(
     () => (employee ? allMembers.filter((m) => m.id !== employee.id) : []),
     [allMembers, employee],
+  );
+  const teammates = useMemo(
+    () => (employee ? teammatesOf(employee, allMembers) : []),
+    [employee, allMembers],
+  );
+  const salesGoal = useMemo(() => goals.find((g) => g.kind === "amount") ?? null, [goals]);
+  const appointments = useMemo(() => tasks.filter((t) => t.kind === "meeting"), [tasks]);
+  const perf = useMemo(() => (employee ? performanceSummary(employee, tasks) : null), [employee, tasks]);
+  const goalsDone = useMemo(
+    () => (employee ? goalsCompletedFor(employee.id) : { done: 0, total: 0 }),
+    // Recompute when goals change (goalsCompletedFor reads from storage).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [employee, goals],
   );
   const trainingNow = Date.now();
 
@@ -387,6 +421,37 @@ export default function EmployeeDashboardPage() {
     const s = createSuggestion(employee.id, suggestDraft);
     setSuggestMsg(`Thanks — Atlas grouped your idea under "${s.topic}" and shared it with leadership.`);
     setSuggestDraft("");
+  }
+
+  function chooseBlock(task: TeamTask, reason: (typeof BLOCK_REASONS)[number]) {
+    if (!employee) return;
+    const clause = reason.clause || "another reason";
+    saveMyTasks(employee.id, replaceTask(tasks, blockTask(task, clause)));
+    if (presence?.currentTaskId === task.id) {
+      setPresence(updatePresence(employee.id, { manualStatus: "blocked", currentTaskId: null, touchActive: true }));
+    }
+    setBlockingTaskId(null);
+    setBlockFlash(
+      `⚠️ Atlas notified ${reason.notify}: ${employee.name.split(" ")[0]} can't complete "${task.title}" because ${clause}.`,
+    );
+  }
+
+  function toggleWidget(id: string) {
+    const next = layout.map((w) => (w.id === id ? { ...w, enabled: !w.enabled } : w));
+    setLayout(next);
+    saveWidgetLayout(next);
+  }
+  function nudgeWidget(id: string, dir: -1 | 1) {
+    const next = moveWidget(layout, id, dir);
+    setLayout(next);
+    saveWidgetLayout(next);
+  }
+  function dropWidget(toId: string) {
+    if (!dragId || dragId === toId) return;
+    const next = reorderWidget(layout, dragId, toId);
+    setLayout(next);
+    saveWidgetLayout(next);
+    setDragId(null);
   }
 
   function askHero(e: FormEvent) {
@@ -537,6 +602,208 @@ export default function EmployeeDashboardPage() {
         )}
       </>
     );
+  }
+
+  function renderGoal(g: EmployeeGoal) {
+    const pct = goalPct(g);
+    const proj = g.kind === "amount" ? goalProjection(g, now) : null;
+    return (
+      <div key={g.id} style={{ marginBottom: "0.7rem" }}>
+        <p>
+          <strong>{g.title}</strong> <span className="muted-line">{formatGoalValue(g)} · {pct}%</span>
+        </p>
+        <span className="bar-track" style={{ display: "block", margin: "0.35rem 0" }}>
+          <span className="bar-fill" style={{ width: `${pct}%` }} />
+        </span>
+        {proj ? (
+          <>
+            <p className="muted-line">
+              You&apos;re {formatGoalNumber(g, proj.away)} away. At your current pace you&apos;re projected to reach{" "}
+              {formatGoalNumber(g, proj.projected)}
+              {proj.onTrack ? " — ahead of pace!" : "."}
+            </p>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => setGoalPlanId(goalPlanId === g.id ? null : g.id)}
+            >
+              Show me how to reach my goal
+            </button>
+            {goalPlanId === g.id ? (
+              <div className="list" style={{ marginTop: "0.5rem" }}>
+                {goalActionPlan(g).map((a) => (
+                  <div className="list-row" key={a}>
+                    <span className="badge">Atlas</span>
+                    <p>{a}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderWidget(id: string) {
+    switch (id) {
+      case "tasks": {
+        const open = priorities.doNow.length + priorities.today.length + priorities.comingUp.length + priorities.whenever.length;
+        const top = priorities.doNow[0] ?? priorities.today[0] ?? null;
+        return (
+          <>
+            <div className="stat-grid metrics-dense">
+              <div className="stat"><span>Open</span><strong>{open}</strong><small>tasks</small></div>
+              <div className="stat"><span>Do now</span><strong>{priorities.doNow.length}</strong><small>urgent</small></div>
+            </div>
+            {top ? <p className="muted-line" style={{ marginTop: "0.5rem" }}>Top: <strong>{top.title}</strong></p> : null}
+          </>
+        );
+      }
+      case "schedule":
+        return (
+          <div className="timeline">
+            {schedule.slice(0, 6).map((e, i) => (
+              <div className="timeline-item" key={`${e.minutes}-${i}`}>
+                <strong>{e.time} — {e.label}</strong>
+              </div>
+            ))}
+          </div>
+        );
+      case "goals":
+        return goals.length ? <div>{goals.map(renderGoal)}</div> : <p className="muted-line">No goals assigned.</p>;
+      case "sales":
+        return salesGoal ? renderGoal(salesGoal) : <p className="muted-line">No sales goal assigned.</p>;
+      case "messages": {
+        const mine = messages.filter((m) => channels.some((c) => c.id === m.channelId));
+        const last = mine[mine.length - 1];
+        return (
+          <>
+            <p className="muted-line">{channels.length} channels</p>
+            {last ? (
+              <div className="bubble bubble-ai">
+                <span className="agent-tag">{last.authorName}</span>
+                {last.text}
+              </div>
+            ) : (
+              <p className="muted-line">No messages yet.</p>
+            )}
+            <button className="btn btn-outline" type="button" style={{ marginTop: "0.5rem" }} onClick={() => scrollTo("emp-messages")}>
+              Open messages
+            </button>
+          </>
+        );
+      }
+      case "team": {
+        const avail = teammates.filter((tm) => isAvailableStatus(derivedStatus(getPresence(tm.id), now)));
+        return (
+          <>
+            <div className="list">
+              {teammates.length ? (
+                teammates.map((tm) => {
+                  const s = derivedStatus(getPresence(tm.id), now);
+                  const m = STATUS_META[s];
+                  return (
+                    <div className="list-row" key={tm.id}>
+                      <span className={`presence-badge ${s}`}>
+                        <span className={`presence-dot ${s}`} aria-hidden />
+                        {m.label}
+                      </span>
+                      <p>
+                        <strong>{tm.name}</strong>
+                        <span className="muted-line">{tm.role}</span>
+                      </p>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="muted-line">No teammates.</p>
+              )}
+            </div>
+            <div className="memory-card" style={{ marginTop: "0.6rem" }}>
+              <div className="label">Who&apos;s available?</div>
+              <p>
+                {avail.length
+                  ? `${avail.map((a) => a.name.split(" ")[0]).join(", ")} — message them if you need help.`
+                  : "No one is free right now."}
+              </p>
+            </div>
+          </>
+        );
+      }
+      case "announcements":
+        return announcements.length ? (
+          <div className="list">
+            {announcements.map((a) => (
+              <div className="list-row" key={a.id}>
+                <span className="badge warn">New</span>
+                <p><strong>{a.title}</strong></p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted-line">You&apos;re all caught up.</p>
+        );
+      case "training": {
+        const inc = training.filter((m) => trainingState(m, trainingNow) !== "complete");
+        return inc.length ? (
+          <div className="list">
+            {inc.map((m) => (
+              <div className="list-row" key={m.id}>
+                <span className="badge">{m.progress}%</span>
+                <p>{m.name}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted-line">All training complete ✅</p>
+        );
+      }
+      case "files":
+        return docs.length ? (
+          <div className="list">
+            {docs.slice(0, 5).map((d) => (
+              <div className="list-row" key={d.id}>
+                <span className="badge">{d.category}</span>
+                <p>{d.title}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted-line">No files.</p>
+        );
+      case "timeclock": {
+        if (!timesheet) return null;
+        return (
+          <>
+            <p className="muted-line">
+              {!timesheet.clockedIn ? "Clocked out" : onBreak ? "On break" : `Clocked in ${formatDuration(clockedInMs)}`} ·{" "}
+              {formatHours(timesheet.hoursToday * 3_600_000)} today
+            </p>
+            {!timesheet.clockedIn ? (
+              <button className="btn btn-dark" type="button" onClick={doClockIn}>Clock in</button>
+            ) : (
+              <button className="btn btn-outline" type="button" onClick={doClockOut}>Clock out</button>
+            )}
+          </>
+        );
+      }
+      case "appointments":
+        return appointments.length ? (
+          <div className="list">
+            {appointments.map((t) => (
+              <div className="list-row" key={t.id}>
+                <span className="badge">{t.dueTime || "Today"}</span>
+                <p>{t.title}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted-line">No appointments.</p>
+        );
+      default:
+        return null;
+    }
   }
 
   return (
@@ -725,66 +992,105 @@ export default function EmployeeDashboardPage() {
                 >
                   Complete
                 </button>
-                <button className="btn btn-outline" type="button" onClick={() => doBlock(runningTask)}>
+                <button className="btn btn-outline" type="button" onClick={() => setBlockingTaskId(runningTask.id)}>
                   I&apos;m Blocked
                 </button>
               </div>
             </div>
           ) : null}
 
-          <div className="split">
-            <section className="panel">
-              <h2>My Day</h2>
-              <p className="panel-lead">Your calendar, tasks, and meetings in one timeline.</p>
-              <div className="timeline" style={{ marginTop: "0.6rem" }}>
-                {schedule.map((e, i) => {
-                  const task = e.taskId ? tasks.find((t) => t.id === e.taskId) : null;
-                  let icon = "";
-                  if (task) icon = task.status === "completed" ? " ✅" : task.status === "in_progress" ? " 🟡" : "";
-                  else if (e.label === "Clock in") icon = timesheet.clockedIn || shift ? " ✅" : "";
-                  else if (e.label === "Clock out") icon = shift?.clockOut ? " ✅" : "";
-                  return (
-                    <div className="timeline-item" key={`${e.minutes}-${i}`}>
-                      <strong>
-                        {e.time} — {e.label}
-                        {icon}
-                      </strong>
-                      <p className="muted-line">
-                        {e.kind === "clock" ? "Time clock" : e.kind === "meeting" ? "Meeting" : e.kind === "break" ? "Break" : "Task"}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="panel">
-              <h2>My goals</h2>
-              {goals.length === 0 ? (
-                <p className="muted-line">No goals assigned yet.</p>
-              ) : (
-                <div className="list">
-                  {goals.map((g) => (
-                    <div className="list-row" key={g.id}>
-                      <span className="badge">{goalPct(g)}%</span>
-                      <div style={{ flex: 1 }}>
-                        <p>
-                          <strong>{g.title}</strong>
-                          <span className="muted-line">
-                            {formatGoalValue(g)}
-                            {g.period ? ` · ${g.period}` : ""}
-                          </span>
-                        </p>
-                        <span className="bar-track" style={{ display: "block", marginTop: "0.35rem" }}>
-                          <span className="bar-fill" style={{ width: `${goalPct(g)}%` }} />
-                        </span>
-                      </div>
-                    </div>
+          {blockingTaskId ? (() => {
+            const bt = tasks.find((t) => t.id === blockingTaskId);
+            if (!bt) return null;
+            return (
+              <section className="panel" style={{ borderLeft: "4px solid #d1495b" }}>
+                <h2>Why are you blocked?</h2>
+                <p className="panel-lead">&quot;{bt.title}&quot; — Atlas will notify the right person automatically.</p>
+                <div className="cta-row">
+                  {BLOCK_REASONS.map((r) => (
+                    <button key={r.id} className="btn btn-outline" type="button" onClick={() => chooseBlock(bt, r)}>
+                      {r.label}
+                    </button>
                   ))}
+                  <button className="btn btn-outline" type="button" onClick={() => setBlockingTaskId(null)}>
+                    Cancel
+                  </button>
                 </div>
-              )}
+              </section>
+            );
+          })() : null}
+
+          {blockFlash ? (
+            <div className="memory-card">
+              <div className="label">Blocker reported</div>
+              <p>{blockFlash}</p>
+            </div>
+          ) : null}
+
+          <section className="panel" id="emp-workspace">
+            <div className="train-head">
+              <div>
+                <h2>My Workspace</h2>
+                <p className="panel-lead">Drag widgets to rearrange, or customize what shows up.</p>
+              </div>
+              <button className="btn btn-outline" type="button" onClick={() => setCustomizing((v) => !v)}>
+                {customizing ? "Done" : "Customize"}
+              </button>
+            </div>
+            {customizing ? (
+              <div className="list">
+                {layout.map((w, i) => (
+                  <div className="list-row" key={w.id}>
+                    <label className="check-inline">
+                      <input type="checkbox" checked={w.enabled} onChange={() => toggleWidget(w.id)} /> {widgetTitle(w.id)}
+                    </label>
+                    <div className="train-actions">
+                      <button className="btn btn-outline" type="button" disabled={i === 0} onClick={() => nudgeWidget(w.id, -1)}>
+                        ↑
+                      </button>
+                      <button className="btn btn-outline" type="button" disabled={i === layout.length - 1} onClick={() => nudgeWidget(w.id, 1)}>
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="widget-grid" style={{ marginTop: "0.8rem" }}>
+              {layout.filter((w) => w.enabled).map((w) => (
+                <section
+                  className="panel widget-card"
+                  key={w.id}
+                  draggable
+                  onDragStart={() => setDragId(w.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => dropWidget(w.id)}
+                >
+                  <h3>⠿ {widgetTitle(w.id)}</h3>
+                  {renderWidget(w.id)}
+                </section>
+              ))}
+            </div>
+          </section>
+
+          {perf ? (
+            <section className="panel">
+              <h2>My performance — this month</h2>
+              <div className="stat-grid metrics-dense">
+                <div className="stat"><span>Tasks completed</span><strong>{perf.tasksCompleted}</strong><small>All-time</small></div>
+                <div className="stat"><span>Completed on time</span><strong>{perf.onTimePct}%</strong><small>Met the due date</small></div>
+                <div className="stat"><span>Customer rating</span><strong>{perf.csat} ⭐</strong><small>From reviews</small></div>
+                <div className="stat"><span>Goals completed</span><strong>{goalsDone.done} / {goalsDone.total}</strong><small>This period</small></div>
+                <div className="stat"><span>Attendance</span><strong>{perf.attendancePct}%</strong><small>This month</small></div>
+              </div>
+              {employee.perfFeedback ? (
+                <div className="memory-card" style={{ marginTop: "0.8rem" }}>
+                  <div className="label">Atlas</div>
+                  <p>{employee.perfFeedback}</p>
+                </div>
+              ) : null}
             </section>
-          </div>
+          ) : null}
 
           <div className="split">
             <section className="panel">
@@ -940,7 +1246,7 @@ export default function EmployeeDashboardPage() {
                       <span className="badge ok">Completed</span>
                     )}
                     {selected.status !== "completed" && selected.status !== "blocked" ? (
-                      <button className="btn btn-outline" type="button" onClick={() => doBlock(selected)}>
+                      <button className="btn btn-outline" type="button" onClick={() => setBlockingTaskId(selected.id)}>
                         Mark blocked
                       </button>
                     ) : null}

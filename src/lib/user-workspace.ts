@@ -369,6 +369,7 @@ export type TeamPerson = {
   trainingProgress?: number;
   goals?: string[];
   achievements?: string[];
+  perfFeedback?: string;
   // Leave balances, in days.
   ptoDays?: number;
   sickDays?: number;
@@ -416,6 +417,7 @@ export type TeamTask = {
   completedAt: string;
   result: string;
   blockedAt: string;
+  blockReason: string;
   dueTime: string;
   assignedBy: string;
   progress: number; // explicit 0-100; 0 means "derive from checklist/status"
@@ -538,6 +540,7 @@ function normalizeTask(raw: RawTask): TeamTask {
     completedAt: raw.completedAt || "",
     result: raw.result || "",
     blockedAt: raw.blockedAt || "",
+    blockReason: raw.blockReason || "",
     dueTime: raw.dueTime || "",
     assignedBy: raw.assignedBy || "Manager",
     progress: typeof raw.progress === "number" ? raw.progress : 0,
@@ -616,6 +619,7 @@ export function createTeamTask(input: {
     completedAt: "",
     result: "",
     blockedAt: "",
+    blockReason: "",
     dueTime: (input.dueTime || "").trim(),
     assignedBy: (input.assignedBy || "Manager").trim(),
     progress: input.progress ?? 0,
@@ -747,16 +751,29 @@ export function addTaskComment(
   return { task: updated, autoWaiting: null };
 }
 
+/** Reasons an employee can give when blocked; drives who Atlas notifies. */
+export const BLOCK_REASONS: { id: string; label: string; clause: string; notify: string }[] = [
+  { id: "manager", label: "Waiting for manager", clause: "they're waiting on a manager", notify: "your manager" },
+  { id: "customer", label: "Waiting for customer", clause: "they're waiting on the customer", notify: "the account owner" },
+  { id: "info", label: "Missing information", clause: "information is missing", notify: "your manager" },
+  { id: "equipment", label: "Equipment problem", clause: "of an equipment problem", notify: "the ops team" },
+  { id: "technical", label: "Technical issue", clause: "of a technical issue", notify: "IT support" },
+  { id: "assistance", label: "Need assistance", clause: "they need assistance", notify: "the team" },
+  { id: "other", label: "Other", clause: "", notify: "your manager" },
+];
+
 export function blockTask(task: TeamTask, reason?: string): TeamTask {
   const banked = task.startedAt ? Date.now() - new Date(task.startedAt).getTime() : 0;
+  const clause = (reason || "").trim();
   const blocked: TeamTask = {
     ...task,
     status: "blocked",
     blockedAt: nowIso(),
+    blockReason: clause,
     startedAt: "",
     timeSpentMs: task.timeSpentMs + Math.max(0, banked),
   };
-  return reason?.trim() ? addTaskNote(blocked, `Blocked: ${reason.trim()}`, "employee") : blocked;
+  return clause ? addTaskNote(blocked, `Blocked: ${clause}`, "employee") : blocked;
 }
 
 /* ─── Task board grouping + daily summary ──────────────────────────────── */
@@ -1216,12 +1233,13 @@ export function computeManagerAlerts(
     // Blocked tasks.
     if (task.status === "blocked") {
       const mins = task.blockedAt ? minutesSince(task.blockedAt, now) : 0;
+      const because = task.blockReason ? ` because ${task.blockReason}` : "";
       alerts.push({
         id: `blocked-${task.id}`,
         kind: "blocked",
         severity: "high",
         title: "Employee blocked",
-        detail: `${nameOf(task.memberId)}'s "${task.title}" is blocked${mins ? ` (${mins} min)` : ""}.`,
+        detail: `⚠️ ${nameOf(task.memberId)} can't complete "${task.title}"${because}${mins ? ` (${mins} min)` : ""}.`,
         memberId: task.memberId,
       });
       continue;
@@ -1587,6 +1605,49 @@ export function formatGoalValue(goal: EmployeeGoal): string {
     return `$${goal.current.toLocaleString()} / $${goal.target.toLocaleString()}`;
   }
   return `${goal.current.toLocaleString()} / ${goal.target.toLocaleString()}${goal.unit ? ` ${goal.unit}` : ""}`;
+}
+
+export type GoalProjection = { away: number; projected: number; onTrack: boolean; elapsedPct: number };
+
+/** Projects month-end value from current pace (day-of-month based). */
+export function goalProjection(goal: EmployeeGoal, now: number = Date.now()): GoalProjection {
+  const d = new Date(now);
+  const day = d.getDate();
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const elapsed = Math.min(1, Math.max(0.1, day / daysInMonth));
+  const projected = Math.round(goal.current / elapsed);
+  return {
+    away: Math.max(0, goal.target - goal.current),
+    projected,
+    onTrack: projected >= goal.target,
+    elapsedPct: Math.round(elapsed * 100),
+  };
+}
+
+export function formatGoalNumber(goal: EmployeeGoal, n: number): string {
+  return goal.kind === "amount" ? `$${n.toLocaleString()}` : `${n.toLocaleString()}${goal.unit ? ` ${goal.unit}` : ""}`;
+}
+
+/** Canned "how to reach my goal" suggestions. */
+export function goalActionPlan(goal: EmployeeGoal): string[] {
+  if (goal.kind === "amount") {
+    return [
+      "Follow up with your 3 warmest open opportunities today.",
+      "Re-engage last month's closed-lost accounts with a check-in.",
+      "Bundle the maintenance plan on every open quote.",
+      "Ask your manager for two priority referrals.",
+    ];
+  }
+  return [
+    "Block two focused hours each morning for this goal.",
+    "Batch similar work to move faster.",
+    "Flag blockers early so nothing stalls.",
+  ];
+}
+
+export function goalsCompletedFor(memberId: string): { done: number; total: number } {
+  const mine = loadGoals().filter((g) => g.memberId === memberId);
+  return { done: mine.filter((g) => goalPct(g) >= 100).length, total: mine.length };
 }
 
 /* ─── Internal messaging ───────────────────────────────────────────────── */
@@ -2210,6 +2271,77 @@ function nextDateForWeekday(dayName: string, now: number): string {
   return todayISO(d);
 }
 
+/* ─── Team (employee view) + availability ──────────────────────────────── */
+
+export function teammatesOf(member: TeamPerson, members: TeamPerson[]): TeamPerson[] {
+  const dept = member.department || "General";
+  return members.filter((m) => m.id !== member.id && (m.department || "General") === dept);
+}
+
+/** Reachable to help/collaborate now (online and not busy in a meeting/job). */
+export function isAvailableStatus(status: EmployeeStatus): boolean {
+  return status === "working" || status === "away";
+}
+
+/* ─── Employee home widgets (customizable dashboard) ───────────────────── */
+
+export const EMPLOYEE_WIDGETS: { id: string; title: string }[] = [
+  { id: "tasks", title: "My Tasks" },
+  { id: "schedule", title: "My Schedule" },
+  { id: "goals", title: "My Goals" },
+  { id: "messages", title: "Messages" },
+  { id: "team", title: "Team Status" },
+  { id: "announcements", title: "Announcements" },
+  { id: "training", title: "Training" },
+  { id: "files", title: "Recent Files" },
+  { id: "timeclock", title: "Time Clock" },
+  { id: "sales", title: "Sales Numbers" },
+  { id: "appointments", title: "Customer Appointments" },
+];
+
+export type WidgetPref = { id: string; enabled: boolean };
+const WIDGETS_KEY = "atlas-employee-widgets-v1";
+
+export function defaultWidgetLayout(): WidgetPref[] {
+  const on = new Set(["tasks", "schedule", "goals", "team", "timeclock", "announcements"]);
+  return EMPLOYEE_WIDGETS.map((w) => ({ id: w.id, enabled: on.has(w.id) }));
+}
+
+export function loadWidgetLayout(): WidgetPref[] {
+  const saved = loadJson<WidgetPref[]>(WIDGETS_KEY, []);
+  if (!saved.length) return defaultWidgetLayout();
+  const known = saved.filter((w) => EMPLOYEE_WIDGETS.some((x) => x.id === w.id));
+  const extra = EMPLOYEE_WIDGETS.filter((w) => !saved.some((s) => s.id === w.id)).map((w) => ({ id: w.id, enabled: false }));
+  return [...known, ...extra];
+}
+
+export function saveWidgetLayout(layout: WidgetPref[]) {
+  saveJson(WIDGETS_KEY, layout);
+}
+
+export function widgetTitle(id: string): string {
+  return EMPLOYEE_WIDGETS.find((w) => w.id === id)?.title ?? id;
+}
+
+export function moveWidget(layout: WidgetPref[], id: string, dir: -1 | 1): WidgetPref[] {
+  const i = layout.findIndex((w) => w.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= layout.length) return layout;
+  const next = [...layout];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+export function reorderWidget(layout: WidgetPref[], fromId: string, toId: string): WidgetPref[] {
+  const from = layout.findIndex((w) => w.id === fromId);
+  const to = layout.findIndex((w) => w.id === toId);
+  if (from < 0 || to < 0 || from === to) return layout;
+  const next = [...layout];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
 type DemoTaskSeed = {
   title: string;
   status?: TaskStatus;
@@ -2248,6 +2380,7 @@ type DemoEmployee = {
   sickDays: number;
   goals: string[];
   achievements: string[];
+  perfFeedback: string;
   tasks: DemoTaskSeed[];
 };
 
@@ -2270,6 +2403,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     sickDays: 3,
     goals: ["Lift on-time completion to 98%", "Finish the CRM certification"],
     achievements: ["100-task streak", "Top CSAT in Q2"],
+    perfFeedback: "Your customer response time improved 18% compared with last month.",
     tasks: [
       { title: "Johnson Proposal", priority: "High", due: "today", time: "2:00 PM", status: "in_progress", progress: 72, assignedBy: "Michael", project: "Johnson Expansion", estimatedTime: "3h", description: "Full expansion proposal for the Johnson account — scope, pricing, and timeline.", checklist: ["Scope & pricing", "Project timeline", "Executive summary"], dependencies: ["Finance Q2 numbers"], people: ["Michael", "Elena Brooks"], requiredResult: "Send to the client by 2 PM" },
       { title: "Call Johnson Construction", priority: "Urgent", due: "today", time: "10:30 AM", description: "Confirm the start date and 40% deposit.", goal: "Confirm the schedule", requiredResult: "Log the call outcome", estimatedTime: "30m" },
@@ -2301,6 +2435,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     sickDays: 2,
     goals: ["Complete the EPA refrigerant recert"],
     achievements: ["Fastest install time in March"],
+    perfFeedback: "Your on-time completion is up 6% versus last month.",
     tasks: [
       { title: "Finish the Johnson AC install", priority: "High", due: "today", requiredResult: "Photograph the finished unit" },
       { title: "Restock the truck", priority: "Normal", due: "today", checklist: ["Filters", "Refrigerant", "Fittings"] },
@@ -2324,6 +2459,7 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     sickDays: 1,
     goals: ["Reduce callbacks to under 3%"],
     achievements: ["Perfect attendance in Q1"],
+    perfFeedback: "You cut callbacks to under 3% — great work.",
     tasks: [
       { title: "Morning maintenance route", priority: "Normal", due: "today" },
     ],
@@ -2395,6 +2531,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
       trainingProgress: demo.trainingProgress,
       goals: demo.goals,
       achievements: demo.achievements,
+      perfFeedback: demo.perfFeedback,
       ptoDays: demo.ptoDays,
       sickDays: demo.sickDays,
       createdAt: nowIso(),
@@ -2443,6 +2580,10 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
 
   // Wider org roster so Team pages show real departments (lightweight members).
   const roster: { name: string; role: string; department: string }[] = [
+    { name: "David Chen", role: "Account Manager", department: "Management" },
+    { name: "Mike Ross", role: "Operations Manager", department: "Management" },
+    { name: "Ashley Kim", role: "Finance Lead", department: "Management" },
+    { name: "Jordan Ellis", role: "Program Manager", department: "Management" },
     { name: "Jordan Blake", role: "Account Executive", department: "Sales" },
     { name: "Riley Chen", role: "Sales Rep", department: "Sales" },
     { name: "Morgan Lee", role: "Support Lead", department: "Customer Support" },
@@ -2471,6 +2612,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   if (sarah) {
     goals.push(
       createGoal({ memberId: sarah.id, department: "Management", title: "Customer Calls", kind: "count", target: 200, current: 173, unit: "calls", period: "This month" }),
+      createGoal({ memberId: sarah.id, department: "Management", title: "Monthly Sales Goal", kind: "amount", target: 50000, current: 38250, period: "August" }),
     );
   }
   goals.push(
@@ -2593,9 +2735,22 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   addSugg(diego?.id, "The refund workflow is confusing for new hires.");
   addSugg(jordan?.id, "We need better scheduling visibility across teams.");
 
+  // Seed live-ish presence for a few teammates so Team views show real statuses.
+  const presenceSeed: Record<string, EmployeePresence> = {};
+  const stamp = nowIso();
+  const setPres = (name: string, manual: ManualStatus) => {
+    const m = byName(name);
+    if (m) presenceSeed[m.id] = { memberId: m.id, clockedIn: true, manualStatus: manual, currentTaskId: null, note: "", lastSeen: stamp, lastActiveAt: stamp };
+  };
+  setPres("David Chen", "working");
+  setPres("Mike Ross", "meeting");
+  setPres("Ashley Kim", "break");
+  setPres("Jordan Ellis", "away");
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
   saveShifts([...shifts, ...loadShifts()]);
+  savePresenceMap({ ...loadPresenceMap(), ...presenceSeed });
   saveGoals([...goals, ...loadGoals()]);
   saveAnnouncements([labor, ...loadAnnouncements()]);
   saveMessages([...loadMessages(), ...seededMessages]);
