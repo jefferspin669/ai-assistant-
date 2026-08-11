@@ -800,6 +800,20 @@ export function setSensitiveMethod(id: string, method: SensitiveMethod) {
   saveJson(SENSITIVE_KEY, { ...loadJson<Record<string, SensitiveMethod>>(SENSITIVE_KEY, {}), [id]: method });
 }
 
+/* ─── Voice history ────────────────────────────────────────────────────── */
+
+export type VoiceEntry = { id: string; text: string; mode: string; at: string };
+const VOICE_KEY = "atlas-voice-history-v1";
+export function loadVoiceHistory(): VoiceEntry[] {
+  return loadJson<VoiceEntry[]>(VOICE_KEY, []);
+}
+export function pushVoiceHistory(text: string, mode: string): VoiceEntry[] {
+  const entry: VoiceEntry = { id: newId("voice"), text: text.trim(), mode, at: nowIso() };
+  const next = [entry, ...loadVoiceHistory()].slice(0, 30);
+  saveJson(VOICE_KEY, next);
+  return next;
+}
+
 /* ─── Security center ──────────────────────────────────────────────────── */
 
 export type SecurityItem = {
