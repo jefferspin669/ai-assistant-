@@ -618,9 +618,15 @@ export default function EmployeeDashboardPage() {
         {proj ? (
           <>
             <p className="muted-line">
-              You&apos;re {formatGoalNumber(g, proj.away)} away. At your current pace you&apos;re projected to reach{" "}
-              {formatGoalNumber(g, proj.projected)}
-              {proj.onTrack ? " — ahead of pace!" : "."}
+              {proj.projected > g.target * 1.5 ? (
+                <>You&apos;re {formatGoalNumber(g, proj.away)} away — well ahead of pace to beat your {formatGoalNumber(g, g.target)} goal.</>
+              ) : (
+                <>
+                  You&apos;re {formatGoalNumber(g, proj.away)} away. At your current pace you&apos;re projected to reach{" "}
+                  {formatGoalNumber(g, proj.projected)}
+                  {proj.onTrack ? " — ahead of pace!" : "."}
+                </>
+              )}
             </p>
             <button
               className="btn btn-outline"
