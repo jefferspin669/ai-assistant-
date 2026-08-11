@@ -496,8 +496,7 @@ export default function EmployeeDashboardPage() {
     }
     sendMessage(dmChannelId(employee.id), employee.id, employee.name, `Help request — ${cat.label}`);
     setMessages(loadMessages());
-    setHelpOpen(false);
-    setHelpFlash(`Atlas routed your ${cat.label} request to ${cat.route}.`);
+    setHelpFlash(`✓ Atlas routed your ${cat.label} request to ${cat.route}.`);
   }
 
   function qaNewTask() {
@@ -1899,8 +1898,14 @@ export default function EmployeeDashboardPage() {
                 </button>
               ))}
             </div>
+            {helpFlash ? (
+              <div className="memory-card" style={{ marginTop: "0.9rem" }}>
+                <div className="label">Atlas</div>
+                <p>{helpFlash}</p>
+              </div>
+            ) : null}
             <div className="train-actions" style={{ marginTop: "1rem" }}>
-              <button className="btn btn-dark" type="button" onClick={() => setHelpOpen(false)}>Close</button>
+              <button className="btn btn-dark" type="button" onClick={() => { setHelpOpen(false); setHelpFlash(null); }}>Close</button>
             </div>
           </div>
         </div>
