@@ -4307,6 +4307,17 @@ html[data-a11y-motion="reduce"] *::after {
   flex-wrap: wrap;
 }
 
+/* The employee header is dark, so outline buttons here need light text. */
+.emp-top .btn-outline {
+  color: var(--foam);
+  border-color: rgba(244, 248, 247, 0.45);
+  background: transparent;
+}
+
+.emp-top .btn-outline:hover {
+  background: rgba(244, 248, 247, 0.12);
+}
+
 .emp-main {
   padding: 1.5rem 0 3rem;
 }

@@ -142,7 +142,7 @@ export function GoalsStudio() {
                         <span className="bar-fill" style={{ width: `${goalPct(g)}%` }} />
                       </span>
                     </div>
-                    <button className="btn btn-ghost" type="button" onClick={() => bump(g, Math.max(1, Math.round(g.target * 0.05)))}>
+                    <button className="btn btn-outline" type="button" onClick={() => bump(g, Math.max(1, Math.round(g.target * 0.05)))}>
                       +{Math.max(1, Math.round(g.target * 0.05)).toLocaleString()}
                     </button>
                   </div>

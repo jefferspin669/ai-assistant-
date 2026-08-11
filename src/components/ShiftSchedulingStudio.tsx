@@ -173,7 +173,7 @@ export function ShiftSchedulingStudio() {
                       </strong>
                       <span className="muted-line">{shift ? `${shift.date} ${shift.start}–${shift.end}` : "Shift"}</span>
                     </p>
-                    <button className="btn btn-ghost" type="button" onClick={() => doAcceptSwap(s.id)}>
+                    <button className="btn btn-outline" type="button" onClick={() => doAcceptSwap(s.id)}>
                       Accept
                     </button>
                   </div>

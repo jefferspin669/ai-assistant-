@@ -974,7 +974,7 @@ export default function EmployeeDashboardPage() {
                           </span>
                         </p>
                       </div>
-                      <button className="btn btn-ghost" type="button" onClick={() => giveUp(s.id)}>
+                      <button className="btn btn-outline" type="button" onClick={() => giveUp(s.id)}>
                         Give up
                       </button>
                     </div>
@@ -1077,7 +1077,7 @@ export default function EmployeeDashboardPage() {
                           ) : null}
                         </div>
                         {state !== "complete" ? (
-                          <button className="btn btn-ghost" type="button" onClick={() => continueTraining(m.id)}>
+                          <button className="btn btn-outline" type="button" onClick={() => continueTraining(m.id)}>
                             Continue
                           </button>
                         ) : null}
