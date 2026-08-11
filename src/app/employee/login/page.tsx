@@ -105,7 +105,7 @@ export default function EmployeeLoginPage() {
                       <strong>{member.name}</strong>
                       <span className="muted-line">{member.email}</span>
                     </p>
-                    <button className="btn btn-ghost" type="button" onClick={() => fillDemo(member)}>
+                    <button className="btn btn-outline" type="button" onClick={() => fillDemo(member)}>
                       Use
                     </button>
                   </div>
