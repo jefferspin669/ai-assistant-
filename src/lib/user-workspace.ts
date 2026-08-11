@@ -404,6 +404,7 @@ export type ChecklistItem = { id: string; label: string; done: boolean };
 export type TaskAttachment = { id: string; name: string; addedBy: "manager" | "employee"; addedAt: string };
 export type TaskNote = { id: string; text: string; author: "manager" | "employee" | "atlas"; at: string };
 export type ApprovalEntry = { action: ApprovalAction; by: string; at: string; note?: string };
+export type TaskPart = { id: string; memberId: string; label: string; status: TaskStatus };
 
 export type TeamTask = {
   id: string;
@@ -437,6 +438,8 @@ export type TeamTask = {
   progress: number; // explicit 0-100; 0 means "derive from checklist/status"
   timeSpentMs: number;
   dependencies: string[];
+  dependsOn: string[]; // ids of upstream tasks that must complete first
+  parts: TaskPart[]; // for shared/team tasks
   people: string[];
   createdAt: string;
 };
@@ -560,6 +563,8 @@ function normalizeTask(raw: RawTask): TeamTask {
     progress: typeof raw.progress === "number" ? raw.progress : 0,
     timeSpentMs: typeof raw.timeSpentMs === "number" ? raw.timeSpentMs : 0,
     dependencies: Array.isArray(raw.dependencies) ? (raw.dependencies as string[]) : [],
+    dependsOn: Array.isArray(raw.dependsOn) ? (raw.dependsOn as string[]) : [],
+    parts: Array.isArray(raw.parts) ? (raw.parts as TaskPart[]) : [],
     people: Array.isArray(raw.people) ? (raw.people as string[]) : [],
     createdAt: raw.createdAt || nowIso(),
   };
@@ -639,9 +644,53 @@ export function createTeamTask(input: {
     progress: input.progress ?? 0,
     timeSpentMs: 0,
     dependencies: input.dependencies ?? [],
+    dependsOn: [],
+    parts: [],
     people: input.people ?? [],
     createdAt: now,
   };
+}
+
+/* ─── Task dependencies + shared parts ─────────────────────────────────── */
+
+export type DependencyStatus = { ready: boolean; blockers: TeamTask[] };
+
+export function dependencyStatus(task: TeamTask, allTasks: TeamTask[]): DependencyStatus {
+  const blockers = task.dependsOn
+    .map((id) => allTasks.find((t) => t.id === id))
+    .filter((t): t is TeamTask => Boolean(t) && t!.status !== "completed");
+  return { ready: blockers.length === 0, blockers };
+}
+
+/** Walk the dependency chain to the first incomplete upstream task (bottleneck). */
+export function bottleneckOf(task: TeamTask, allTasks: TeamTask[]): TeamTask | null {
+  const seen = new Set<string>();
+  let cursor: TeamTask | null = task;
+  let bottleneck: TeamTask | null = null;
+  while (cursor && !seen.has(cursor.id)) {
+    seen.add(cursor.id);
+    const upstream: TeamTask | undefined = cursor.dependsOn
+      .map((id) => allTasks.find((t) => t.id === id))
+      .find((t) => t && t.status !== "completed");
+    if (!upstream) break;
+    bottleneck = upstream;
+    cursor = upstream;
+  }
+  return bottleneck;
+}
+
+export function isShared(task: TeamTask): boolean {
+  return task.parts.length > 0;
+}
+
+export function sharedProgress(task: TeamTask): number {
+  if (!task.parts.length) return taskProgress(task);
+  const done = task.parts.filter((p) => p.status === "completed").length;
+  return Math.round((done / task.parts.length) * 100);
+}
+
+export function updateTaskPart(task: TeamTask, partId: string, status: TaskStatus): TeamTask {
+  return { ...task, parts: task.parts.map((p) => (p.id === partId ? { ...p, status } : p)) };
 }
 
 /* ─── Task timing + blocking + approval workflow ───────────────────────── */
@@ -1213,6 +1262,19 @@ export function atlasSidebarReply(member: TeamPerson, input: string, now: number
     };
   }
 
+  // Work memory: "what did we do last time…".
+  if (/last time|previous|before|remember|history|what did we do|earlier|past/.test(q)) {
+    const hits = searchMemory(member, input);
+    if (hits.length) {
+      const top = hits[0];
+      return {
+        text: `Last time: ${top.title}. ${top.detail}`,
+        items: [...top.docs.map((d) => `📄 ${d}`), ...hits.slice(1, 3).map((h) => `Related: ${h.title}`)],
+      };
+    }
+    return { text: "I don't have a matching memory for that yet — it may be a first.", items: [] };
+  }
+
   // Find a document / contract / file.
   if (/find|where.*(is|are)|contract|document|file|policy|handbook/.test(q)) {
     const hits = docs.filter((d) => words.some((w) => d.title.toLowerCase().includes(w) || d.category.toLowerCase().includes(w)));
@@ -1389,6 +1451,10 @@ export function inboxItems(member: TeamPerson, now: number = Date.now()): InboxI
     items.push({ id: `ann-${a.id}`, emoji: "📢", text: `Announcement: ${a.title}`, ago: relativeTime(a.at, now), ts: new Date(a.at).getTime() });
   }
 
+  for (const h of handoffsFor(member.id).filter((h) => h.status === "pending")) {
+    items.push({ id: `handoff-${h.id}`, emoji: "🔄", text: `Handoff from ${h.fromName}: ${h.taskTitle}`, ago: relativeTime(h.at, now), ts: new Date(h.at).getTime() });
+  }
+
   return items.sort((a, b) => b.ts - a.ts).slice(0, 12);
 }
 
@@ -1426,6 +1492,124 @@ export function projectSummary(name: string, allTasks: TeamTask[], members: Team
     projectTasks: pt.length,
     nextDeadline: openDated[0] ?? "",
   };
+}
+
+/* ─── Employee work memory ─────────────────────────────────────────────── */
+
+export type MemoryKind = "project" | "training" | "procedure" | "note" | "preference" | "case";
+export type MemoryEntry = {
+  id: string;
+  memberId: string;
+  kind: MemoryKind;
+  title: string;
+  detail: string;
+  tags: string[];
+  docs: string[];
+  at: string;
+};
+
+const MEMORY_KEY = "atlas-employee-memory-v1";
+export function loadMemory(): MemoryEntry[] {
+  return loadJson<MemoryEntry[]>(MEMORY_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveMemory(list: MemoryEntry[]) {
+  saveJson(MEMORY_KEY, list);
+}
+export function addMemory(input: { memberId: string; kind: MemoryKind; title: string; detail: string; tags?: string[]; docs?: string[] }): MemoryEntry {
+  const m: MemoryEntry = {
+    id: newId("mem"),
+    memberId: input.memberId,
+    kind: input.kind,
+    title: input.title.trim(),
+    detail: input.detail.trim(),
+    tags: input.tags ?? [],
+    docs: input.docs ?? [],
+    at: nowIso(),
+  };
+  saveMemory([m, ...loadMemory()]);
+  return m;
+}
+export function memoryFor(memberId: string): MemoryEntry[] {
+  return loadMemory().filter((m) => m.memberId === memberId);
+}
+export function searchMemory(member: TeamPerson, query: string): MemoryEntry[] {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+  const mine = memoryFor(member.id);
+  const scored = mine
+    .map((m) => {
+      const hay = `${m.title} ${m.detail} ${m.tags.join(" ")}`.toLowerCase();
+      const score = words.reduce((s, w) => s + (hay.includes(w) ? 1 : 0), 0);
+      return { m, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.map((x) => x.m);
+}
+
+/* ─── Smart handoffs ───────────────────────────────────────────────────── */
+
+export type Handoff = {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  fromMemberId: string;
+  fromName: string;
+  toMemberId: string;
+  toName: string;
+  summary: string;
+  at: string;
+  status: "pending" | "accepted";
+};
+
+const HANDOFFS_KEY = "atlas-employee-handoffs-v1";
+export function loadHandoffs(): Handoff[] {
+  return loadJson<Handoff[]>(HANDOFFS_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function saveHandoffs(list: Handoff[]) {
+  saveJson(HANDOFFS_KEY, list);
+}
+
+/** Auto-draft a handoff summary from a task's state. */
+export function buildHandoffSummary(task: TeamTask): string {
+  const pct = taskProgress(task);
+  const lastNote = task.notes.length ? task.notes[task.notes.length - 1].text : "";
+  const statusLine =
+    task.status === "blocked" && task.blockReason
+      ? `Blocked because ${task.blockReason}.`
+      : task.status === "waiting"
+        ? "Waiting on an input to continue."
+        : "";
+  const next = task.requiredResult ? `Next action: ${task.requiredResult}.` : "Next action: continue the work.";
+  return [`${pct}% complete.`, lastNote, statusLine, next].filter(Boolean).join(" ");
+}
+
+/** Create a handoff and reassign the task to the recipient. */
+export function createHandoff(task: TeamTask, from: TeamPerson, to: TeamPerson): Handoff {
+  const summary = buildHandoffSummary(task);
+  const reassigned = addTaskNote({ ...task, memberId: to.id }, `Handoff from ${from.name}: ${summary}`, "atlas");
+  saveTeamTasks(replaceTask(loadTeamTasks(), reassigned));
+  const handoff: Handoff = {
+    id: newId("handoff"),
+    taskId: task.id,
+    taskTitle: task.title,
+    fromMemberId: from.id,
+    fromName: from.name,
+    toMemberId: to.id,
+    toName: to.name,
+    summary,
+    at: nowIso(),
+    status: "pending",
+  };
+  saveHandoffs([handoff, ...loadHandoffs()]);
+  return handoff;
+}
+export function handoffsFor(memberId: string): Handoff[] {
+  return loadHandoffs().filter((h) => h.toMemberId === memberId);
+}
+export function acceptHandoff(id: string): Handoff[] {
+  const next = loadHandoffs().map((h) => (h.id === id ? { ...h, status: "accepted" as const } : h));
+  saveHandoffs(next);
+  return next;
 }
 
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
@@ -3031,16 +3215,43 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     sam.earnedAchievements = ["team_player"];
   }
 
-  // Extra "Johnson Expansion" project tasks across teammates.
+  // Johnson Expansion dependency chain + a shared team task.
   const david = byName("David Chen");
   const mike = byName("Mike Ross");
+  const ashley = byName("Ashley Kim");
   const projectTasks: TeamTask[] = [];
-  if (david) projectTasks.push(createTeamTask({ memberId: david.id, title: "Johnson site survey", project: "Johnson Expansion", assignedBy: "Michael", dueDate: today }));
-  if (mike) {
-    projectTasks.push(createTeamTask({ memberId: mike.id, title: "Johnson budget model", project: "Johnson Expansion", assignedBy: "Michael" }));
-    projectTasks.push(createTeamTask({ memberId: mike.id, title: "Johnson permits", project: "Johnson Expansion", assignedBy: "Michael" }));
+  if (sarah && mike && david && ashley) {
+    const prep = createTeamTask({ memberId: sarah.id, title: "Prepare pricing", project: "Johnson Expansion", assignedBy: "Michael" });
+    prep.status = "completed";
+    const approve = createTeamTask({ memberId: mike.id, title: "Approve pricing", project: "Johnson Expansion", assignedBy: "Michael" });
+    approve.dependsOn = [prep.id];
+    approve.status = "in_progress";
+    const contract = createTeamTask({ memberId: david.id, title: "Create contract", project: "Johnson Expansion", assignedBy: "Michael" });
+    contract.dependsOn = [approve.id];
+    const send = createTeamTask({ memberId: ashley.id, title: "Send contract", project: "Johnson Expansion", assignedBy: "Michael" });
+    send.dependsOn = [contract.id];
+    projectTasks.push(prep, approve, contract, send);
+
+    const shared = createTeamTask({ memberId: sarah.id, title: "Launch Customer Website", project: "Website Launch", assignedBy: "Michael", dueDate: friday });
+    shared.parts = [
+      { id: newId("part"), memberId: sarah.id, label: "Design", status: "completed" },
+      { id: newId("part"), memberId: mike.id, label: "Development", status: "in_progress" },
+      { id: newId("part"), memberId: ashley.id, label: "Copywriting", status: "completed" },
+      { id: newId("part"), memberId: david.id, label: "Testing", status: "not_started" },
+    ];
+    projectTasks.push(shared);
   }
   tasks.push(...projectTasks);
+
+  // Work memory for Sarah (past case, procedure, training, preference).
+  const memory: MemoryEntry[] = sarah
+    ? [
+        { id: newId("mem"), memberId: sarah.id, kind: "case", title: "Johnson pricing dispute (Q2)", detail: "The Johnson account pushed back on pricing. We re-quoted with a 5% loyalty discount and a phased payment plan; it resolved in 3 days and they signed.", tags: ["johnson", "pricing", "dispute", "contract", "problem"], docs: ["Johnson re-quote Q2.pdf", "Johnson signed contract.pdf"], at: nowIso() },
+        { id: newId("mem"), memberId: sarah.id, kind: "procedure", title: "Refund procedure", detail: "Confirm the order, check the window, get manager approval over $500, and log the outcome.", tags: ["refund", "procedure"], docs: ["Refund policy.pdf"], at: nowIso() },
+        { id: newId("mem"), memberId: sarah.id, kind: "training", title: "Completed Advanced CRM training", detail: "Certified on the new CRM workflows in July.", tags: ["training", "crm"], docs: [], at: nowIso() },
+        { id: newId("mem"), memberId: sarah.id, kind: "preference", title: "Prefers morning deep-work", detail: "Blocks 8–10 AM for proposals; batches calls in the afternoon.", tags: ["preference", "schedule"], docs: [], at: nowIso() },
+      ]
+    : [];
 
   const meeting: Announcement = {
     id: newId("ann"),
@@ -3064,5 +3275,6 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
   saveDocuments([...docs, ...loadDocuments()]);
   saveRecognitions([...recognitions, ...loadRecognitions()]);
   saveSuggestions([...suggestions, ...loadSuggestions()]);
+  saveMemory([...memory, ...loadMemory()]);
   return members;
 }

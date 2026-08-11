@@ -9,13 +9,23 @@ import {
   addTaskAttachment,
   addTaskComment,
   ACHIEVEMENT_BADGES,
+  acceptHandoff,
   atlasSidebarReply,
   awaitingApproval,
   BLOCK_REASONS,
   blockTask,
+  bottleneckOf,
+  buildHandoffSummary,
+  createHandoff,
+  dependencyStatus,
   employeeProjects,
+  handoffsFor,
   inboxItems,
+  isShared,
+  memoryFor,
   projectSummary,
+  sharedProgress,
+  updateTaskPart,
   buildDaySchedule,
   bumpTraining,
   createTeamTask,
@@ -108,6 +118,8 @@ import {
   type ScheduledShift,
   type TaskPriority,
   type TaskStatus,
+  type Handoff,
+  type MemoryEntry,
   type TeamPerson,
   type TeamTask,
   type TimeShift,
@@ -193,7 +205,10 @@ export default function EmployeeDashboardPage() {
   const [helpFlash, setHelpFlash] = useState<string | null>(null);
   const [eodOpen, setEodOpen] = useState(false);
   const [eodNote, setEodNote] = useState("");
+  const [handoffTo, setHandoffTo] = useState("");
   const [actionFlash, setActionFlash] = useState<string | null>(null);
+  const [handoffs, setHandoffs] = useState<Handoff[]>([]);
+  const [memory, setMemory] = useState<MemoryEntry[]>([]);
   const [focusMode, setFocusMode] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -210,7 +225,9 @@ export default function EmployeeDashboardPage() {
     }
     idRef.current = me.id;
     setEmployee(me);
-    setTasks(loadTeamTasks().filter((t) => t.memberId === me.id));
+    setTasks(loadTeamTasks().filter((t) => t.memberId === me.id || t.parts.some((p) => p.memberId === me.id)));
+    setHandoffs(handoffsFor(me.id));
+    setMemory(memoryFor(me.id));
     setPresence(getPresence(me.id));
     setShift(getOpenShift(me.id));
     setAnnouncements(unacknowledgedFor(me.id));
@@ -290,7 +307,8 @@ export default function EmployeeDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [employee, now, shift],
   );
-  const priorities = useMemo(() => smartPriorities(tasks), [tasks]);
+  const priorities = useMemo(() => smartPriorities(tasks.filter((t) => !isShared(t))), [tasks]);
+  const sharedTasks = useMemo(() => tasks.filter(isShared), [tasks]);
   const selected = tasks.find((t) => t.id === selectedId) ?? null;
   const onBreak = isOnBreak(shift);
   const runningTask = useMemo(
@@ -337,9 +355,10 @@ export default function EmployeeDashboardPage() {
   );
   const trainingNow = Date.now();
 
-  const saveMyTasks = useCallback((memberId: string, mine: TeamTask[]) => {
+  const saveMyTasks = useCallback((_memberId: string, mine: TeamTask[]) => {
     setTasks(mine);
-    const others = loadTeamTasks().filter((t) => t.memberId !== memberId);
+    const mineIds = new Set(mine.map((t) => t.id));
+    const others = loadTeamTasks().filter((t) => !mineIds.has(t.id));
     saveTeamTasks([...mine, ...others]);
   }, []);
 
@@ -492,6 +511,28 @@ export default function EmployeeDashboardPage() {
     setBlockFlash(
       `⚠️ Atlas notified ${reason.notify}: ${employee.name.split(" ")[0]} can't complete "${task.title}" because ${clause}.`,
     );
+  }
+
+  function setPartStatus(task: TeamTask, partId: string, status: TaskStatus) {
+    if (!employee) return;
+    saveMyTasks(employee.id, replaceTask(tasks, updateTaskPart(task, partId, status)));
+  }
+
+  function doAcceptHandoff(id: string) {
+    if (!employee) return;
+    acceptHandoff(id);
+    setHandoffs(handoffsFor(employee.id));
+    setActionFlash("Handoff accepted — the task is now on your board.");
+  }
+
+  function handOff(task: TeamTask, toId: string) {
+    if (!employee) return;
+    const to = allMembers.find((m) => m.id === toId);
+    if (!to) return;
+    createHandoff(task, employee, to);
+    // The task was reassigned away, so drop it from my list.
+    setTasks(loadTeamTasks().filter((t) => t.memberId === employee.id || t.parts.some((p) => p.memberId === employee.id)));
+    setActionFlash(`Handed off "${task.title}" to ${to.name} with a summary.`);
   }
 
   function enterFocus(task: TeamTask) {
@@ -1258,6 +1299,73 @@ export default function EmployeeDashboardPage() {
             )}
           </section>
 
+          {handoffs.length ? (
+            <section className="panel">
+              <h2>Handoffs to you</h2>
+              <p className="panel-lead">Context handed over so you can pick up right where they left off.</p>
+              <div className="list">
+                {handoffs.map((h) => (
+                  <div className="list-row" key={h.id}>
+                    <span className={h.status === "accepted" ? "badge ok" : "badge warn"}>🔄</span>
+                    <div style={{ flex: 1 }}>
+                      <p>
+                        <strong>{h.fromName} → you · {h.taskTitle}</strong>
+                        <span className="muted-line">{h.summary}</span>
+                      </p>
+                    </div>
+                    {h.status === "pending" ? (
+                      <button className="btn btn-dark" type="button" onClick={() => doAcceptHandoff(h.id)}>Accept</button>
+                    ) : (
+                      <span className="badge ok">Accepted</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {sharedTasks.length ? (
+            <section className="panel">
+              <h2>Team tasks</h2>
+              <p className="panel-lead">Shared work — everyone sees their own part.</p>
+              {sharedTasks.map((t) => (
+                <div key={t.id} style={{ marginBottom: "1rem" }}>
+                  <div className="tc-top">
+                    <strong>{t.title}{t.project ? ` · ${t.project}` : ""}</strong>
+                    <span className="badge">{sharedProgress(t)}%</span>
+                  </div>
+                  <span className="bar-track" style={{ display: "block", margin: "0.4rem 0" }}>
+                    <span className="bar-fill" style={{ width: `${sharedProgress(t)}%` }} />
+                  </span>
+                  <div className="list">
+                    {t.parts.map((p) => {
+                      const who = allMembers.find((m) => m.id === p.memberId);
+                      const mine = p.memberId === employee.id;
+                      return (
+                        <div className="list-row" key={p.id}>
+                          <span className={p.status === "completed" ? "badge ok" : p.status === "in_progress" ? "badge warn" : "badge"}>
+                            {p.status === "completed" ? "✅" : p.status === "in_progress" ? "🟡" : "⏳"}
+                          </span>
+                          <p>
+                            <strong>{p.label}</strong>
+                            <span className="muted-line">{who?.name ?? "Unassigned"}{mine ? " (you)" : ""}</span>
+                          </p>
+                          {mine ? (
+                            <select value={p.status} onChange={(e) => setPartStatus(t, p.id, e.target.value as TaskStatus)} aria-label={`Your ${p.label} status`}>
+                              {TASK_STATUSES.map((s) => (
+                                <option key={s.id} value={s.id}>{s.label}</option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </section>
+          ) : null}
+
           {perf ? (
             <section className="panel">
               <h2>My performance — this month</h2>
@@ -1543,6 +1651,30 @@ export default function EmployeeDashboardPage() {
                       Ask Atlas About This Task
                     </button>
                   </div>
+
+                  {selected.dependsOn.length ? (() => {
+                    const all = loadTeamTasks();
+                    const dep = dependencyStatus(selected, all);
+                    const bn = bottleneckOf(selected, all);
+                    if (dep.ready) {
+                      return (
+                        <div className="memory-card" style={{ marginBottom: "0.5rem" }}>
+                          <div className="label">Dependencies clear</div>
+                          <p>All upstream tasks are done — you&apos;re good to start.</p>
+                        </div>
+                      );
+                    }
+                    const who = bn ? allMembers.find((m) => m.id === bn.memberId) : null;
+                    return (
+                      <div className="confirm-card" style={{ marginBottom: "0.5rem" }}>
+                        <div className="confirm-prompt">⛔ Waiting on an upstream task</div>
+                        <p>
+                          This can&apos;t start yet. The bottleneck is <strong>{bn?.title}</strong>
+                          {who ? ` (${who.name})` : ""} — Atlas is tracking it, not blaming you.
+                        </p>
+                      </div>
+                    );
+                  })() : null}
 
                   {selected.approvalRequired ? (
                     <div
@@ -2010,6 +2142,30 @@ export default function EmployeeDashboardPage() {
             </form>
           </section>
 
+          <section className="panel">
+            <h2>Work memory</h2>
+            <p className="panel-lead">Atlas remembers your projects, procedures, training, and past cases — within company permissions.</p>
+            {memory.length === 0 ? (
+              <p className="muted-line">No memory yet — it builds as you work.</p>
+            ) : (
+              <div className="list">
+                {memory.map((m) => (
+                  <div className="list-row" key={m.id}>
+                    <span className="badge">{m.kind}</span>
+                    <p>
+                      <strong>{m.title}</strong>
+                      <span className="muted-line">{m.detail}</span>
+                      {m.docs.length ? <span className="muted-line">📄 {m.docs.join(", ")}</span> : null}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="muted-line" style={{ marginTop: "0.6rem" }}>
+              Ask the Atlas sidebar: <em>&quot;What did we do last time the Johnson account had this problem?&quot;</em>
+            </p>
+          </section>
+
           <section className="panel" id="emp-privacy">
             <h2>Privacy center</h2>
             <p className="panel-lead">You can see exactly what Atlas records — and what it never does.</p>
@@ -2146,6 +2302,37 @@ export default function EmployeeDashboardPage() {
                 <div className="list-row"><span className="badge">📅</span><p>{eod.meetings} meeting{eod.meetings === 1 ? "" : "s"} attended</p></div>
                 <div className="list-row"><span className="badge ok">⭐</span><p>{eod.compliments} recognition{eod.compliments === 1 ? "" : "s"}</p></div>
               </div>
+              {(() => {
+                const unfinished = tasks.filter((t) => t.memberId === employee.id && (t.status === "in_progress" || t.status === "waiting" || t.status === "blocked"));
+                if (!unfinished.length) return null;
+                return (
+                  <div style={{ marginTop: "1rem" }}>
+                    <h3>Hand off unfinished work</h3>
+                    <p className="muted-line">Atlas drafts the summary so a teammate can pick up seamlessly.</p>
+                    <label className="check-inline" style={{ marginTop: "0.4rem" }}>
+                      Hand off to
+                      <select value={handoffTo} onChange={(e) => setHandoffTo(e.target.value)}>
+                        <option value="">Choose teammate…</option>
+                        {teammates.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="list" style={{ marginTop: "0.5rem" }}>
+                      {unfinished.map((t) => (
+                        <div className="list-row" key={t.id}>
+                          <span className="badge">{taskProgress(t)}%</span>
+                          <div style={{ flex: 1 }}>
+                            <p><strong>{t.title}</strong><span className="muted-line">{buildHandoffSummary(t)}</span></p>
+                          </div>
+                          <button className="btn btn-outline" type="button" disabled={!handoffTo} onClick={() => handOff(t, handoffTo)}>Hand off</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <label style={{ display: "block", marginTop: "1rem" }}>
                 <span className="muted-line">Anything your manager should know?</span>
                 <textarea value={eodNote} onChange={(e) => setEodNote(e.target.value)} rows={2} placeholder="e.g. Waiting on supplier pricing before I can finish tomorrow." />
