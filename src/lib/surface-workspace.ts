@@ -242,7 +242,25 @@ export type CrmCustomer = {
   last: string;
   notes: string;
   createdAt: string;
+  // Extended (all optional) — manual entry needs only a name or business name.
+  firstName?: string;
+  lastName?: string;
+  businessName?: string;
+  mobile?: string;
+  workPhone?: string;
+  homePhone?: string;
+  secondaryEmail?: string;
+  address?: string;
+  preferredContact?: string;
+  customerType?: string;
+  tags?: string[];
+  assignedEmployee?: string;
+  leadSource?: string;
+  importantDates?: string;
 };
+
+export const CUSTOMER_TYPES = ["Residential", "Commercial", "Government", "Non-profit", "Reseller", "Other"];
+export const CONTACT_METHODS = ["Mobile", "Work phone", "Home phone", "Email", "Text message"];
 
 const CRM_KEY = "atlas-user-crm-v1";
 
@@ -255,25 +273,59 @@ export function saveCrmCustomers(customers: CrmCustomer[]) {
 }
 
 export function createCrmCustomer(input: {
-  name: string;
+  name?: string;
   phone?: string;
   email?: string;
   jobs?: number;
   value?: string;
   last?: string;
   notes?: string;
+  firstName?: string;
+  lastName?: string;
+  businessName?: string;
+  mobile?: string;
+  workPhone?: string;
+  homePhone?: string;
+  secondaryEmail?: string;
+  address?: string;
+  preferredContact?: string;
+  customerType?: string;
+  tags?: string[];
+  assignedEmployee?: string;
+  leadSource?: string;
+  importantDates?: string;
 }): CrmCustomer {
-  const name = input.name.trim() || "New customer";
+  const businessName = input.businessName?.trim() || "";
+  const firstName = input.firstName?.trim() || "";
+  const lastName = input.lastName?.trim() || "";
+  const personName = `${firstName} ${lastName}`.trim();
+  // Only a name (person or business) is needed; everything else is optional.
+  const name = businessName || personName || input.name?.trim() || "New customer";
+  const primaryPhone = input.mobile?.trim() || input.workPhone?.trim() || input.homePhone?.trim() || input.phone?.trim() || "";
   return {
     id: newId("crm"),
     name,
-    phone: input.phone?.trim() || "",
+    phone: primaryPhone,
     email: input.email?.trim() || "",
     jobs: Number(input.jobs) || 0,
     value: input.value?.trim() || "$0",
     last: input.last?.trim() || "Just added",
     notes: input.notes?.trim() || "",
     createdAt: nowIso(),
+    firstName,
+    lastName,
+    businessName,
+    mobile: input.mobile?.trim() || "",
+    workPhone: input.workPhone?.trim() || "",
+    homePhone: input.homePhone?.trim() || "",
+    secondaryEmail: input.secondaryEmail?.trim() || "",
+    address: input.address?.trim() || "",
+    preferredContact: input.preferredContact?.trim() || "",
+    customerType: input.customerType?.trim() || "",
+    tags: (input.tags ?? []).map((t) => t.trim()).filter(Boolean),
+    assignedEmployee: input.assignedEmployee?.trim() || "",
+    leadSource: input.leadSource?.trim() || "",
+    importantDates: input.importantDates?.trim() || "",
   };
 }
 

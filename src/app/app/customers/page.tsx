@@ -1,39 +1,83 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { crmPredictions } from "@/lib/atlas-platform";
 import {
+  CONTACT_METHODS,
   createCrmCustomer,
+  CUSTOMER_TYPES,
   loadCrmCustomers,
   saveCrmCustomers,
   type CrmCustomer,
 } from "@/lib/surface-workspace";
+import { loadTeamMembers, seedDemoTeamIfEmpty, type TeamPerson } from "@/lib/user-workspace";
+
+type FormState = {
+  firstName: string;
+  lastName: string;
+  businessName: string;
+  mobile: string;
+  workPhone: string;
+  homePhone: string;
+  email: string;
+  secondaryEmail: string;
+  address: string;
+  preferredContact: string;
+  customerType: string;
+  tags: string;
+  notes: string;
+  assignedEmployee: string;
+  leadSource: string;
+  importantDates: string;
+};
+
+const EMPTY: FormState = {
+  firstName: "",
+  lastName: "",
+  businessName: "",
+  mobile: "",
+  workPhone: "",
+  homePhone: "",
+  email: "",
+  secondaryEmail: "",
+  address: "",
+  preferredContact: "",
+  customerType: "",
+  tags: "",
+  notes: "",
+  assignedEmployee: "",
+  leadSource: "",
+  importantDates: "",
+};
 
 function CrmStudio() {
   const [customers, setCustomers] = useState<CrmCustomer[]>([]);
+  const [members, setMembers] = useState<TeamPerson[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [jobs, setJobs] = useState("0");
-  const [value, setValue] = useState("$0");
-  const [last, setLast] = useState("Just added");
-  const [notes, setNotes] = useState("");
   const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [error, setError] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    seedDemoTeamIfEmpty();
     const loaded = loadCrmCustomers();
     setCustomers(loaded);
+    setMembers(loadTeamMembers());
     setSelectedId(loaded[0]?.id ?? null);
     setShowForm(loaded.length === 0);
     setReady(true);
   }, []);
 
   const selected = customers.find((c) => c.id === selectedId) ?? null;
+  const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
+  const hasName = useMemo(
+    () => Boolean(form.firstName.trim() || form.lastName.trim() || form.businessName.trim()),
+    [form.firstName, form.lastName, form.businessName],
+  );
 
   function persist(next: CrmCustomer[], selectId?: string | null) {
     setCustomers(next);
@@ -41,61 +85,62 @@ function CrmStudio() {
     if (selectId !== undefined) setSelectedId(selectId);
   }
 
+  function openAdd() {
+    setEditing(false);
+    setForm(EMPTY);
+    setError("");
+    setShowForm(true);
+  }
+
   function onCreate(e: FormEvent) {
     e.preventDefault();
-    const customer = createCrmCustomer({
-      name,
-      phone,
-      email,
-      jobs: Number(jobs) || 0,
-      value,
-      last,
-      notes,
-    });
-    const next = [customer, ...customers];
-    persist(next, customer.id);
+    if (!hasName) {
+      setError("Enter at least a first name, last name, or business name.");
+      return;
+    }
+    const customer = createCrmCustomer({ ...form, tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean) });
+    persist([customer, ...customers], customer.id);
     setShowForm(false);
-    setEditing(false);
-    setName("");
-    setPhone("");
-    setEmail("");
-    setJobs("0");
-    setValue("$0");
-    setLast("Just added");
-    setNotes("");
+    setForm(EMPTY);
+    setError("");
     setNote(`Added ${customer.name}.`);
   }
 
   function beginEdit() {
     if (!selected) return;
     setEditing(true);
-    setName(selected.name);
-    setPhone(selected.phone);
-    setEmail(selected.email);
-    setJobs(String(selected.jobs));
-    setValue(selected.value);
-    setLast(selected.last);
-    setNotes(selected.notes);
+    setForm({
+      firstName: selected.firstName ?? "",
+      lastName: selected.lastName ?? "",
+      businessName: selected.businessName ?? "",
+      mobile: selected.mobile ?? selected.phone ?? "",
+      workPhone: selected.workPhone ?? "",
+      homePhone: selected.homePhone ?? "",
+      email: selected.email ?? "",
+      secondaryEmail: selected.secondaryEmail ?? "",
+      address: selected.address ?? "",
+      preferredContact: selected.preferredContact ?? "",
+      customerType: selected.customerType ?? "",
+      tags: (selected.tags ?? []).join(", "),
+      notes: selected.notes ?? "",
+      assignedEmployee: selected.assignedEmployee ?? "",
+      leadSource: selected.leadSource ?? "",
+      importantDates: selected.importantDates ?? "",
+    });
+    setError("");
     setShowForm(true);
   }
 
   function onSaveEdit(e: FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    const updated: CrmCustomer = {
-      ...selected,
-      name: name.trim() || selected.name,
-      phone: phone.trim(),
-      email: email.trim(),
-      jobs: Number(jobs) || 0,
-      value: value.trim() || "$0",
-      last: last.trim() || selected.last,
-      notes: notes.trim(),
-    };
-    persist(
-      customers.map((c) => (c.id === selected.id ? updated : c)),
-      updated.id,
-    );
+    if (!hasName) {
+      setError("Enter at least a first name, last name, or business name.");
+      return;
+    }
+    const rebuilt = createCrmCustomer({ ...form, tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean) });
+    const updated: CrmCustomer = { ...rebuilt, id: selected.id, createdAt: selected.createdAt, jobs: selected.jobs, value: selected.value, last: selected.last };
+    persist(customers.map((c) => (c.id === selected.id ? updated : c)), updated.id);
     setShowForm(false);
     setEditing(false);
     setNote(`Updated ${updated.name}.`);
@@ -113,50 +158,61 @@ function CrmStudio() {
       {(showForm || customers.length === 0) && (
         <section className="panel">
           <h2>{editing ? "Edit customer" : "Add customer"}</h2>
+          <p className="panel-lead">Only a name or business name is required — add whatever else you have.</p>
           <form className="form-grid" onSubmit={editing ? onSaveEdit : onCreate}>
-            <label>
-              Name
-              <input value={name} onChange={(e) => setName(e.target.value)} required />
-            </label>
-            <label>
-              Phone
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </label>
-            <label>
-              Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <label>
-              Jobs
-              <input type="number" min={0} value={jobs} onChange={(e) => setJobs(e.target.value)} />
-            </label>
-            <label>
-              Value
-              <input value={value} onChange={(e) => setValue(e.target.value)} />
-            </label>
-            <label>
-              Last activity
-              <input value={last} onChange={(e) => setLast(e.target.value)} />
-            </label>
-            <label>
-              Notes
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-            </label>
-            <button className="btn btn-dark" type="submit">
-              {editing ? "Save changes" : "Add customer"}
-            </button>
-            {customers.length > 0 ? (
-              <button
-                className="btn btn-outline"
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditing(false);
-                }}
-              >
-                Cancel
+            <div className="field-row">
+              <label>First name<input value={form.firstName} onChange={(e) => set({ firstName: e.target.value })} /></label>
+              <label>Last name<input value={form.lastName} onChange={(e) => set({ lastName: e.target.value })} /></label>
+            </div>
+            <label>Business name<input value={form.businessName} onChange={(e) => set({ businessName: e.target.value })} placeholder="e.g. Johnson Construction" /></label>
+            <div className="field-row">
+              <label>Mobile number<input value={form.mobile} onChange={(e) => set({ mobile: e.target.value })} /></label>
+              <label>Work number<input value={form.workPhone} onChange={(e) => set({ workPhone: e.target.value })} /></label>
+              <label>Home number<input value={form.homePhone} onChange={(e) => set({ homePhone: e.target.value })} /></label>
+            </div>
+            <div className="field-row">
+              <label>Email<input type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
+              <label>Secondary email<input type="email" value={form.secondaryEmail} onChange={(e) => set({ secondaryEmail: e.target.value })} /></label>
+            </div>
+            <label>Address<input value={form.address} onChange={(e) => set({ address: e.target.value })} placeholder="Street, city, state" /></label>
+            <div className="field-row">
+              <label>
+                Preferred contact method
+                <select value={form.preferredContact} onChange={(e) => set({ preferredContact: e.target.value })}>
+                  <option value="">—</option>
+                  {CONTACT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </label>
+              <label>
+                Customer type
+                <select value={form.customerType} onChange={(e) => set({ customerType: e.target.value })}>
+                  <option value="">—</option>
+                  {CUSTOMER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+            </div>
+            <label>Tags<input value={form.tags} onChange={(e) => set({ tags: e.target.value })} placeholder="comma,separated,tags" /></label>
+            <div className="field-row">
+              <label>
+                Assigned employee
+                <select value={form.assignedEmployee} onChange={(e) => set({ assignedEmployee: e.target.value })}>
+                  <option value="">Unassigned</option>
+                  {members.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                </select>
+              </label>
+              <label>Lead source<input value={form.leadSource} onChange={(e) => set({ leadSource: e.target.value })} placeholder="e.g. Referral, Google, Walk-in" /></label>
+            </div>
+            <label>Birthday / important dates<input value={form.importantDates} onChange={(e) => set({ importantDates: e.target.value })} placeholder="Optional" /></label>
+            <label>Notes<textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} rows={3} /></label>
+            {error ? <p className="auth-error">{error}</p> : null}
+            <div className="train-actions">
+              <button className="btn btn-dark" type="submit" disabled={!hasName}>
+                {editing ? "Save changes" : "+ Add Customer"}
               </button>
-            ) : null}
+              {customers.length > 0 ? (
+                <button className="btn btn-outline" type="button" onClick={() => { setShowForm(false); setEditing(false); setError(""); }}>Cancel</button>
+              ) : null}
+            </div>
           </form>
         </section>
       )}
@@ -168,23 +224,7 @@ function CrmStudio() {
               <h2>Customers</h2>
               <p className="panel-lead">Add and edit profiles — Atlas still predicts who needs attention.</p>
             </div>
-            <button
-              className="btn btn-dark"
-              type="button"
-              onClick={() => {
-                setEditing(false);
-                setName("");
-                setPhone("");
-                setEmail("");
-                setJobs("0");
-                setValue("$0");
-                setLast("Just added");
-                setNotes("");
-                setShowForm(true);
-              }}
-            >
-              Add customer
-            </button>
+            <button className="btn btn-dark" type="button" onClick={openAdd}>Add customer</button>
           </div>
           {!ready ? <p className="muted-line">Loading…</p> : null}
           {ready && customers.length === 0 ? (
@@ -195,22 +235,17 @@ function CrmStudio() {
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Jobs</th>
-                    <th>Value</th>
+                    <th>Type</th>
+                    <th>Assigned</th>
                     <th>Last activity</th>
                   </tr>
                 </thead>
                 <tbody>
                   {customers.map((c) => (
-                    <tr
-                      key={c.id}
-                      className={selectedId === c.id ? "row-active" : undefined}
-                      onClick={() => setSelectedId(c.id)}
-                      style={{ cursor: "pointer" }}
-                    >
+                    <tr key={c.id} className={selectedId === c.id ? "row-active" : undefined} onClick={() => setSelectedId(c.id)} style={{ cursor: "pointer" }}>
                       <td>{c.name}</td>
-                      <td>{c.jobs}</td>
-                      <td>{c.value}</td>
+                      <td>{c.customerType || "—"}</td>
+                      <td>{c.assignedEmployee || "—"}</td>
                       <td>{c.last}</td>
                     </tr>
                   ))}
@@ -224,25 +259,25 @@ function CrmStudio() {
           {selected ? (
             <>
               <h2>{selected.name}</h2>
+              {selected.tags && selected.tags.length ? (
+                <div className="status-picker" style={{ marginBottom: "0.5rem" }}>
+                  {selected.tags.map((t) => <span key={t} className="badge">{t}</span>)}
+                </div>
+              ) : null}
               <div className="list">
-                <div className="list-row">
-                  <span className="badge">Phone</span>
-                  <p>{selected.phone || "—"}</p>
-                </div>
-                <div className="list-row">
-                  <span className="badge">Email</span>
-                  <p>{selected.email || "—"}</p>
-                </div>
-                <div className="list-row">
-                  <span className="badge">Jobs</span>
-                  <p>
-                    {selected.jobs} · {selected.value}
-                  </p>
-                </div>
-                <div className="list-row">
-                  <span className="badge">Last</span>
-                  <p>{selected.last}</p>
-                </div>
+                {selected.businessName && (selected.firstName || selected.lastName) ? (
+                  <div className="list-row"><span className="badge">Contact</span><p>{`${selected.firstName ?? ""} ${selected.lastName ?? ""}`.trim()}</p></div>
+                ) : null}
+                <div className="list-row"><span className="badge">Mobile</span><p>{selected.mobile || "—"}</p></div>
+                <div className="list-row"><span className="badge">Work</span><p>{selected.workPhone || "—"}</p></div>
+                <div className="list-row"><span className="badge">Home</span><p>{selected.homePhone || "—"}</p></div>
+                <div className="list-row"><span className="badge">Email</span><p>{selected.email || "—"}{selected.secondaryEmail ? ` · ${selected.secondaryEmail}` : ""}</p></div>
+                <div className="list-row"><span className="badge">Address</span><p>{selected.address || "—"}</p></div>
+                <div className="list-row"><span className="badge">Prefers</span><p>{selected.preferredContact || "—"}</p></div>
+                <div className="list-row"><span className="badge">Type</span><p>{selected.customerType || "—"}</p></div>
+                <div className="list-row"><span className="badge">Assigned</span><p>{selected.assignedEmployee || "Unassigned"}</p></div>
+                <div className="list-row"><span className="badge">Lead source</span><p>{selected.leadSource || "—"}</p></div>
+                <div className="list-row"><span className="badge">Dates</span><p>{selected.importantDates || "—"}</p></div>
               </div>
               {selected.notes ? (
                 <div className="memory-card" style={{ marginTop: "1rem" }}>
@@ -251,20 +286,12 @@ function CrmStudio() {
                 </div>
               ) : null}
               <div className="train-actions">
-                <button className="btn btn-dark" type="button" onClick={beginEdit}>
-                  Edit
-                </button>
-                <button
-                  className="btn btn-outline"
-                  type="button"
-                  onClick={() => removeCustomer(selected.id)}
-                >
-                  Remove
-                </button>
+                <button className="btn btn-dark" type="button" onClick={beginEdit}>Edit</button>
+                <button className="btn btn-outline" type="button" onClick={() => removeCustomer(selected.id)}>Remove</button>
               </div>
             </>
           ) : (
-            <p className="muted-line">Select a customer to edit.</p>
+            <p className="muted-line">Select a customer to see details.</p>
           )}
           {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
         </section>
@@ -277,9 +304,7 @@ function CrmStudio() {
             <div className="list-row" key={item.customer}>
               <span className="badge warn">Signal</span>
               <div>
-                <p>
-                  <strong>{item.customer}</strong> — {item.signal}
-                </p>
+                <p><strong>{item.customer}</strong> — {item.signal}</p>
                 <small className="muted-line">{item.action}</small>
                 <div className="memory-card" style={{ marginTop: "0.55rem" }}>
                   <p>{item.message}</p>
