@@ -41,11 +41,15 @@ import {
   loadA11y,
   memoryFor,
   mentorPlan,
+  flushSyncQueue,
+  myWorkFeed,
   ONBOARDING_STEPS,
   onboardingFor,
   onboardingPct,
   openingMatch,
   payDashboard,
+  queueSync,
+  syncPending,
   projectSummary,
   recurringFor,
   reportAssetProblem,
@@ -280,6 +284,10 @@ export default function EmployeeDashboardPage() {
   const [translatedIds, setTranslatedIds] = useState<Set<string>>(new Set());
   const [a11yOpen, setA11yOpen] = useState(false);
   const [a11y, setA11y] = useState<A11ySettings>({ largeText: false, highContrast: false, reducedMotion: false });
+  const [offlineOverride, setOfflineOverride] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [pendingSync, setPendingSync] = useState(0);
+  const offlineRef = useRef(false);
   const [focusMode, setFocusMode] = useState(false);
   const [focusSeconds, setFocusSeconds] = useState(0);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -392,6 +400,9 @@ export default function EmployeeDashboardPage() {
   );
   const priorities = useMemo(() => smartPriorities(tasks.filter((t) => !isShared(t))), [tasks]);
   const sharedTasks = useMemo(() => tasks.filter(isShared), [tasks]);
+  // Recompute when tasks change even though myWorkFeed reads from storage.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const work = useMemo(() => (employee ? myWorkFeed(employee, now) : null), [employee, tasks, now]);
   const selected = tasks.find((t) => t.id === selectedId) ?? null;
   const onBreak = isOnBreak(shift);
   const runningTask = useMemo(
@@ -443,7 +454,37 @@ export default function EmployeeDashboardPage() {
     const mineIds = new Set(mine.map((t) => t.id));
     const others = loadTeamTasks().filter((t) => !mineIds.has(t.id));
     saveTeamTasks([...mine, ...others]);
+    // Work is always saved to the device; while offline we also queue a sync
+    // record that flushes when the connection returns.
+    if (offlineRef.current) {
+      queueSync("Task update");
+      setPendingSync(syncPending());
+    }
   }, []);
+
+  const effectiveOffline = offlineOverride || !online;
+  useEffect(() => {
+    offlineRef.current = effectiveOffline;
+  }, [effectiveOffline]);
+  useEffect(() => {
+    setOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+    setPendingSync(syncPending());
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+  useEffect(() => {
+    if (!effectiveOffline && pendingSync > 0) {
+      const n = flushSyncQueue();
+      setPendingSync(0);
+      if (n > 0) setActionFlash(`Back online — synced ${n} change${n === 1 ? "" : "s"}.`);
+    }
+  }, [effectiveOffline, pendingSync]);
 
   function updateTask(next: TeamTask) {
     if (!employee) return;
@@ -1200,6 +1241,9 @@ export default function EmployeeDashboardPage() {
             <button className="emp-iconbtn" type="button" onClick={() => setA11yOpen(true)}>
               Settings
             </button>
+            <button className="emp-iconbtn" type="button" onClick={() => setOfflineOverride((v) => !v)} aria-label="Toggle offline mode">
+              {effectiveOffline ? "📴 Offline" : "📶 Online"}
+            </button>
             <button className="btn btn-outline" type="button" onClick={logout}>
               Sign out
             </button>
@@ -1209,6 +1253,76 @@ export default function EmployeeDashboardPage() {
 
       <main className="emp-main">
         <div className="container">
+          {effectiveOffline ? (
+            <section className="panel" style={{ borderLeft: "4px solid var(--rust, #b4532a)", background: "rgba(180, 83, 42, 0.06)" }}>
+              <h2>📴 You&apos;re offline</h2>
+              <p className="panel-lead">
+                Your assignments, checklists, notes, and status changes are saved on this device and will sync automatically when you reconnect.
+                {pendingSync > 0 ? ` ${pendingSync} change${pendingSync === 1 ? "" : "s"} queued.` : ""}
+              </p>
+              <div className="train-actions" style={{ marginTop: "0.4rem" }}>
+                <button className="btn btn-dark" type="button" onClick={() => setOfflineOverride(false)}>Reconnect &amp; sync</button>
+              </div>
+            </section>
+          ) : pendingSync > 0 ? (
+            <section className="panel"><p className="panel-lead">Syncing {pendingSync} change{pendingSync === 1 ? "" : "s"}…</p></section>
+          ) : null}
+
+          {work ? (
+            <section className="panel emp-hero" id="emp-mywork" style={{ borderLeft: "4px solid var(--teal)" }}>
+              <h2>My Work — {work.day}</h2>
+              {work.needsAttention.length ? (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <div className="label">🔴 Needs attention</div>
+                  {work.needsAttention.slice(0, 3).map(({ task, note }) => (
+                    <p key={task.id} style={{ margin: "0.15rem 0" }}>
+                      <button className="link-btn" type="button" onClick={() => { setSelectedId(task.id); scrollTo("emp-priorities"); }}><strong>{task.title}</strong></button> — {note}.
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {work.blocked.length ? (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <div className="label">🚧 Blocked</div>
+                  {work.blocked.slice(0, 3).map(({ task, note }) => (
+                    <p key={task.id} style={{ margin: "0.15rem 0" }}>
+                      <button className="link-btn" type="button" onClick={() => { setSelectedId(task.id); scrollTo("emp-priorities"); }}><strong>{task.title}</strong></button> — {note}.
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {work.next ? (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <div className="label">📅 Next</div>
+                  <p style={{ margin: "0.15rem 0" }}>{work.next.task.title}{work.next.when ? ` at ${work.next.when}` : ""}.</p>
+                </div>
+              ) : null}
+              {work.updates.length ? (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <div className="label">💬 New</div>
+                  {work.updates.slice(0, 3).map((u, i) => (
+                    <p key={i} style={{ margin: "0.15rem 0" }}>{u.emoji} {u.text}</p>
+                  ))}
+                </div>
+              ) : null}
+              <div style={{ marginTop: "0.5rem" }}>
+                <div className="label">✅ Completed</div>
+                <p style={{ margin: "0.15rem 0" }}>{work.completedToday} of {work.totalToday} task{work.totalToday === 1 ? "" : "s"} today.</p>
+              </div>
+              {work.suggestion ? (
+                <div className="memory-card" style={{ marginTop: "0.6rem" }}>
+                  <div className="label">✨ Atlas suggestion</div>
+                  <p>{work.suggestion.text}</p>
+                  <div className="train-actions" style={{ marginTop: "0.4rem" }}>
+                    <button className="btn btn-dark" type="button" onClick={() => { beginTask(work.suggestion!.task); scrollTo("emp-priorities"); }}>
+                      Start {work.suggestion.task.title}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
           {briefOpen ? (
             <section className="panel emp-hero" style={{ borderLeft: "4px solid var(--teal)" }}>
               <h2>Your day</h2>

@@ -2505,6 +2505,133 @@ export function applyA11y(s: A11ySettings) {
   root.classList.toggle("a11y-reduced-motion", s.reducedMotion);
 }
 
+/* ─── Offline mode (sync queue) ────────────────────────────────────────── */
+
+export type SyncItem = { id: string; label: string; at: string };
+const SYNC_KEY = "atlas-sync-queue-v1";
+export function loadSyncQueue(): SyncItem[] {
+  return loadJson<SyncItem[]>(SYNC_KEY, []);
+}
+export function queueSync(label: string): SyncItem {
+  const item: SyncItem = { id: newId("sync"), label, at: nowIso() };
+  saveJson(SYNC_KEY, [...loadSyncQueue(), item]);
+  return item;
+}
+export function syncPending(): number {
+  return loadSyncQueue().length;
+}
+/** Flush the offline queue (data is already persisted locally) and return count. */
+export function flushSyncQueue(): number {
+  const n = loadSyncQueue().length;
+  saveJson(SYNC_KEY, []);
+  return n;
+}
+
+/* ─── "My Work" intelligent feed ───────────────────────────────────────── */
+
+function clockToMin(label?: string): number | null {
+  if (!label) return null;
+  const m = label.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  const ap = m[3]?.toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
+function parseEstimateMinutes(label?: string): number | null {
+  if (!label) return null;
+  const m = label.toLowerCase().match(/(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes)?/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const unit = m[2] || "min";
+  return /^h/.test(unit) ? Math.round(n * 60) : Math.round(n);
+}
+
+export type WorkFeed = {
+  day: string;
+  needsAttention: { task: TeamTask; note: string }[];
+  blocked: { task: TeamTask; note: string }[];
+  next: { task: TeamTask; when: string } | null;
+  updates: { emoji: string; text: string }[];
+  completedToday: number;
+  totalToday: number;
+  suggestion: { text: string; task: TeamTask } | null;
+};
+
+export function myWorkFeed(member: TeamPerson, now: number = Date.now()): WorkFeed {
+  const day = new Date(now).toLocaleDateString("en-US", { weekday: "long" });
+  const today = todayISO(new Date(now));
+  const nowMin = new Date(now).getHours() * 60 + new Date(now).getMinutes();
+  const all = loadTeamTasks();
+  const members = loadTeamMembers();
+  const mine = all.filter((t) => t.memberId === member.id);
+  const open = mine.filter((t) => isOpenTask(t.status));
+
+  // Next: earliest upcoming timed task today.
+  const upcoming = open
+    .filter((t) => t.dueDate === today && clockToMin(t.dueTime) !== null && (clockToMin(t.dueTime) as number) >= nowMin)
+    .sort((a, b) => (clockToMin(a.dueTime) as number) - (clockToMin(b.dueTime) as number));
+  const next = upcoming[0] ? { task: upcoming[0], when: upcoming[0].dueTime } : null;
+  const nextId = next?.task.id;
+
+  // Needs attention: overdue, due-soon, or high-priority-today (excluding "next").
+  const needsAttention: { task: TeamTask; note: string }[] = [];
+  for (const t of open) {
+    if (t.status === "blocked" || t.id === nextId) continue;
+    const tm = clockToMin(t.dueTime);
+    if (t.dueDate && t.dueDate < today) needsAttention.push({ task: t, note: "overdue" });
+    else if (t.dueDate === today && tm !== null && tm >= nowMin && tm - nowMin <= 120) needsAttention.push({ task: t, note: `due in ${tm - nowMin} minutes` });
+    else if (t.dueDate === today && (t.priority === "Urgent" || t.priority === "High")) needsAttention.push({ task: t, note: `${t.priority} priority · due today` });
+  }
+
+  // Blocked: explicit blocks + dependency bottlenecks.
+  const blocked: { task: TeamTask; note: string }[] = [];
+  for (const t of open) {
+    if (t.status === "blocked") blocked.push({ task: t, note: t.blockReason ? `blocked — ${t.blockReason}` : "blocked" });
+    else if (t.dependsOn.length) {
+      const bn = bottleneckOf(t, all);
+      if (bn) {
+        const who = members.find((m) => m.id === bn.memberId);
+        blocked.push({ task: t, note: `waiting for ${bn.title}${who ? ` (${who.name})` : ""}` });
+      }
+    }
+  }
+
+  // New / updates.
+  const updates: { emoji: string; text: string }[] = [];
+  for (const h of handoffsFor(member.id).filter((x) => x.status === "pending")) updates.push({ emoji: "🔄", text: `Handoff from ${h.fromName}: ${h.taskTitle}` });
+  for (const a of loadAnnouncements().filter((a) => !a.acks.includes(member.id)).slice(0, 2)) updates.push({ emoji: "📢", text: `Announcement: ${a.title}` });
+  const myChannels = new Set(channelsForEmployee(member).map((c) => c.id));
+  const recentMsgs = loadMessages().filter((m) => myChannels.has(m.channelId) && m.authorId !== member.id).slice(-2);
+  for (const m of recentMsgs) updates.push({ emoji: "💬", text: `${m.authorName}: ${m.text.slice(0, 60)}` });
+
+  // Completed today.
+  const completedToday = mine.filter((t) => t.status === "completed" && t.completedAt && t.completedAt.slice(0, 10) === today).length;
+  const totalToday = completedToday + open.filter((t) => t.dueDate === today).length;
+
+  // Atlas suggestion: fit a quick task into the gap before the next item.
+  let suggestion: { text: string; task: TeamTask } | null = null;
+  if (next) {
+    const gap = (clockToMin(next.when) as number) - nowMin;
+    if (gap > 10) {
+      const quick = open
+        .map((t) => ({ t, est: parseEstimateMinutes(t.estimatedTime) }))
+        .filter((x) => x.est !== null && (x.est as number) <= gap && x.t.id !== nextId)
+        .sort((a, b) => (a.est as number) - (b.est as number))[0];
+      if (quick) {
+        suggestion = {
+          text: `You have about ${gap} minutes before ${next.task.title}. Your ${quick.t.title} should take about ${quick.est} minutes.`,
+          task: quick.t,
+        };
+      }
+    }
+  }
+
+  return { day, needsAttention, blocked, next, updates, completedToday, totalToday, suggestion };
+}
+
 /* ─── Manager alerts ───────────────────────────────────────────────────── */
 
 export type ManagerAlert = {
@@ -4139,6 +4266,16 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
     projectTasks.push(shared);
   }
   tasks.push(...projectTasks);
+
+  // A near-future meeting + a quick task so "My Work" shows a Next item and an
+  // Atlas time-gap suggestion regardless of when the demo runs.
+  if (sarah) {
+    const soon = formatClock(new Date(Date.now() + 40 * 60000).toISOString());
+    tasks.push(
+      createTeamTask({ memberId: sarah.id, title: "Customer meeting", assignedBy: "Michael", dueDate: today, dueTime: soon, kind: "meeting", estimatedTime: "30 min" }),
+      createTeamTask({ memberId: sarah.id, title: "Expense report", assignedBy: "Michael", dueDate: today, estimatedTime: "15 min", priority: "Normal" }),
+    );
+  }
 
   // Work memory for Sarah (past case, procedure, training, preference).
   const memory: MemoryEntry[] = sarah
