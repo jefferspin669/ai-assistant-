@@ -10,7 +10,6 @@ import {
   loadTeamMembers,
   saveEmployeeSession,
   seedDemoTeamIfEmpty,
-  updatePresence,
   type TeamPerson,
 } from "@/lib/user-workspace";
 
@@ -42,7 +41,8 @@ export default function EmployeeLoginPage() {
       return;
     }
     saveEmployeeSession(member.id);
-    updatePresence(member.id, { clockedIn: true, manualStatus: "working", touchActive: true });
+    // The employee clocks in from their Time clock — that's the single source
+    // of clocked-in/online state, so we don't force presence here.
     router.push("/employee");
   }
 

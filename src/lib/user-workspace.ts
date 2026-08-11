@@ -741,7 +741,12 @@ export function saveShifts(shifts: TimeShift[]) {
 }
 
 export function getOpenShift(memberId: string, shifts = loadShifts()): TimeShift | null {
-  return shifts.find((s) => s.memberId === memberId && s.clockOut === null) ?? null;
+  // Only today's open shift is the "current" session; a past open shift is a
+  // missing punch (surfaced separately), not an active clock-in.
+  const today = todayISO();
+  return (
+    shifts.find((s) => s.memberId === memberId && s.clockOut === null && s.date === today) ?? null
+  );
 }
 
 export function clockIn(memberId: string): TimeShift {
