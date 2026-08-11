@@ -360,6 +360,18 @@ export type TeamPerson = {
   department?: string;
   shiftStart?: string;
   shiftEnd?: string;
+  // Seeded performance metrics (shown with context — never a single score).
+  tasksCompletedTotal?: number;
+  onTimePct?: number;
+  avgCompletion?: string;
+  csat?: number;
+  attendancePct?: number;
+  trainingProgress?: number;
+  goals?: string[];
+  achievements?: string[];
+  // Leave balances, in days.
+  ptoDays?: number;
+  sickDays?: number;
   createdAt: string;
 };
 
@@ -394,6 +406,10 @@ export type TeamTask = {
   recurrence: TaskRecurrence;
   approvalRequired: boolean;
   approvalStatus: ApprovalStatus;
+  startedAt: string;
+  completedAt: string;
+  result: string;
+  blockedAt: string;
   createdAt: string;
 };
 
@@ -505,6 +521,10 @@ function normalizeTask(raw: RawTask): TeamTask {
     recurrence: (raw.recurrence as TaskRecurrence) || "one-time",
     approvalRequired: Boolean(raw.approvalRequired),
     approvalStatus: (raw.approvalStatus as ApprovalStatus) || (raw.approvalRequired ? "pending" : "not_required"),
+    startedAt: raw.startedAt || "",
+    completedAt: raw.completedAt || "",
+    result: raw.result || "",
+    blockedAt: raw.blockedAt || "",
     createdAt: raw.createdAt || nowIso(),
   };
 }
@@ -567,8 +587,33 @@ export function createTeamTask(input: {
     recurrence: input.recurrence || "one-time",
     approvalRequired: Boolean(input.approvalRequired),
     approvalStatus: input.approvalRequired ? "pending" : "not_required",
+    startedAt: "",
+    completedAt: "",
+    result: "",
+    blockedAt: "",
     createdAt: now,
   };
+}
+
+/* ─── Task timing + blocking ───────────────────────────────────────────── */
+
+export function startTask(task: TeamTask): TeamTask {
+  return { ...task, status: "in_progress", startedAt: task.startedAt || nowIso(), blockedAt: "" };
+}
+
+export function completeTask(task: TeamTask, input: { result?: string; note?: string }): TeamTask {
+  const completed: TeamTask = {
+    ...task,
+    status: "completed",
+    completedAt: nowIso(),
+    result: (input.result || "").trim() || task.result,
+  };
+  return input.note?.trim() ? addTaskNote(completed, input.note, "employee") : completed;
+}
+
+export function blockTask(task: TeamTask, reason?: string): TeamTask {
+  const blocked: TeamTask = { ...task, status: "blocked", blockedAt: nowIso() };
+  return reason?.trim() ? addTaskNote(blocked, `Blocked: ${reason.trim()}`, "employee") : blocked;
 }
 
 /* ─── Task board grouping + daily summary ──────────────────────────────── */
@@ -669,6 +714,437 @@ export function toggleChecklistItem(task: TeamTask, itemId: string): TeamTask {
   return {
     ...task,
     checklist: task.checklist.map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)),
+  };
+}
+
+/* ─── Timekeeping (clock in/out + breaks) ──────────────────────────────── */
+
+export type ShiftBreak = { start: string; end: string | null };
+export type TimeShift = {
+  id: string;
+  memberId: string;
+  date: string; // local yyyy-mm-dd of the clock-in
+  clockIn: string;
+  clockOut: string | null;
+  breaks: ShiftBreak[];
+};
+
+const SHIFTS_KEY = "atlas-user-shifts-v1";
+const WEEK_HOURS = 40;
+const LATE_GRACE_MIN = 5;
+
+export function loadShifts(): TimeShift[] {
+  return loadJson<TimeShift[]>(SHIFTS_KEY, []);
+}
+export function saveShifts(shifts: TimeShift[]) {
+  saveJson(SHIFTS_KEY, shifts);
+}
+
+export function getOpenShift(memberId: string, shifts = loadShifts()): TimeShift | null {
+  return shifts.find((s) => s.memberId === memberId && s.clockOut === null) ?? null;
+}
+
+export function clockIn(memberId: string): TimeShift {
+  const shifts = loadShifts();
+  const open = getOpenShift(memberId, shifts);
+  if (open) return open;
+  const now = new Date();
+  const shift: TimeShift = {
+    id: newId("shift"),
+    memberId,
+    date: todayISO(now),
+    clockIn: now.toISOString(),
+    clockOut: null,
+    breaks: [],
+  };
+  saveShifts([shift, ...shifts]);
+  return shift;
+}
+
+export function startBreak(memberId: string): TimeShift | null {
+  const shifts = loadShifts();
+  const open = getOpenShift(memberId, shifts);
+  if (!open) return null;
+  const last = open.breaks[open.breaks.length - 1];
+  if (last && last.end === null) return open; // already on break
+  open.breaks.push({ start: nowIso(), end: null });
+  saveShifts(shifts);
+  return open;
+}
+
+export function endBreak(memberId: string): TimeShift | null {
+  const shifts = loadShifts();
+  const open = getOpenShift(memberId, shifts);
+  if (!open) return null;
+  const last = open.breaks[open.breaks.length - 1];
+  if (last && last.end === null) last.end = nowIso();
+  saveShifts(shifts);
+  return open;
+}
+
+export function clockOut(memberId: string): TimeShift | null {
+  const shifts = loadShifts();
+  const open = getOpenShift(memberId, shifts);
+  if (!open) return null;
+  const last = open.breaks[open.breaks.length - 1];
+  if (last && last.end === null) last.end = nowIso();
+  open.clockOut = nowIso();
+  saveShifts(shifts);
+  return open;
+}
+
+export function isOnBreak(shift: TimeShift | null): boolean {
+  if (!shift) return false;
+  const last = shift.breaks[shift.breaks.length - 1];
+  return Boolean(last && last.end === null);
+}
+
+function breakMs(shift: TimeShift, now: number): number {
+  return shift.breaks.reduce((sum, b) => {
+    const start = new Date(b.start).getTime();
+    const end = b.end ? new Date(b.end).getTime() : now;
+    return sum + Math.max(0, end - start);
+  }, 0);
+}
+
+/** Net worked ms for a shift. Past shifts left open (missing punch) count 0. */
+function shiftNetMs(shift: TimeShift, now: number, today = todayISO()): number {
+  const start = new Date(shift.clockIn).getTime();
+  let end: number;
+  if (shift.clockOut) {
+    end = new Date(shift.clockOut).getTime();
+  } else if (shift.date === today) {
+    end = now; // live open shift today
+  } else {
+    return 0; // missing punch on a past day
+  }
+  return Math.max(0, end - start - breakMs(shift, now));
+}
+
+export function formatHours(ms: number): string {
+  const hours = ms / 3_600_000;
+  return `${hours.toFixed(1)}h`;
+}
+
+export function formatClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function parseClockToMinutes(label?: string): number {
+  if (!label) return 8 * 60;
+  const m = label.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m) return 8 * 60;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  const ap = m[3]?.toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+export type Timesheet = {
+  memberId: string;
+  hoursToday: number;
+  hoursWeek: number;
+  overtime: number;
+  lateClockIns: number;
+  missingPunches: number;
+  ptoDays: number;
+  sickDays: number;
+  clockedIn: boolean;
+  onBreak: boolean;
+};
+
+export function timesheetFor(
+  member: TeamPerson,
+  shifts = loadShifts(),
+  now: number = Date.now(),
+): Timesheet {
+  const today = todayISO(new Date(now));
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const mine = shifts.filter((s) => s.memberId === member.id);
+  let todayMs = 0;
+  let weekMs = 0;
+  let late = 0;
+  let missing = 0;
+  const startMin = parseClockToMinutes(member.shiftStart);
+  for (const shift of mine) {
+    const inTime = new Date(shift.clockIn).getTime();
+    const net = shiftNetMs(shift, now, today);
+    if (shift.date === today) todayMs += net;
+    if (inTime >= weekAgo) weekMs += net;
+    // Late: clock-in later than shift start + grace.
+    const inMin = new Date(shift.clockIn).getHours() * 60 + new Date(shift.clockIn).getMinutes();
+    if (inTime >= weekAgo && inMin > startMin + LATE_GRACE_MIN) late += 1;
+    // Missing punch: a past day left without a clock-out.
+    if (!shift.clockOut && shift.date < today) missing += 1;
+  }
+  const weekHours = weekMs / 3_600_000;
+  const open = getOpenShift(member.id, shifts);
+  return {
+    memberId: member.id,
+    hoursToday: todayMs / 3_600_000,
+    hoursWeek: weekHours,
+    overtime: Math.max(0, weekHours - WEEK_HOURS),
+    lateClockIns: late,
+    missingPunches: missing,
+    ptoDays: member.ptoDays ?? 0,
+    sickDays: member.sickDays ?? 0,
+    clockedIn: Boolean(open),
+    onBreak: isOnBreak(open),
+  };
+}
+
+/* ─── Employee AI assistant ────────────────────────────────────────────── */
+
+export type AssistantAction = { label: string; kind: "focus" | "block" | "complete"; taskId: string };
+export type AssistantReply = { text: string; actions: AssistantAction[] };
+
+const PRIORITY_RANK: Record<TaskPriority, number> = { Urgent: 3, High: 2, Normal: 1, Low: 0 };
+
+function rankTasks(tasks: TeamTask[]): TeamTask[] {
+  return [...tasks].sort((a, b) => {
+    const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
+    if (p !== 0) return p;
+    if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+    return a.dueDate ? -1 : 1;
+  });
+}
+
+function dueContext(task: TeamTask, today = todayISO()): string {
+  if (!task.dueDate) return "no due date";
+  const d = task.dueDate.slice(0, 10);
+  if (d < today) return "overdue";
+  if (d === today) return "due today";
+  return `due ${d}`;
+}
+
+export function employeeAssistantReply(
+  member: TeamPerson,
+  allTasks: TeamTask[],
+  input: string,
+): AssistantReply {
+  const q = input.toLowerCase().trim();
+  const mine = allTasks.filter((t) => t.memberId === member.id);
+  const open = mine.filter((t) => isOpenTask(t.status));
+  const ranked = rankTasks(open);
+  const today = todayISO();
+
+  // "I can't finish X" / blocked / missing / stuck / waiting on.
+  if (/can'?t|cannot|blocked|stuck|missing|waiting on|held up/.test(q)) {
+    const words = q.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+    const match =
+      open.find((t) => words.some((w) => t.title.toLowerCase().includes(w))) ?? null;
+    if (match) {
+      return {
+        text: `Sounds like "${match.title}" is stuck. Want me to mark it blocked and alert your manager?`,
+        actions: [{ label: `Mark "${match.title}" as blocked`, kind: "block", taskId: match.id }],
+      };
+    }
+    return {
+      text: "Which task is blocked? Tell me its name, or pick one from your board and I'll flag it for your manager.",
+      actions: ranked.slice(0, 3).map((t) => ({ label: `Block "${t.title}"`, kind: "block" as const, taskId: t.id })),
+    };
+  }
+
+  // "What do I need to finish today?" / remaining / priorities.
+  if (/finish|today|remaining|left|priorit|what.*(do|should)|next/.test(q)) {
+    if (open.length === 0) {
+      return { text: "You're all caught up — no open tasks right now. Nice work!", actions: [] };
+    }
+    const top = ranked[0];
+    return {
+      text: `You have ${open.length} task${open.length === 1 ? "" : "s"} remaining. "${top.title}" is the highest priority because it's ${top.priority.toLowerCase()} priority and ${dueContext(top, today)}.`,
+      actions: [{ label: `Start "${top.title}"`, kind: "focus", taskId: top.id }],
+    };
+  }
+
+  // "I finished / done".
+  if (/done|finished|complete/.test(q)) {
+    const inProgress = open.find((t) => t.status === "in_progress") ?? ranked[0];
+    if (inProgress) {
+      return {
+        text: `Great — mark "${inProgress.title}" complete and I'll record the finish time for your manager.`,
+        actions: [{ label: `Complete "${inProgress.title}"`, kind: "complete", taskId: inProgress.id }],
+      };
+    }
+  }
+
+  const top = ranked[0];
+  return {
+    text:
+      "I can help with your day. Try: \u201cWhat do I need to finish today?\u201d, tell me a task you\u2019re blocked on, or say you finished something." +
+      (top ? ` Right now, "${top.title}" is your top priority.` : ""),
+    actions: top ? [{ label: `Start "${top.title}"`, kind: "focus", taskId: top.id }] : [],
+  };
+}
+
+/* ─── Manager alerts ───────────────────────────────────────────────────── */
+
+export type ManagerAlert = {
+  id: string;
+  kind: "at_risk" | "blocked" | "approval" | "workload" | "scheduling";
+  severity: "high" | "medium";
+  title: string;
+  detail: string;
+  memberId?: string;
+};
+
+function checklistPct(task: TeamTask): number {
+  if (task.checklist.length) {
+    return Math.round((task.checklist.filter((c) => c.done).length / task.checklist.length) * 100);
+  }
+  if (task.status === "in_progress") return 50;
+  if (task.status === "waiting" || task.status === "blocked") return 20;
+  return 0;
+}
+
+function minutesSince(iso: string, now: number): number {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.round((now - t) / 60000));
+}
+
+export function computeManagerAlerts(
+  members: TeamPerson[],
+  tasks: TeamTask[],
+  now: number = Date.now(),
+): ManagerAlert[] {
+  const today = todayISO(new Date(now));
+  const alerts: ManagerAlert[] = [];
+  const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? "An employee";
+
+  for (const task of tasks) {
+    if (task.status === "completed") {
+      // Waiting on approval.
+      if (task.approvalRequired && task.approvalStatus === "pending" && task.completedAt) {
+        const mins = minutesSince(task.completedAt, now);
+        if (mins >= 1) {
+          alerts.push({
+            id: `approval-${task.id}`,
+            kind: "approval",
+            severity: mins >= 30 ? "high" : "medium",
+            title: "Employee blocked",
+            detail: `${nameOf(task.memberId)} has been waiting on manager approval for ${mins} minute${mins === 1 ? "" : "s"} on "${task.title}".`,
+            memberId: task.memberId,
+          });
+        }
+      }
+      continue;
+    }
+
+    // Blocked tasks.
+    if (task.status === "blocked") {
+      const mins = task.blockedAt ? minutesSince(task.blockedAt, now) : 0;
+      alerts.push({
+        id: `blocked-${task.id}`,
+        kind: "blocked",
+        severity: "high",
+        title: "Employee blocked",
+        detail: `${nameOf(task.memberId)}'s "${task.title}" is blocked${mins ? ` (${mins} min)` : ""}.`,
+        memberId: task.memberId,
+      });
+      continue;
+    }
+
+    // At-risk: high/urgent, due today or overdue, not done.
+    const due = task.dueDate ? task.dueDate.slice(0, 10) : "";
+    const highPri = task.priority === "High" || task.priority === "Urgent";
+    if (highPri && due && due <= today) {
+      const pct = checklistPct(task);
+      if (due < today || pct < 70) {
+        alerts.push({
+          id: `risk-${task.id}`,
+          kind: "at_risk",
+          severity: due < today ? "high" : "medium",
+          title: "Task at risk",
+          detail: `${nameOf(task.memberId)}'s "${task.title}" is ${due < today ? "overdue" : "due today"} and only ${pct}% complete.`,
+          memberId: task.memberId,
+        });
+      }
+    }
+  }
+
+  // Workload imbalance.
+  if (members.length >= 2) {
+    const openCounts = members.map((m) => ({
+      m,
+      count: tasks.filter((t) => t.memberId === m.id && isOpenTask(t.status)).length,
+    }));
+    const avg = openCounts.reduce((s, x) => s + x.count, 0) / members.length;
+    for (const { m, count } of openCounts) {
+      if (count >= 5 && count >= avg * 1.7) {
+        alerts.push({
+          id: `workload-${m.id}`,
+          kind: "workload",
+          severity: "medium",
+          title: "Workload imbalance",
+          detail: `${m.name} has ${count} open tasks while the team average is ${avg.toFixed(1)}.`,
+          memberId: m.id,
+        });
+      }
+    }
+  }
+
+  // Scheduling overlap: multiple employees with meetings on the same upcoming day.
+  const meetingDays = new Map<string, Set<string>>();
+  for (const task of tasks) {
+    if (task.kind === "meeting" && task.status !== "completed" && task.dueDate) {
+      const d = task.dueDate.slice(0, 10);
+      if (d >= today) {
+        const set = meetingDays.get(d) ?? new Set<string>();
+        set.add(task.memberId);
+        meetingDays.set(d, set);
+      }
+    }
+  }
+  for (const [day, set] of meetingDays) {
+    if (set.size >= 3) {
+      alerts.push({
+        id: `sched-${day}`,
+        kind: "scheduling",
+        severity: "medium",
+        title: "Possible scheduling problem",
+        detail: `${set.size} employees have appointments on ${day} — check for overlaps.`,
+      });
+    }
+  }
+
+  return alerts.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "high" ? -1 : 1));
+}
+
+/* ─── Employee performance summary ─────────────────────────────────────── */
+
+export type PerformanceSummary = {
+  tasksCompleted: number;
+  onTimePct: number;
+  avgCompletion: string;
+  csat: number;
+  attendancePct: number;
+  trainingProgress: number;
+  currentWorkload: number;
+  completedInApp: number;
+  goals: string[];
+  achievements: string[];
+};
+
+export function performanceSummary(member: TeamPerson, tasks: TeamTask[]): PerformanceSummary {
+  const mine = tasks.filter((t) => t.memberId === member.id);
+  const completedInApp = mine.filter((t) => t.status === "completed").length;
+  const currentWorkload = mine.filter((t) => isOpenTask(t.status)).length;
+  return {
+    tasksCompleted: member.tasksCompletedTotal ?? completedInApp,
+    onTimePct: member.onTimePct ?? 0,
+    avgCompletion: member.avgCompletion ?? "—",
+    csat: member.csat ?? 0,
+    attendancePct: member.attendancePct ?? 0,
+    trainingProgress: member.trainingProgress ?? 0,
+    currentWorkload,
+    completedInApp,
+    goals: member.goals ?? [],
+    achievements: member.achievements ?? [],
   };
 }
 
@@ -898,6 +1374,16 @@ type DemoEmployee = {
   accessCode: string;
   rating: string;
   jobsThisWeek: number;
+  tasksCompletedTotal: number;
+  onTimePct: number;
+  avgCompletion: string;
+  csat: number;
+  attendancePct: number;
+  trainingProgress: number;
+  ptoDays: number;
+  sickDays: number;
+  goals: string[];
+  achievements: string[];
   tasks: DemoTaskSeed[];
 };
 
@@ -910,6 +1396,16 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     accessCode: "SARAH1",
     rating: "4.9",
     jobsThisWeek: 12,
+    tasksCompletedTotal: 94,
+    onTimePct: 96,
+    avgCompletion: "2h 10m",
+    csat: 4.8,
+    attendancePct: 98,
+    trainingProgress: 80,
+    ptoDays: 6,
+    sickDays: 3,
+    goals: ["Lift on-time completion to 98%", "Finish the CRM certification"],
+    achievements: ["100-task streak", "Top CSAT in Q2"],
     tasks: [
       { title: "Call Johnson Construction", priority: "Urgent", due: "today", description: "Confirm the start date and 40% deposit.", goal: "Confirm the schedule", requiredResult: "Log the call outcome", estimatedTime: "30m" },
       { title: "Send revised quote", priority: "High", due: "today", description: "Apply the updated pricing and resend to the customer.", estimatedTime: "20m" },
@@ -930,6 +1426,16 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     accessCode: "ALEX24",
     rating: "4.8",
     jobsThisWeek: 9,
+    tasksCompletedTotal: 71,
+    onTimePct: 92,
+    avgCompletion: "3h 05m",
+    csat: 4.7,
+    attendancePct: 95,
+    trainingProgress: 65,
+    ptoDays: 4,
+    sickDays: 2,
+    goals: ["Complete the EPA refrigerant recert"],
+    achievements: ["Fastest install time in March"],
     tasks: [
       { title: "Finish the Johnson AC install", priority: "High", due: "today", requiredResult: "Photograph the finished unit" },
       { title: "Restock the truck", priority: "Normal", due: "today", checklist: ["Filters", "Refrigerant", "Fittings"] },
@@ -943,6 +1449,16 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
     accessCode: "SAM24X",
     rating: "4.7",
     jobsThisWeek: 7,
+    tasksCompletedTotal: 58,
+    onTimePct: 89,
+    avgCompletion: "2h 40m",
+    csat: 4.6,
+    attendancePct: 97,
+    trainingProgress: 50,
+    ptoDays: 5,
+    sickDays: 1,
+    goals: ["Reduce callbacks to under 3%"],
+    achievements: ["Perfect attendance in Q1"],
     tasks: [
       { title: "Morning maintenance route", priority: "Normal", due: "today" },
     ],
@@ -965,7 +1481,35 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
 
   const members: TeamPerson[] = [];
   const tasks: TeamTask[] = [];
-  for (const demo of DEMO_EMPLOYEES) {
+  const shifts: TimeShift[] = [];
+
+  const pushShift = (
+    memberId: string,
+    offset: number,
+    inH: number,
+    inM: number,
+    opts: { outH?: number; outM?: number; missing?: boolean } = {},
+  ) => {
+    const inD = new Date();
+    inD.setDate(inD.getDate() - offset);
+    inD.setHours(inH, inM, 0, 0);
+    const out = new Date(inD);
+    out.setHours(opts.outH ?? 17, opts.outM ?? 0, 0, 0);
+    const bStart = new Date(inD);
+    bStart.setHours(12, 0, 0, 0);
+    const bEnd = new Date(inD);
+    bEnd.setHours(12, 45, 0, 0);
+    shifts.push({
+      id: newId("shift"),
+      memberId,
+      date: todayISO(inD),
+      clockIn: inD.toISOString(),
+      clockOut: opts.missing ? null : out.toISOString(),
+      breaks: [{ start: bStart.toISOString(), end: bEnd.toISOString() }],
+    });
+  };
+
+  DEMO_EMPLOYEES.forEach((demo, index) => {
     const member: TeamPerson = {
       id: newId("member"),
       name: demo.name,
@@ -978,9 +1522,35 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
       department: demo.department,
       shiftStart: "8:00 AM",
       shiftEnd: "4:30 PM",
+      tasksCompletedTotal: demo.tasksCompletedTotal,
+      onTimePct: demo.onTimePct,
+      avgCompletion: demo.avgCompletion,
+      csat: demo.csat,
+      attendancePct: demo.attendancePct,
+      trainingProgress: demo.trainingProgress,
+      goals: demo.goals,
+      achievements: demo.achievements,
+      ptoDays: demo.ptoDays,
+      sickDays: demo.sickDays,
       createdAt: nowIso(),
     };
     members.push(member);
+
+    // Seed prior time shifts so the manager timesheet has real hours.
+    if (index === 0) {
+      pushShift(member.id, 1, 8, 0);
+      pushShift(member.id, 2, 8, 22); // late clock-in
+      pushShift(member.id, 3, 8, 0);
+      pushShift(member.id, 4, 8, 0);
+      pushShift(member.id, 5, 8, 0);
+      pushShift(member.id, 6, 8, 0, { missing: true }); // missing punch
+    } else {
+      pushShift(member.id, 1, 8, 0, { outH: 16, outM: 30 });
+      pushShift(member.id, 2, 8, 0, { outH: 16, outM: 30 });
+      pushShift(member.id, 3, 8, 0, { outH: 16, outM: 30 });
+      pushShift(member.id, 4, 8, 0, { outH: 16, outM: 30 });
+    }
+
     for (const seed of demo.tasks) {
       const base = createTeamTask({
         memberId: member.id,
@@ -998,8 +1568,10 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
       });
       tasks.push(seed.status ? { ...base, status: seed.status } : base);
     }
-  }
+  });
+
   saveTeamMembers(members);
   saveTeamTasks([...tasks, ...loadTeamTasks()]);
+  saveShifts([...shifts, ...loadShifts()]);
   return members;
 }

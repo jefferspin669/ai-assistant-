@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  computeManagerAlerts,
   derivedStatus,
   employeeAccessCode,
   EMPLOYEE_STATUSES,
@@ -67,6 +68,11 @@ export function WorkforceStatusStudio() {
     return { online, working, openTasks };
   }, [members, presence, tasks, now]);
 
+  const alerts = useMemo(
+    () => computeManagerAlerts(members, tasks, now),
+    [members, tasks, now],
+  );
+
   return (
     <div className="training-studio">
       <div className="stat-grid metrics-dense">
@@ -91,6 +97,30 @@ export function WorkforceStatusStudio() {
           <small>Across the team</small>
         </div>
       </div>
+
+      <section className="panel">
+        <div className="train-head">
+          <div>
+            <h2>Alerts</h2>
+            <p className="panel-lead">Atlas surfaces what needs your attention — not everything.</p>
+          </div>
+          <span className={alerts.length ? "badge warn" : "badge ok"}>
+            {alerts.length ? `${alerts.length} active` : "All clear"}
+          </span>
+        </div>
+        {alerts.length === 0 ? (
+          <p className="muted-line">Nothing needs attention right now.</p>
+        ) : (
+          <div className="list">
+            {alerts.map((a) => (
+              <div className="list-row" key={a.id}>
+                <span className={a.severity === "high" ? "badge warn" : "badge"}>{a.title}</span>
+                <p>{a.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="split">
         <section className="panel">
