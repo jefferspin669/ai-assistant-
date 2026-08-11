@@ -4623,6 +4623,17 @@ html[data-a11y-motion="reduce"] *::after {
   margin: auto;
 }
 
+/* The focus overlay is dark, so outline buttons need light text. */
+.focus-overlay .btn-outline {
+  color: var(--foam);
+  border-color: rgba(244, 248, 247, 0.5);
+  background: transparent;
+}
+
+.focus-overlay .btn-outline:hover {
+  background: rgba(244, 248, 247, 0.12);
+}
+
 .focus-card {
   text-align: center;
   max-width: 560px;
