@@ -91,6 +91,7 @@ export const navGroups: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/app/appointments", label: "Calendar" },
+      { href: "/app/calendar-hub", label: "Calendar Hub" },
       { href: "/app/tasks", label: "Tasks" },
       { href: "/app/routes", label: "Route Optimization" },
       { href: "/app/inventory", label: "AI Inventory" },
@@ -106,6 +107,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/performance", label: "Performance" },
       { href: "/app/team-training", label: "Training & Certs" },
       { href: "/app/messages", label: "Messages" },
+      { href: "/app/communications", label: "Communications" },
       { href: "/app/coverage", label: "Coverage Mode" },
       { href: "/app/suggestions", label: "Suggestions" },
       { href: "/app/time-off", label: "Time-Off" },
@@ -119,6 +121,12 @@ export const navGroups: NavGroup[] = [
     label: "Atlas Assistant",
     items: [
       { href: "/app/talk", label: "Talk to Atlas" },
+    ],
+  },
+  {
+    label: "Atlas Platform",
+    items: [
+      { href: "/app/platform", label: "Platform & Integrations" },
     ],
   },
   {

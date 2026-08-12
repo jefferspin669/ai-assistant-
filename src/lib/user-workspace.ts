@@ -3179,29 +3179,366 @@ export function extractMentions(text: string): string[] {
 
 /* ─── Company announcements ────────────────────────────────────────────── */
 
-export type Announcement = { id: string; title: string; body: string; at: string; acks: string[] };
+export type AnnouncementPriority = "normal" | "urgent" | "critical";
+export type Audience =
+  | { kind: "all" }
+  | { kind: "managers" }
+  | { kind: "working" }
+  | { kind: "night" }
+  | { kind: "new" }
+  | { kind: "department"; value: string }
+  | { kind: "location"; value: string }
+  | { kind: "project"; value: string }
+  | { kind: "members"; ids: string[] };
+export type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  at: string;
+  acks: string[];
+  reads?: string[];
+  audience?: Audience;
+  priority?: AnnouncementPriority;
+  scheduledFor?: string;
+  from?: string;
+};
 const ANNOUNCEMENTS_KEY = "atlas-user-announcements-v1";
 
+function normalizeAnn(a: Announcement): Announcement {
+  return { reads: [], audience: { kind: "all" }, priority: "normal", scheduledFor: "", from: "Owner", ...a };
+}
 export function loadAnnouncements(): Announcement[] {
-  return loadJson<Announcement[]>(ANNOUNCEMENTS_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+  return loadJson<Announcement[]>(ANNOUNCEMENTS_KEY, []).map(normalizeAnn).sort((a, b) => (a.at < b.at ? 1 : -1));
 }
 export function saveAnnouncements(list: Announcement[]) {
   saveJson(ANNOUNCEMENTS_KEY, list);
 }
-export function postAnnouncement(title: string, body: string): Announcement {
-  const ann: Announcement = { id: newId("ann"), title: title.trim() || "Announcement", body: body.trim(), at: nowIso(), acks: [] };
+export function createAnnouncement(input: { title: string; body: string; audience?: Audience; priority?: AnnouncementPriority; scheduledFor?: string; from?: string }): Announcement {
+  const ann: Announcement = {
+    id: newId("ann"),
+    title: input.title.trim() || "Announcement",
+    body: input.body.trim(),
+    at: nowIso(),
+    acks: [],
+    reads: [],
+    audience: input.audience ?? { kind: "all" },
+    priority: input.priority ?? "normal",
+    scheduledFor: input.scheduledFor ?? "",
+    from: input.from ?? "CEO",
+  };
   saveAnnouncements([ann, ...loadAnnouncements()]);
   return ann;
 }
+/** Back-compat shorthand. */
+export function postAnnouncement(title: string, body: string): Announcement {
+  return createAnnouncement({ title, body, from: "Owner" });
+}
 export function acknowledgeAnnouncement(id: string, memberId: string): Announcement[] {
   const next = loadAnnouncements().map((a) =>
-    a.id === id && !a.acks.includes(memberId) ? { ...a, acks: [...a.acks, memberId] } : a,
+    a.id === id ? { ...a, reads: [...new Set([...(a.reads ?? []), memberId])], acks: a.acks.includes(memberId) ? a.acks : [...a.acks, memberId] } : a,
   );
   saveAnnouncements(next);
   return next;
 }
+export function markAnnouncementRead(id: string, memberId: string) {
+  const next = loadAnnouncements().map((a) => (a.id === id ? { ...a, reads: [...new Set([...(a.reads ?? []), memberId])] } : a));
+  saveAnnouncements(next);
+}
+export function remindUnread(id: string): number {
+  const a = loadAnnouncements().find((x) => x.id === id);
+  if (!a) return 0;
+  const audience = audienceMembers(a.audience ?? { kind: "all" });
+  const unread = audience.filter((m) => !(a.reads ?? []).includes(m.id));
+  logAudit(a.from ?? "CEO", "reminded unread employees", `${a.title} (${unread.length})`);
+  return unread.length;
+}
+
+/* ─── Audience targeting ───────────────────────────────────────────────── */
+
+export const AUDIENCE_PRESETS: { id: string; label: string; make: () => Audience }[] = [
+  { id: "all", label: "All employees", make: () => ({ kind: "all" }) },
+  { id: "managers", label: "Managers only", make: () => ({ kind: "managers" }) },
+  { id: "working", label: "Employees currently working", make: () => ({ kind: "working" }) },
+  { id: "night", label: "Night shift", make: () => ({ kind: "night" }) },
+  { id: "new", label: "New employees", make: () => ({ kind: "new" }) },
+];
+export function audienceLabel(a: Audience): string {
+  switch (a.kind) {
+    case "all": return "All employees";
+    case "managers": return "Managers only";
+    case "working": return "Employees currently working";
+    case "night": return "Night shift";
+    case "new": return "New employees";
+    case "department": return `${a.value} department`;
+    case "location": return `${a.value} location`;
+    case "project": return `Project: ${a.value}`;
+    case "members": return a.ids.length === 1 ? "Direct message" : `${a.ids.length} selected`;
+  }
+}
+export function audienceMembers(a: Audience, now: number = Date.now()): TeamPerson[] {
+  const all = loadTeamMembers();
+  switch (a.kind) {
+    case "all":
+      return all;
+    case "managers":
+      return all.filter((m) => /manager|lead|director|chief|owner/i.test(m.role || "") || m.department === "Management");
+    case "working":
+      return all.filter((m) => isAvailableStatus(derivedStatus(getPresence(m.id), now)));
+    case "night":
+      return all.filter((m) => parseClockToMinutes(m.shiftStart) >= 16 * 60 || (m.qualifications ?? []).some((q) => /night/i.test(q)));
+    case "new":
+      return all.filter((m) => onboardingFor(m.id) !== null || (m.startDate && Date.now() - new Date(m.startDate).getTime() < 365 * 864e5));
+    case "department":
+      return all.filter((m) => (m.department || "") === a.value);
+    case "location":
+      return all.filter((m) => (m.location || "") === a.value);
+    case "project": {
+      const ids = new Set(loadTeamTasks().filter((t) => t.project === a.value).map((t) => t.memberId));
+      return all.filter((m) => ids.has(m.id));
+    }
+    case "members":
+      return all.filter((m) => a.ids.includes(m.id));
+  }
+}
+export function audienceTargets(a: Audience, memberId: string): boolean {
+  return audienceMembers(a).some((m) => m.id === memberId);
+}
+export function targetsMember(a: Announcement, memberId: string): boolean {
+  return audienceTargets(a.audience ?? { kind: "all" }, memberId);
+}
+
+/** Draft a broadcast from a natural CEO instruction (audience + message). */
+export function draftBroadcast(command: string): { audience: Audience; title: string; body: string } {
+  const q = command.toLowerCase();
+  let audience: Audience = { kind: "all" };
+  const locMatch = q.match(/\b(chicago|miami|dallas|headquarters|hq)\b/);
+  const deptMatch = q.match(/\b(sales|hr|finance|operations|marketing|customer support|management)\b/);
+  if (/all managers|managers only|the managers|leadership/.test(q)) audience = { kind: "managers" };
+  else if (locMatch) audience = { kind: "location", value: locMatch[1] === "hq" ? "Headquarters" : locMatch[1][0].toUpperCase() + locMatch[1].slice(1) };
+  else if (deptMatch) audience = { kind: "department", value: deptMatch[1].replace(/\b\w/g, (c) => c.toUpperCase()) };
+  else if (/night shift/.test(q)) audience = { kind: "night" };
+  else if (/new (employees|hires)/.test(q)) audience = { kind: "new" };
+  else if (/currently working|on shift/.test(q)) audience = { kind: "working" };
+  else if (/everyone|company[- ]wide|all employees|all staff/.test(q)) audience = { kind: "all" };
+
+  let body = command;
+  const marker = command.match(/(?:tell (?:them|everyone|him|her)|saying|that|:)\s+(.+)$/i);
+  if (marker) body = marker[1].trim();
+  body = body.charAt(0).toUpperCase() + body.slice(1);
+  const title = body.split(/[.!?]/)[0].split(/\s+/).slice(0, 7).join(" ");
+  return { audience, title, body };
+}
+export function announcementIsLive(a: Announcement, now: number = Date.now()): boolean {
+  return !a.scheduledFor || new Date(a.scheduledFor).getTime() <= now;
+}
+
+export type AnnouncementStats = { audience: number; read: number; acked: number; unread: number; readNotAcked: number };
+export function announcementStats(a: Announcement): AnnouncementStats {
+  const audience = audienceMembers(a.audience ?? { kind: "all" });
+  const ids = new Set(audience.map((m) => m.id));
+  const reads = (a.reads ?? []).filter((id) => ids.has(id));
+  const acks = a.acks.filter((id) => ids.has(id));
+  return { audience: audience.length, read: reads.length, acked: acks.length, unread: audience.length - reads.length, readNotAcked: Math.max(0, reads.length - acks.length) };
+}
+
+/** Live announcements targeted at a member (for the employee portal). */
+export function announcementsForMember(memberId: string, now: number = Date.now()): Announcement[] {
+  return loadAnnouncements().filter((a) => announcementIsLive(a, now) && targetsMember(a, memberId));
+}
 export function unacknowledgedFor(memberId: string): Announcement[] {
-  return loadAnnouncements().filter((a) => !a.acks.includes(memberId));
+  return announcementsForMember(memberId).filter((a) => !a.acks.includes(memberId));
+}
+
+/* ─── Anonymous employee feedback ──────────────────────────────────────── */
+
+export type FeedbackPrompt = { id: string; question: string; anonymous: boolean; at: string };
+export type FeedbackResponse = { id: string; promptId: string; text: string; at: string };
+const FB_PROMPT_KEY = "atlas-feedback-prompts-v1";
+const FB_RESP_KEY = "atlas-feedback-responses-v1";
+export function loadFeedbackPrompts(): FeedbackPrompt[] {
+  return loadJson<FeedbackPrompt[]>(FB_PROMPT_KEY, []).sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+export function createFeedbackPrompt(question: string, anonymous = true): FeedbackPrompt {
+  const p: FeedbackPrompt = { id: newId("fbp"), question: question.trim(), anonymous, at: nowIso() };
+  saveJson(FB_PROMPT_KEY, [p, ...loadFeedbackPrompts()]);
+  return p;
+}
+export function loadFeedbackResponses(): FeedbackResponse[] {
+  return loadJson<FeedbackResponse[]>(FB_RESP_KEY, []);
+}
+export function submitFeedback(promptId: string, text: string): FeedbackResponse {
+  const r: FeedbackResponse = { id: newId("fbr"), promptId, text: text.trim(), at: nowIso() };
+  saveJson(FB_RESP_KEY, [r, ...loadFeedbackResponses()]);
+  return r;
+}
+export function responsesFor(promptId: string): FeedbackResponse[] {
+  return loadFeedbackResponses().filter((r) => r.promptId === promptId);
+}
+const FB_STOPWORDS = new Set(["this", "that", "with", "have", "from", "they", "been", "were", "would", "about", "there", "their", "which", "when", "what", "your", "just", "them", "then", "some", "more", "very", "really", "system", "working", "still", "much", "also", "into"]);
+export function summarizeFeedback(promptId: string): { count: number; themes: { theme: string; count: number }[] } {
+  const responses = responsesFor(promptId);
+  const tally = new Map<string, number>();
+  for (const r of responses) {
+    for (const w of r.text.toLowerCase().split(/[^a-z]+/)) {
+      if (w.length > 3 && !FB_STOPWORDS.has(w)) tally.set(w, (tally.get(w) ?? 0) + 1);
+    }
+  }
+  const themes = [...tally.entries()].map(([theme, count]) => ({ theme, count })).filter((t) => t.count > 1).sort((a, b) => b.count - a.count).slice(0, 5);
+  return { count: responses.length, themes };
+}
+
+/* ─── Atlas Calendar Hub ───────────────────────────────────────────────── */
+
+export type CalendarKind = "company" | "private" | "department" | "team" | "project" | "location" | "custom";
+export type SharedCalendar = { id: string; name: string; kind: CalendarKind; owner: string; audience: Audience; createdAt: string };
+export type CalEventKind = "meeting" | "training" | "deadline" | "milestone" | "company-event" | "closure" | "shift" | "appointment" | "announcement" | "pto";
+export const CAL_EVENT_KINDS: { id: CalEventKind; label: string; emoji: string }[] = [
+  { id: "meeting", label: "Meeting", emoji: "👥" },
+  { id: "training", label: "Training", emoji: "🎓" },
+  { id: "deadline", label: "Deadline", emoji: "⏰" },
+  { id: "milestone", label: "Project milestone", emoji: "🚩" },
+  { id: "company-event", label: "Company event", emoji: "🎉" },
+  { id: "closure", label: "Office closure", emoji: "🏢" },
+  { id: "shift", label: "Shift change", emoji: "🔁" },
+  { id: "appointment", label: "Customer appointment", emoji: "📅" },
+  { id: "announcement", label: "Announcement", emoji: "📣" },
+  { id: "pto", label: "Time off", emoji: "🏖️" },
+];
+export type CalEvent = {
+  id: string;
+  calendarId: string;
+  title: string;
+  kind: CalEventKind;
+  date: string; // YYYY-MM-DD
+  time: string;
+  audience: Audience;
+  createdBy: string;
+  source: "manual" | "atlas";
+  at: string;
+};
+
+const CALENDARS_KEY = "atlas-calendars-v1";
+const CAL_EVENTS_KEY = "atlas-cal-events-v1";
+
+export function loadCalendars(): SharedCalendar[] {
+  return loadJson<SharedCalendar[]>(CALENDARS_KEY, []);
+}
+export function saveCalendars(list: SharedCalendar[]) {
+  saveJson(CALENDARS_KEY, list);
+}
+export function loadCalEvents(): CalEvent[] {
+  return loadJson<CalEvent[]>(CAL_EVENTS_KEY, []).sort((a, b) => (a.date === b.date ? (a.time < b.time ? -1 : 1) : a.date < b.date ? -1 : 1));
+}
+export function saveCalEvents(list: CalEvent[]) {
+  saveJson(CAL_EVENTS_KEY, list);
+}
+export function createCalendar(input: { name: string; kind: CalendarKind; owner?: string; audience: Audience }): SharedCalendar {
+  const c: SharedCalendar = { id: newId("cal"), name: input.name.trim() || "New calendar", kind: input.kind, owner: input.owner ?? "Manager", audience: input.audience, createdAt: nowIso() };
+  saveCalendars([...loadCalendars(), c]);
+  return c;
+}
+export function createCalEvent(input: { calendarId: string; title: string; kind: CalEventKind; date: string; time?: string; audience: Audience; createdBy?: string; source?: "manual" | "atlas" }): CalEvent {
+  const e: CalEvent = {
+    id: newId("cev"),
+    calendarId: input.calendarId,
+    title: input.title.trim() || "Event",
+    kind: input.kind,
+    date: input.date,
+    time: input.time ?? "",
+    audience: input.audience,
+    createdBy: input.createdBy ?? "CEO",
+    source: input.source ?? "manual",
+    at: nowIso(),
+  };
+  saveCalEvents([...loadCalEvents(), e]);
+  return e;
+}
+
+/** Next date (YYYY-MM-DD) that falls on the given weekday name, on/after today. */
+function nextWeekdayISO(dayName: string, now = new Date()): string {
+  const idx = WEEKDAYS.indexOf(dayName.toLowerCase());
+  if (idx < 0) return todayISO(now);
+  const d = new Date(now);
+  let add = (idx - d.getDay() + 7) % 7;
+  if (add === 0) add = 7;
+  d.setDate(d.getDate() + add);
+  return todayISO(d);
+}
+
+/**
+ * CEO says "schedule a company meeting Friday at 10 AM" — Atlas creates it on
+ * the Company calendar for everyone, keeping the private CEO calendar separate.
+ */
+export function scheduleCompanyMeeting(command: string): CalEvent {
+  const q = command.toLowerCase();
+  const dayMatch = q.match(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);
+  const timeMatch = q.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  const date = dayMatch ? nextWeekdayISO(dayMatch[1]) : todayISO(new Date(Date.now() + 864e5));
+  let time = "";
+  if (timeMatch) {
+    let h = Number(timeMatch[1]);
+    const min = timeMatch[2] ?? "00";
+    const ap = timeMatch[3];
+    if (ap === "pm" && h < 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    time = `${((h + 11) % 12) + 1}:${min} ${h >= 12 ? "PM" : "AM"}`;
+  }
+  const titleMatch = command.match(/schedule (?:a |an )?(.+?)\s+(?:on\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|at|tomorrow)/i);
+  const title = titleMatch ? titleMatch[1].replace(/\b\w/, (c) => c.toUpperCase()) : "Company meeting";
+  return createCalEvent({ calendarId: "company", title, kind: /training/i.test(q) ? "training" : "company-event", date, time, audience: { kind: "all" }, createdBy: "CEO", source: "atlas" });
+}
+
+/** Events derived automatically by Atlas (approved PTO shown to the team). */
+function derivedEvents(): CalEvent[] {
+  const members = loadTeamMembers();
+  const out: CalEvent[] = [];
+  for (const r of loadTimeOff().filter((t) => t.status === "approved")) {
+    const m = members.find((x) => x.id === r.memberId);
+    out.push({ id: `pto-${r.id}`, calendarId: "company", title: `${m ? m.name.split(" ")[0] : "Employee"} — ${r.type} (approved)`, kind: "pto", date: r.startDate, time: "", audience: m?.department ? { kind: "department", value: m.department } : { kind: "all" }, createdBy: "Atlas", source: "atlas", at: r.decidedAt || nowIso() });
+  }
+  return out;
+}
+
+/** All events a member is permitted to see (excludes the private CEO calendar). */
+export function eventsForMember(memberId: string): CalEvent[] {
+  const cals = loadCalendars();
+  const privateIds = new Set(cals.filter((c) => c.kind === "private").map((c) => c.id));
+  const all = [...loadCalEvents(), ...derivedEvents()];
+  return all.filter((e) => !privateIds.has(e.calendarId) && audienceTargets(e.audience, memberId)).sort((a, b) => (a.date === b.date ? (a.time < b.time ? -1 : 1) : a.date < b.date ? -1 : 1));
+}
+
+/** Classify an event into an overlay bucket for on/off toggles. */
+export type CalOverlay = "mine" | "team" | "company" | "projects" | "training";
+export function overlayOf(e: CalEvent): CalOverlay {
+  if (e.kind === "training") return "training";
+  if (e.kind === "milestone" || e.kind === "deadline") return "projects";
+  if (e.kind === "company-event" || e.kind === "closure" || e.kind === "announcement") return "company";
+  if (e.audience.kind === "members") return "mine";
+  return "team";
+}
+
+export function seedCalendarsIfEmpty(): void {
+  if (loadCalendars().length > 0) return;
+  const cals: SharedCalendar[] = [
+    { id: "company", name: "Company Calendar", kind: "company", owner: "CEO", audience: { kind: "all" }, createdAt: nowIso() },
+    { id: "ceo", name: "CEO Calendar (private)", kind: "private", owner: "CEO", audience: { kind: "members", ids: [] }, createdAt: nowIso() },
+    { id: "cal-sales", name: "Sales Calendar", kind: "department", owner: "Sales Manager", audience: { kind: "department", value: "Sales" }, createdAt: nowIso() },
+    { id: "cal-ops", name: "Operations Calendar", kind: "department", owner: "Ops Manager", audience: { kind: "department", value: "Operations" }, createdAt: nowIso() },
+    { id: "cal-phoenix", name: "Project Phoenix Calendar", kind: "project", owner: "PM", audience: { kind: "project", value: "Johnson Expansion" }, createdAt: nowIso() },
+  ];
+  saveCalendars(cals);
+
+  const d = (offset: number) => todayISO(new Date(Date.now() + offset * 864e5));
+  const events: CalEvent[] = [
+    { id: newId("cev"), calendarId: "company", title: "All-hands company meeting", kind: "company-event", date: nextWeekdayISO("friday"), time: "10:00 AM", audience: { kind: "all" }, createdBy: "CEO", source: "manual", at: nowIso() },
+    { id: newId("cev"), calendarId: "company", title: "Office closed — Labor Day", kind: "closure", date: d(6), time: "", audience: { kind: "all" }, createdBy: "CEO", source: "manual", at: nowIso() },
+    { id: newId("cev"), calendarId: "company", title: "Required: Safety recertification", kind: "training", date: d(3), time: "2:00 PM", audience: { kind: "all" }, createdBy: "Atlas", source: "atlas", at: nowIso() },
+    { id: newId("cev"), calendarId: "cal-sales", title: "Sales weekly sync", kind: "meeting", date: nextWeekdayISO("monday"), time: "9:30 AM", audience: { kind: "department", value: "Sales" }, createdBy: "Sales Manager", source: "manual", at: nowIso() },
+    { id: newId("cev"), calendarId: "cal-phoenix", title: "Johnson Expansion — pricing milestone", kind: "milestone", date: d(2), time: "", audience: { kind: "project", value: "Johnson Expansion" }, createdBy: "PM", source: "atlas", at: nowIso() },
+    { id: newId("cev"), calendarId: "cal-ops", title: "Night shift coverage change", kind: "shift", date: d(1), time: "", audience: { kind: "department", value: "Operations" }, createdBy: "Ops Manager", source: "manual", at: nowIso() },
+    { id: newId("cev"), calendarId: "ceo", title: "Board prep (private)", kind: "meeting", date: d(1), time: "7:30 AM", audience: { kind: "members", ids: [] }, createdBy: "CEO", source: "manual", at: nowIso() },
+  ];
+  saveCalEvents(events);
 }
 
 /* ─── PTO / time-off requests + staffing ───────────────────────────────── */

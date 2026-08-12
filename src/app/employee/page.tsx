@@ -6,6 +6,13 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   acceptOpenShift,
   acknowledgeAnnouncement,
+  announcementsForMember,
+  CAL_EVENT_KINDS,
+  eventsForMember,
+  loadFeedbackPrompts,
+  markAnnouncementRead,
+  overlayOf,
+  submitFeedback,
   addTaskAttachment,
   addTaskComment,
   ACHIEVEMENT_BADGES,
@@ -159,6 +166,9 @@ import {
   type TaskStatus,
   type A11ySettings,
   type Asset,
+  type CalEvent,
+  type CalOverlay,
+  type FeedbackPrompt,
   type EmployeeApp,
   type Expense,
   type Handoff,
@@ -220,6 +230,11 @@ export default function EmployeeDashboardPage() {
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [ask, setAsk] = useState("");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [feedbackPrompts, setFeedbackPrompts] = useState<FeedbackPrompt[]>([]);
+  const [feedbackDraft, setFeedbackDraft] = useState<Record<string, string>>({});
+  const [feedbackDone, setFeedbackDone] = useState<Set<string>>(new Set());
+  const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
+  const [calOverlays, setCalOverlays] = useState<Record<CalOverlay, boolean>>({ mine: true, team: true, company: true, projects: true, training: true });
   const [goals, setGoals] = useState<EmployeeGoal[]>([]);
   const [channels, setChannels] = useState<ChannelRef[]>([]);
   const [channelId, setChannelId] = useState("");
@@ -321,7 +336,10 @@ export default function EmployeeDashboardPage() {
     applyA11y(a);
     setPresence(getPresence(me.id));
     setShift(getOpenShift(me.id));
+    announcementsForMember(me.id).forEach((a) => markAnnouncementRead(a.id, me.id));
     setAnnouncements(unacknowledgedFor(me.id));
+    setFeedbackPrompts(loadFeedbackPrompts());
+    setCalEvents(eventsForMember(me.id));
     setGoals(loadGoals().filter((g) => g.memberId === me.id));
     const chans = channelsForEmployee(me);
     setChannels(chans);
@@ -713,6 +731,15 @@ export default function EmployeeDashboardPage() {
     setActionFlash(`Reported a problem with ${reportAsset.kind} ${reportAsset.tag} — an IT/facilities request was created.`);
     setReportAsset(null);
     setReportDetail("");
+  }
+
+  function submitFeedbackResponse(promptId: string) {
+    const text = (feedbackDraft[promptId] || "").trim();
+    if (!employee || !text) return;
+    submitFeedback(promptId, text);
+    setFeedbackDone((s) => new Set([...s, promptId]));
+    setFeedbackDraft((d) => ({ ...d, [promptId]: "" }));
+    setActionFlash("Thanks — your anonymous feedback was submitted.");
   }
 
   function submitIncident(e: FormEvent) {
@@ -1355,11 +1382,14 @@ export default function EmployeeDashboardPage() {
               <div className="list">
                 {announcements.map((a) => (
                   <div className="list-row" key={a.id}>
-                    <span className="badge warn">New</span>
+                    <span className={a.priority === "critical" ? "badge warn" : "badge warn"}>
+                      {a.priority === "critical" ? "🚨 Critical" : a.priority === "urgent" ? "⚠️ Urgent" : "New"}
+                    </span>
                     <div style={{ flex: 1 }}>
                       <p>
                         <strong>{a.title}</strong>
                         {a.body ? <span className="muted-line">{a.body}</span> : null}
+                        {a.from ? <span className="muted-line">From {a.from}</span> : null}
                       </p>
                     </div>
                     <button className="btn btn-dark" type="button" onClick={() => ackAnnouncement(a.id)}>
@@ -1370,6 +1400,68 @@ export default function EmployeeDashboardPage() {
               </div>
             </section>
           ) : null}
+
+          {feedbackPrompts.length ? (
+            <section className="panel">
+              <h2>Anonymous feedback</h2>
+              <p className="panel-lead">Leadership is asking — your responses are anonymous.</p>
+              <div className="list">
+                {feedbackPrompts.map((p) => (
+                  <div className="list-row" key={p.id} style={{ alignItems: "flex-start" }}>
+                    <span className="badge">💬</span>
+                    <div style={{ flex: 1 }}>
+                      <p><strong>{p.question}</strong></p>
+                      {feedbackDone.has(p.id) ? (
+                        <p className="muted-line">✅ Submitted anonymously — thank you.</p>
+                      ) : (
+                        <>
+                          <textarea rows={2} value={feedbackDraft[p.id] ?? ""} onChange={(e) => setFeedbackDraft((d) => ({ ...d, [p.id]: e.target.value }))} placeholder="Share your honest thoughts…" />
+                          <div className="train-actions" style={{ marginTop: "0.3rem" }}>
+                            <button className="btn btn-outline" type="button" onClick={() => submitFeedbackResponse(p.id)}>Submit anonymously</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {calEvents.length ? (() => {
+            const shown = calEvents.filter((e) => calOverlays[overlayOf(e)]);
+            const emoji = (k: CalEvent["kind"]) => CAL_EVENT_KINDS.find((x) => x.id === k)?.emoji ?? "•";
+            const overlays: { id: CalOverlay; label: string }[] = [
+              { id: "mine", label: "My Calendar" },
+              { id: "team", label: "My Team" },
+              { id: "company", label: "Company Events" },
+              { id: "projects", label: "Projects" },
+              { id: "training", label: "Training" },
+            ];
+            return (
+              <section className="panel" id="emp-calendar">
+                <h2>Company &amp; team calendar</h2>
+                <p className="panel-lead">Only the events you&apos;re allowed to see. Toggle overlays to reduce clutter.</p>
+                <div className="status-picker" style={{ marginBottom: "0.6rem" }}>
+                  {overlays.map((o) => (
+                    <button key={o.id} type="button" className={calOverlays[o.id] ? "status-chip active" : "status-chip"} onClick={() => setCalOverlays((s) => ({ ...s, [o.id]: !s[o.id] }))}>{calOverlays[o.id] ? "☑" : "☐"} {o.label}</button>
+                  ))}
+                </div>
+                {shown.length === 0 ? (
+                  <p className="muted-line">No events for the selected overlays.</p>
+                ) : (
+                  <div className="list">
+                    {shown.map((e) => (
+                      <div className="list-row" key={e.id}>
+                        <span className="badge">{emoji(e.kind)}</span>
+                        <p><strong>{e.time ? `${e.time} · ` : ""}{e.title}</strong><span className="muted-line">{new Date(`${e.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}{e.source === "atlas" ? " · added by Atlas" : ""}</span></p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })() : null}
 
           <section className="panel emp-hero">
             <h2>
@@ -2919,6 +3011,24 @@ export default function EmployeeDashboardPage() {
           </aside>
         </>
       ) : null}
+
+      {/* Critical announcement — must acknowledge before continuing */}
+      {(() => {
+        const crit = announcements.find((a) => a.priority === "critical");
+        if (!crit) return null;
+        return (
+          <div className="modal-overlay">
+            <div className="modal-card">
+              <h2>🚨 {crit.title}</h2>
+              {crit.body ? <p>{crit.body}</p> : null}
+              <p className="muted-line">This is a critical message{crit.from ? ` from ${crit.from}` : ""}. Please acknowledge before continuing into Atlas.</p>
+              <div className="train-actions" style={{ marginTop: "0.6rem" }}>
+                <button className="btn btn-dark" type="button" onClick={() => ackAnnouncement(crit.id)}>I acknowledge</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Accessibility settings */}
       {a11yOpen ? (

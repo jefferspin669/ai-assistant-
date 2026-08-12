@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { attentionSummary, ceoAttention } from "@/lib/ceo-attention";
 import {
   appendTranscript,
   clearTranscript,
@@ -60,7 +61,7 @@ const OVERDUE_PROJECTS = [
 ];
 
 const SAMPLES: Record<Mode, string[]> = {
-  ceo: ["Give me my morning briefing", "Tell me about Dallas", "What happens if we add another project manager?", "Prepare that recommendation for my COO", "How are sales doing today?"],
+  ceo: ["Tell me what needs my attention today", "Give me my morning briefing", "Tell me about Dallas", "What happens if we add another project manager?", "Handle everything you're authorized to handle", "How are sales doing today?"],
   employee: ["What should I do next?", "Start my inventory task", "Take a note", "Find the safety procedure", "Remind Sarah to call Johnson before lunch tomorrow", "¿Qué tareas me quedan hoy?"],
   field: ["Pull up the customer I'm visiting", "What equipment did we install last time?", "Add a note that the compressor needs replacement", "Message my manager that I'm running late"],
   customer: ["I need to reschedule my appointment", "Thursday", "What time is my appointment?"],
@@ -254,6 +255,16 @@ export function TalkToAtlasStudio() {
     }
 
     // ── CEO mode ─────────────────────────────────────────────────────────
+    if (/what needs my attention|needs my attention|what should i (focus|look at)|what.?s on my plate/.test(ql)) {
+      const groups = ceoAttention();
+      const items = groups.flatMap((g) => g.items.map((it) => ({ title: `${g.emoji} ${it.text}`, sub: `${g.category}${it.action ? ` · ${it.action}` : ""}` })));
+      say(attentionSummary(groups), items.length ? { kind: "list", heading: "What needs your attention today", items } : null);
+      return;
+    }
+    if (/handle (everything|what you can|it all)|take care of (it|everything)/.test(ql)) {
+      say("I'll only act within what you've authorized. I've queued the routine, in-policy items and left anything sensitive — refunds over limits, payroll changes, and deletions — for your explicit approval in the Approval Inbox.");
+      return;
+    }
     if (/morning briefing|brief me|my briefing|good morning/.test(ql)) {
       say(
         pick(
