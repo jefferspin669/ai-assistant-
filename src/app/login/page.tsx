@@ -170,6 +170,9 @@ export default function LoginPage() {
                     {" · "}
                     <Link href="/signup">Create account</Link>
                   </p>
+                  <p>
+                    Employee? <Link href="/employee/login">Sign in to your work page</Link>
+                  </p>
                 </div>
               </form>
             </>

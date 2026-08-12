@@ -4259,3 +4259,744 @@ html[data-a11y-motion="reduce"] *::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Employee portal ──────────────────────────────────────────────────── */
+.emp-shell {
+  min-height: 100svh;
+  background:
+    radial-gradient(700px 360px at 8% 0%, rgba(47, 143, 138, 0.12), transparent),
+    var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.emp-top {
+  background: var(--ink);
+  color: var(--foam);
+  padding: 0.85rem 0;
+}
+
+.emp-top .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.emp-top .emp-id {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.emp-top .emp-id strong {
+  display: block;
+  font-size: 0.98rem;
+}
+
+.emp-top .emp-id span {
+  color: rgba(244, 248, 247, 0.7);
+  font-size: 0.8rem;
+}
+
+.emp-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+/* The employee header is dark, so outline buttons here need light text. */
+.emp-top .btn-outline {
+  color: var(--foam);
+  border-color: rgba(244, 248, 247, 0.45);
+  background: transparent;
+}
+
+.emp-top .btn-outline:hover {
+  background: rgba(244, 248, 247, 0.12);
+}
+
+.emp-avatar {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--sand), #f0d48a);
+  flex: none;
+}
+
+.emp-iconbtn {
+  border: 1px solid rgba(244, 248, 247, 0.35);
+  background: transparent;
+  color: var(--foam);
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+}
+
+.emp-iconbtn:hover {
+  background: rgba(244, 248, 247, 0.12);
+}
+
+.emp-iconbtn .dot-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #d1495b;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  padding: 0.05rem 0.35rem;
+  font-weight: 700;
+}
+
+/* Hero: greeting + big Ask Atlas */
+.emp-hero h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.hero-ask {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.hero-ask input {
+  flex: 1;
+  padding: 0.9rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--foam);
+  font-size: 1rem;
+}
+
+.hero-answer {
+  margin-top: 0.9rem;
+}
+
+/* Current Work Mode banner */
+.work-banner {
+  background: linear-gradient(135deg, rgba(47, 143, 138, 0.14), rgba(217, 164, 65, 0.12));
+  border: 1px solid rgba(47, 143, 138, 0.35);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.work-banner .wb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.work-banner .wb-title {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+/* Smart priority task cards */
+.priority-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.1rem 0 0.6rem;
+  font-weight: 700;
+}
+
+.task-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.task-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: #fbfcfc;
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+
+.task-card.active {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(47, 143, 138, 0.18);
+}
+
+.task-card .tc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-card h4 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.task-card .tc-meta {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.task-card .tc-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .task-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.widget-card {
+  cursor: grab;
+}
+
+.widget-card:active {
+  cursor: grabbing;
+}
+
+.widget-card h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .widget-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Floating action buttons (Atlas / Quick actions / Help) */
+.fab-stack {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-end;
+  z-index: 60;
+}
+
+.fab {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(15, 42, 50, 0.16);
+}
+
+.fab.primary {
+  background: var(--ink);
+  color: var(--foam);
+  border-color: var(--ink);
+}
+
+.fab-menu {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(15, 42, 50, 0.2);
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 220px;
+}
+
+.fab-menu button {
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.fab-menu button:hover {
+  background: var(--foam);
+}
+
+/* Right-side Atlas drawer */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 42, 50, 0.35);
+  z-index: 70;
+}
+
+.atlas-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100svh;
+  width: min(420px, 92vw);
+  background: var(--paper);
+  border-left: 1px solid var(--line);
+  box-shadow: -12px 0 40px rgba(15, 42, 50, 0.18);
+  z-index: 71;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem;
+  gap: 0.8rem;
+}
+
+.atlas-drawer .drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.atlas-drawer .drawer-thread {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+/* Centered modal (End of day / Need help) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 42, 50, 0.4);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+}
+
+.modal-card {
+  background: var(--paper);
+  border-radius: 18px;
+  padding: 1.4rem;
+  width: min(560px, 100%);
+  max-height: 88svh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(15, 42, 50, 0.3);
+}
+
+/* Focus Mode */
+.focus-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(1000px 600px at 50% 20%, #123039, #0b2027 70%);
+  color: var(--foam);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.focus-card {
+  margin: auto;
+}
+
+/* The focus overlay is dark: primary button goes bright, outlines go light. */
+.focus-overlay .btn-dark {
+  background: var(--sand);
+  color: var(--ink);
+  border-color: var(--sand);
+}
+
+.focus-overlay .btn-dark:hover {
+  background: #e3b35a;
+}
+
+.focus-overlay .btn-outline {
+  color: var(--foam);
+  border-color: rgba(244, 248, 247, 0.5);
+  background: transparent;
+}
+
+.focus-overlay .btn-outline:hover {
+  background: rgba(244, 248, 247, 0.12);
+}
+
+.focus-card {
+  text-align: center;
+  max-width: 560px;
+  width: 100%;
+}
+
+.focus-card .focus-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+  color: rgba(244, 248, 247, 0.6);
+}
+
+.focus-card h1 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  margin: 0.4rem 0;
+}
+
+.focus-timer {
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0.35rem 0;
+}
+
+.focus-card .focus-bar {
+  height: 0.5rem;
+  background: rgba(244, 248, 247, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 1rem auto;
+  max-width: 420px;
+}
+
+.focus-card .focus-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--sand), #f0d48a);
+}
+
+.focus-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* Skills + achievements */
+.skill-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.35rem 0;
+}
+
+.stars {
+  color: #d9a441;
+  letter-spacing: 0.1em;
+}
+
+.achv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.achv-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem;
+  text-align: center;
+  background: #fbfcfc;
+}
+
+.achv-card.locked {
+  opacity: 0.45;
+}
+
+.achv-card .achv-emoji {
+  font-size: 1.8rem;
+}
+
+/* Mobile bottom navigation */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .achv-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .emp-main {
+    padding-bottom: 5rem;
+  }
+  .fab-stack {
+    bottom: 4.6rem;
+  }
+  .mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 65;
+    display: flex;
+    justify-content: space-around;
+    background: var(--ink);
+    color: var(--foam);
+    padding: 0.4rem 0.3rem calc(0.4rem + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(244, 248, 247, 0.15);
+  }
+  .mobile-nav button {
+    background: transparent;
+    border: none;
+    color: rgba(244, 248, 247, 0.85);
+    font-size: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    cursor: pointer;
+    padding: 0.3rem 0.4rem;
+  }
+  .mobile-nav button strong {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+}
+
+.emp-main {
+  padding: 1.5rem 0 3rem;
+}
+
+.emp-main .container {
+  display: grid;
+  gap: 1rem;
+}
+
+.presence-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #c3ccce;
+  display: inline-block;
+  flex: none;
+}
+
+.presence-dot.working {
+  background: #35b37e;
+  box-shadow: 0 0 0 4px rgba(53, 179, 126, 0.18);
+}
+
+.presence-dot.break {
+  background: #e0a92e;
+  box-shadow: 0 0 0 4px rgba(224, 169, 46, 0.18);
+}
+
+.presence-dot.meeting {
+  background: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+}
+
+.presence-dot.job {
+  background: #8b5cf6;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+}
+
+.presence-dot.blocked {
+  background: #e0762e;
+  box-shadow: 0 0 0 4px rgba(224, 118, 46, 0.18);
+}
+
+.presence-dot.away {
+  background: #b7c0c2;
+}
+
+.presence-dot.offline {
+  background: #d1495b;
+}
+
+.presence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  white-space: nowrap;
+}
+
+.presence-badge.working {
+  background: rgba(53, 179, 126, 0.12);
+  border-color: rgba(53, 179, 126, 0.4);
+  color: #1f7a55;
+}
+
+.presence-badge.break {
+  background: rgba(224, 169, 46, 0.14);
+  border-color: rgba(224, 169, 46, 0.42);
+  color: #94690f;
+}
+
+.presence-badge.meeting {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #1d4ed8;
+}
+
+.presence-badge.job {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #6d28d9;
+}
+
+.presence-badge.blocked {
+  background: rgba(224, 118, 46, 0.14);
+  border-color: rgba(224, 118, 46, 0.42);
+  color: #a8500f;
+}
+
+.presence-badge.away {
+  color: var(--ink-soft);
+}
+
+.presence-badge.offline {
+  background: rgba(209, 73, 91, 0.1);
+  border-color: rgba(209, 73, 91, 0.35);
+  color: #b23145;
+}
+
+/* Employee status picker + legend + task-assignment form rows */
+.status-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status-chip.active,
+.status-chip:hover {
+  border-color: var(--teal);
+  background: var(--foam);
+}
+
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.check-inline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: end;
+}
+
+@media (max-width: 640px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.workforce-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.workforce-row:last-child {
+  border-bottom: none;
+}
+
+.workforce-row .wf-who strong {
+  display: block;
+}
+
+.workforce-row .wf-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .workforce-row {
+    grid-template-columns: 1fr;
+  }
+  .workforce-row .wf-meta {
+    justify-content: flex-start;
+  }
+}
+
+/* Inline text-style button (e.g. Translate) */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.link-btn:hover {
+  opacity: 1;
+}
+
+/* Accessibility modes (toggled on <html>) */
+.a11y-large-text {
+  font-size: 118%;
+}
+.a11y-high-contrast {
+  filter: contrast(1.18) saturate(1.05);
+}
+.a11y-high-contrast .panel,
+.a11y-high-contrast .modal-card {
+  border: 1px solid rgba(0, 0, 0, 0.55);
+}
+.a11y-high-contrast .muted-line {
+  opacity: 1;
+}
+.a11y-reduced-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

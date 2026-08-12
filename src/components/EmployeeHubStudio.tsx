@@ -6,10 +6,12 @@ import { hubAssistantReply } from "@/lib/atlas-platform";
 import {
   createTeamMember,
   createTeamTask,
+  isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
   saveTeamMembers,
   saveTeamTasks,
+  TASK_STATUSES,
   type TeamPerson,
   type TeamTask,
 } from "@/lib/user-workspace";
@@ -255,7 +257,7 @@ export function EmployeeHubStudio({
                   </div>
                   <div className="stat">
                     <span>Open tasks</span>
-                    <strong>{memberTasks.filter((t) => t.status !== "done").length}</strong>
+                    <strong>{memberTasks.filter((t) => isOpenTask(t.status)).length}</strong>
                     <small>Assigned by host</small>
                   </div>
                   <div className="stat">
@@ -350,15 +352,19 @@ export function EmployeeHubStudio({
                         }
                         aria-label={`Status for ${task.title}`}
                       >
-                        <option value="todo">Todo</option>
-                        <option value="doing">Doing</option>
-                        <option value="done">Done</option>
+                        {TASK_STATUSES.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
+                        ))}
                       </select>
                       <div>
                         <p>
                           <strong>{task.title}</strong>
                         </p>
-                        {task.notes ? <small className="muted-line">{task.notes}</small> : null}
+                        {task.notes.length ? (
+                          <small className="muted-line">{task.notes[task.notes.length - 1].text}</small>
+                        ) : null}
                       </div>
                     </div>
                   ))}
