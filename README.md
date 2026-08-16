@@ -16,7 +16,11 @@ Start with small service businesses that need an AI receptionist and scheduling.
 - Live LLM when `ATLAS_LLM_API_KEY` is set (OpenAI-compatible)
 - Keyword simulation fallback otherwise
 - Tool calling stubs for briefs, risky-action proposals, standing orders
-- Commercial Postgres schema draft in `supabase/schema.sql`
+- Commercial Postgres schema in `supabase/schema.sql`
+
+## Commercial beachhead (`/app/commercial`)
+
+Supabase dual-write, Twilio voice/SMS + missed-call recovery, Google/Microsoft calendar OAuth, approval-gated SMS/invoice sends, Stripe Checkout — all simulation-safe until env credentials are set. See `.env.example` and `docs/NORTH_STAR.md`.
 
 ## Platform pillars
 
