@@ -1,21 +1,38 @@
 # Atlas AI
 
-Next.js 15 (App Router) + React 19 + TypeScript prototype of an "AI workforce" platform.
+Next.js 15 (App Router) + React 19 + TypeScript.
 
-## Backend
+## Honest status
 
-- Next.js Route Handlers under `src/app/api/**` (auth, calendar, tasks, transactions, taxes, AI, files, workspace, health).
-- Architecture database persists to `.data/atlas-db.json` on the server (and `localStorage` when APIs run in the browser).
-- Product workspace domains (tasks, tax, calendar, connections, confirmations, feedback, …) sync via `/api/workspace/:domain` into `.data/workspace.json`.
-- Keyword chat replies still live in `src/lib/commands.ts` (not a real LLM).
-- Open `/app/backend` for live health checks against the file-backed API.
+Atlas has a large interactive product surface. Much of it is still a **sophisticated simulation**:
+
+- Keyword Brain fallback in `src/lib/commands.ts`
+- File-backed JSON under `.data/` (not shared Postgres yet)
+- Many studios mock phone/calendar/invoices
+
+**North star:** stop adding feature pages; make one beachhead real. See `docs/NORTH_STAR.md`.
+
+## Atlas Brain (Phase 0)
+
+- Command Center talks to `POST /api/ai/chat`
+- If `ATLAS_LLM_API_KEY` is set → live OpenAI-compatible LLM + tool calling
+- If unset → simulation/keyword fallback (demos still work)
+- Tools: business brief, propose risky action (approval), remember standing order
+- Postgres schema draft: `supabase/schema.sql`
+
+## Backend today
+
+- Route Handlers under `src/app/api/**`
+- Architecture DB → `.data/atlas-db.json`
+- Workspace domains → `.data/workspace.json`
+- Open `/app/backend` for health checks
 
 ## Cursor Cloud specific instructions
 
 - Package manager is npm (`package-lock.json`); Node 20+ works (verified on Node 22).
-- Standard scripts live in `package.json`: `npm run dev`, `npm run build`, `npm run lint`, `npm start`. Setup is just `npm install`.
-- Dev server runs on `http://localhost:3000`. Start it with `npm run dev` (do not use `npm run build`/`npm start` for development).
-- No env vars, secrets, or external services are required. `.data/` is created automatically and is gitignored.
-- Interactive "hello world": open `/app` and use the "Talk to Atlas" Command Center. Try "How is business?" then "Approve the Johnson Construction estimate." to trigger the confirm → success flow.
-- Backend smoke: open `/app/backend`, or `curl http://localhost:3000/api/health`.
-- The marketing hero image loads from `images.unsplash.com`; if egress is blocked the image is broken but the app is otherwise fully functional.
+- Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`. Setup: `npm install`.
+- Dev server: `http://localhost:3000` via `npm run dev`.
+- Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
+- Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
+- Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
+- Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.
