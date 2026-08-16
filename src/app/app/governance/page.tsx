@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
 
 const AREAS: { emoji: string; title: string; blurb: string; href: string }[] = [

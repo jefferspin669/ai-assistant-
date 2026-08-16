@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/SiteLink";
 import { useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { industries } from "@/lib/data";
+import { hardNavigate } from "@/lib/hard-nav";
 import {
   COLOR_CATEGORY_IDS,
   SETUP_APPS,
@@ -27,7 +27,6 @@ const STEPS = [
 ] as const;
 
 export function SetupWizard() {
-  const router = useRouter();
   const { account, ready, refresh } = useAccount();
   const [step, setStep] = useState(0);
   const [redo, setRedo] = useState(false);
@@ -118,7 +117,7 @@ export function SetupWizard() {
       return;
     }
     refresh();
-    router.push("/app");
+    hardNavigate("/app");
   }
 
   function toggleGoal(goal: string) {

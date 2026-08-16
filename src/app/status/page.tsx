@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 
 const components = [
   { name: "App shell & Account Center", status: "operational" as const, detail: "Serving normally" },

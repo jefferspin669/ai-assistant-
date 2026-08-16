@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { hubAssistantReply } from "@/lib/atlas-platform";
 import {

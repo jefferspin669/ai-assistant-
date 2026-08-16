@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AtlasV1Home } from "@/components/AtlasV1Home";
 import { CommandCenter } from "@/components/CommandCenter";
