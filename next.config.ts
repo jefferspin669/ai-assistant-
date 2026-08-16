@@ -11,6 +11,10 @@ const pagesBasePath = "/ai-assistant-";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Expose basePath to client hard-navigation helpers (auth redirects on Pages).
+  env: {
+    NEXT_PUBLIC_BASE_PATH: isGitHubPages ? pagesBasePath : "",
+  },
   // Server-only modules (e.g. the file-backed DB in src/lib/db/file-persist.ts)
   // are reached through isomorphic helpers that some client components import.
   // Those helpers guard every Node call behind `typeof window === "undefined"`,

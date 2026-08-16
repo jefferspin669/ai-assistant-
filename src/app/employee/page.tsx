@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/SiteLink";
+import { hardNavigate } from "@/lib/hard-nav";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   acceptOpenShift,
@@ -214,7 +214,6 @@ function formatCountdown(sec: number): string {
 }
 
 export default function EmployeeDashboardPage() {
-  const router = useRouter();
   const [employee, setEmployee] = useState<TeamPerson | null>(null);
   const [tasks, setTasks] = useState<TeamTask[]>([]);
   const [presence, setPresence] = useState<EmployeePresence | null>(null);
@@ -314,7 +313,7 @@ export default function EmployeeDashboardPage() {
   useEffect(() => {
     const me = loadSignedInEmployee();
     if (!me) {
-      router.replace("/employee/login");
+      hardNavigate("/employee/login");
       return;
     }
     idRef.current = me.id;
@@ -365,7 +364,7 @@ export default function EmployeeDashboardPage() {
       },
     ]);
     setReady(true);
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -939,7 +938,7 @@ export default function EmployeeDashboardPage() {
   function logout() {
     if (employee) updatePresence(employee.id, { clockedIn: false, currentTaskId: null, touchActive: true });
     saveEmployeeSession(null);
-    router.push("/employee/login");
+    hardNavigate("/employee/login");
   }
 
   if (!ready || !employee || !summary || !timesheet) {

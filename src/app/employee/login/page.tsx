@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from "@/components/SiteLink";
 import { FormEvent, useEffect, useState } from "react";
 import {
   authenticateEmployee,
@@ -12,9 +11,9 @@ import {
   seedDemoTeamIfEmpty,
   type TeamPerson,
 } from "@/lib/user-workspace";
+import { hardNavigate, sitePath } from "@/lib/hard-nav";
 
 export default function EmployeeLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -25,12 +24,12 @@ export default function EmployeeLoginPage() {
     // Make sure there is at least a demo roster so the portal is usable.
     seedDemoTeamIfEmpty();
     if (loadSignedInEmployee()) {
-      router.replace("/employee");
+      hardNavigate("/employee");
       return;
     }
     setMembers(loadTeamMembers());
     setReady(true);
-  }, [router]);
+  }, []);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,7 +42,7 @@ export default function EmployeeLoginPage() {
     saveEmployeeSession(member.id);
     // The employee clocks in from their Time clock — that's the single source
     // of clocked-in/online state, so we don't force presence here.
-    router.push("/employee");
+    hardNavigate("/employee");
   }
 
   function fillDemo(member: TeamPerson) {
@@ -115,7 +114,7 @@ export default function EmployeeLoginPage() {
           ) : null}
 
           <p className="muted-line" style={{ marginTop: "1rem" }}>
-            Are you the owner? <Link href="/login">Sign in to Atlas</Link>
+            Are you the owner? <a href={sitePath("/login")}>Sign in to Atlas</a>
           </p>
         </div>
       </div>

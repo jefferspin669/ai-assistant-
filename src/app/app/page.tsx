@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
 import { CustomizableHome } from "@/components/CustomizableHome";
 
