@@ -35,6 +35,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/tasks", label: "Tasks" },
       { href: "/app/architecture", label: "Architecture" },
       { href: "/app/backend", label: "Backend" },
+      { href: "/app/commercial", label: "Commercial" },
       { href: "/app/account", label: "Account Center" },
       { href: "/app/security", label: "Secure database" },
       { href: "/app/actions", label: "Atlas Actions" },

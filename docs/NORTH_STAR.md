@@ -37,7 +37,7 @@ Tax Center, Marketplace, Simulator, etc. stay as *prototype surface* until the b
 
 ## Phase plan
 
-### Phase 0 — Truth + Brain switch (this PR)
+### Phase 0 — Truth + Brain switch ✅
 
 - Document the pivot (this file)
 - Route Command Center through `/api/ai/chat`
@@ -46,23 +46,16 @@ Tax Center, Marketplace, Simulator, etc. stay as *prototype surface* until the b
 - Tool-calling stubs for propose/confirm risky actions
 - Publish a Postgres/Supabase schema for the commercial core
 
-### Phase 1 — Shared business state
+### Phase 1–3 — Commercial wiring (in progress in repo)
 
-- Supabase (or managed Postgres) wired for orgs, members, customers, appointments, conversations, audit_events
-- Replace `.data/*.json` as source of truth for the beachhead domains
-- Multi-device / multi-employee consistency
+- **Supabase client** — `src/lib/integrations/supabase.ts` dual-writes live REST when configured, else `.data`
+- **Twilio receptionist** — voice TwiML + SMS + missed-call recovery (`/api/webhooks/twilio/*`, `/api/receptionist/missed-call`)
+- **Google / Microsoft calendar** — OAuth + event create (`/api/calendar/oauth/*`, `/api/calendar/sync`)
+- **Real SMS / invoice send** — approval-gated (`/api/actions/send-sms`, `/api/actions/send-invoice`)
+- **Stripe** — Checkout + portal + webhook (`/api/billing/*`, `/api/webhooks/stripe`)
+- Operator UI: `/app/commercial`
 
-### Phase 2 — Receptionist + missed-call recovery
-
-- Twilio voice + SMS
-- Intent → schedule / capture / escalate
-- Missed-call SMS loop into booking
-
-### Phase 3 — Calendar + money + billing
-
-- Google/Microsoft calendar sync
-- Real invoice/SMS send paths behind approvals
-- Stripe Checkout for subscriptions
+Without credentials everything stays in **simulation mode** so demos never break.
 
 ## Safety (non-negotiable)
 

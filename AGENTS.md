@@ -12,13 +12,25 @@ Atlas has a large interactive product surface. Much of it is still a **sophistic
 
 **North star:** stop adding feature pages; make one beachhead real. See `docs/NORTH_STAR.md`.
 
-## Atlas Brain (Phase 0)
+## Atlas Brain (Phase 0+)
 
 - Command Center talks to `POST /api/ai/chat`
 - If `ATLAS_LLM_API_KEY` is set → live OpenAI-compatible LLM + tool calling
 - If unset → simulation/keyword fallback (demos still work)
 - Tools: business brief, propose risky action (approval), remember standing order
-- Postgres schema draft: `supabase/schema.sql`
+- Postgres schema: `supabase/schema.sql`
+
+## Commercial beachhead (`/app/commercial`)
+
+| System | Live when | Routes |
+| --- | --- | --- |
+| Supabase | `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | store dual-write |
+| Twilio | `TWILIO_ACCOUNT_SID` + token + number | `/api/webhooks/twilio/*` |
+| Google/Microsoft calendar | OAuth client ids/secrets | `/api/calendar/oauth/*` |
+| SMS / invoice | Twilio (+ approval flag) | `/api/actions/*` |
+| Stripe | `STRIPE_SECRET_KEY` (+ price id) | `/api/billing/*` |
+
+Copy `.env.example` → `.env.local` and fill credentials to go live. Without them, actions run in simulation and write audit trails locally.
 
 ## Backend today
 
@@ -34,5 +46,6 @@ Atlas has a large interactive product surface. Much of it is still a **sophistic
 - Dev server: `http://localhost:3000` via `npm run dev`.
 - Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
+- Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
 - Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
 - Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.
