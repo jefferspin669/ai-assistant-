@@ -41,14 +41,27 @@ function park(src, dest) {
   if (!existsSync(src)) return false;
   mkdirSync(join(dest, ".."), { recursive: true });
   if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
-  renameSync(src, dest);
+  // Prefer rename; fall back to copy+remove when src/dest are on different devices (EXDEV).
+  try {
+    renameSync(src, dest);
+  } catch (error) {
+    if (!error || error.code !== "EXDEV") throw error;
+    cpSync(src, dest, { recursive: true });
+    rmSync(src, { recursive: true, force: true });
+  }
   return true;
 }
 
 function restore(src, dest) {
   if (!existsSync(src)) return;
   if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
-  renameSync(src, dest);
+  try {
+    renameSync(src, dest);
+  } catch (error) {
+    if (!error || error.code !== "EXDEV") throw error;
+    cpSync(src, dest, { recursive: true });
+    rmSync(src, { recursive: true, force: true });
+  }
 }
 
 let parkedApi = false;
