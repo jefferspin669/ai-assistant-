@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { audiences, industries, type Industry } from "@/lib/data";
+import { hardNavigate, sitePath } from "@/lib/hard-nav";
 
 const personalities = ["Friendly", "Professional", "Funny", "Serious"] as const;
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const { account, updateProfile, aiName, aiPersonality, ownerName, businessName, ready } =
     useAccount();
   const [audience, setAudience] = useState<(typeof audiences)[number]["id"]>("business");
@@ -58,7 +57,7 @@ export default function OnboardingPage() {
         return;
       }
     }
-    router.push(nextHref);
+    hardNavigate(nextHref);
   }
 
   return (
@@ -76,7 +75,7 @@ export default function OnboardingPage() {
           {!account ? (
             <p style={{ color: "var(--ink-soft)", marginTop: "0.75rem" }}>
               Want to save your AI name and profile?{" "}
-              <Link href="/signup">Create an account</Link> or <Link href="/login">sign in</Link>.
+              <a href={sitePath("/signup")}>Create an account</a> or <a href={sitePath("/login")}>sign in</a>.
             </p>
           ) : (
             <p style={{ color: "var(--ink-soft)", marginTop: "0.75rem" }}>

@@ -2,22 +2,23 @@ import Image from "next/image";
 import Link from "next/link";
 import { digitalEmployeeRoster, intelligenceNetworkInsights } from "@/lib/atlas-platform";
 import { audiences, industryPacks, marketplaceAssistants, phases } from "@/lib/data";
+import { sitePath } from "@/lib/hard-nav";
 
 export default function HomePage() {
   return (
     <div>
       <nav className="site-nav" aria-label="Primary">
-        <Link href="/" className="logo">
+        <a href={sitePath("/")} className="logo">
           Atlas <span>AI</span>
-        </Link>
+        </a>
         <div className="site-nav-links">
           <a href="#mission">Mission</a>
           <a href="#command-language">Command Language</a>
           <a href="#governance">Trust</a>
-          <Link href="/login">Sign in</Link>
-          <Link className="btn btn-primary" href="/signup">
+          <a href={sitePath("/login")}>Sign in</a>
+          <a className="btn btn-primary" href={sitePath("/signup")}>
             Create account
-          </Link>
+          </a>
         </div>
       </nav>
 
@@ -41,12 +42,12 @@ export default function HomePage() {
             beyond technology.
           </p>
           <div className="cta-row">
-            <Link className="btn btn-primary" href="/signup">
+            <a className="btn btn-primary" href={sitePath("/signup")}>
               Create your account
-            </Link>
-            <Link className="btn btn-ghost" href="/onboarding">
+            </a>
+            <a className="btn btn-ghost" href={sitePath("/onboarding")}>
               Build your workforce
-            </Link>
+            </a>
           </div>
           <div className="exchange" aria-label="Atlas examples">
             <div className="exchange-line exchange-owner">

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
+import { hardNavigate, sitePath } from "@/lib/hard-nav";
 
 function ResetForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const { resetPassword } = useAccount();
   const [token, setToken] = useState(params.get("token") || "");
@@ -21,7 +21,7 @@ function ResetForm() {
       setError(result.error);
       return;
     }
-    router.push("/app/account");
+    hardNavigate("/app/account");
   }
 
   return (
@@ -49,7 +49,7 @@ function ResetForm() {
           Update password
         </button>
         <p>
-          <Link href="/login">Back to sign in</Link>
+          <a href={sitePath("/login")}>Back to sign in</a>
         </p>
       </div>
     </form>

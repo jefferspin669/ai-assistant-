@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import type { OAuthProvider } from "@/lib/account";
 import { industries } from "@/lib/data";
+import { hardNavigate, sitePath } from "@/lib/hard-nav";
 
 const personalities = ["Friendly", "Professional", "Funny", "Serious"] as const;
 const providers: OAuthProvider[] = ["google", "apple", "microsoft"];
 
 export default function SignupPage() {
-  const router = useRouter();
   const { signup, loginOAuth, account, ready } = useAccount();
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
@@ -24,8 +23,8 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!ready || !account) return;
-    router.replace(account.setup?.completed ? "/app" : "/app/setup");
-  }, [ready, account, router]);
+    hardNavigate(account.setup?.completed ? "/app" : "/app/setup");
+  }, [ready, account]);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,7 +42,7 @@ export default function SignupPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/setup");
+    hardNavigate("/app/setup");
   }
 
   function onOAuth(provider: OAuthProvider) {
@@ -53,7 +52,7 @@ export default function SignupPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/setup");
+    hardNavigate("/app/setup");
   }
 
   return (
@@ -171,7 +170,7 @@ export default function SignupPage() {
                 Create secure account
               </button>
               <p>
-                Already have an account? <Link href="/login">Sign in</Link>
+                Already have an account? <a href={sitePath("/login")}>Sign in</a>
               </p>
             </div>
           </form>
