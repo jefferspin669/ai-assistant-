@@ -7,7 +7,7 @@ import {
   commandSuggestions,
   morningBriefing,
 } from "@/lib/data";
-import { runOwnerCommand, type CommandResult } from "@/lib/commands";
+import type { CommandResult } from "@/lib/commands";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 import { styleReplyWithFeedback } from "@/lib/feedback";
@@ -25,6 +25,16 @@ type ChatItem =
       resolved?: "approved" | "cancelled";
     };
 
+type BrainApiData = {
+  reply: string;
+  agentLabel: string;
+  mode?: "live" | "simulation";
+  model?: string;
+  needsConfirm: boolean;
+  confirmPrompt?: string;
+  doneLabel?: string;
+};
+
 function timeGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
@@ -38,6 +48,8 @@ export function CommandCenter() {
   const greetedRef = useRef(false);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [brainMode, setBrainMode] = useState<"live" | "simulation" | "unknown">("unknown");
   const [messages, setMessages] = useState<ChatItem[]>([]);
   const [savedNote, setSavedNote] = useState("");
 
@@ -61,43 +73,95 @@ export function CommandCenter() {
     }
   }
 
-  function pushResult(result: CommandResult, spoken: string) {
-    const reply = styleReplyWithFeedback(result.reply);
-    const next: ChatItem[] = [{ kind: "user", text: spoken }];
-    if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
-      const confirmation = requestConfirmation({
-        kind: "other",
-        title: result.confirmPrompt.replace(/\?$/, ""),
-        summary: reply,
-        details: [result.confirmPrompt, `Requested from Command Center: “${spoken}”`],
-        impact: "Atlas will only continue after you confirm.",
-        requestedBy: result.agentLabel,
+  async function askBrain(spoken: string) {
+    const trimmed = spoken.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    setMessages((prev) => [...prev, { kind: "user", text: trimmed }]);
+    try {
+      const history = messages
+        .filter((m) => m.kind === "user" || m.kind === "ai")
+        .slice(-8)
+        .map((m) =>
+          m.kind === "user"
+            ? { role: "user" as const, content: m.text }
+            : { role: "assistant" as const, content: m.text },
+        );
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: trimmed,
+          ownerName,
+          businessName,
+          history,
+        }),
       });
-      next.push({
-        kind: "confirm",
-        text: reply,
-        agentLabel: result.agentLabel,
-        confirmPrompt: result.confirmPrompt,
-        doneLabel: result.doneLabel,
-        confirmationId: confirmation.id,
-      });
-    } else {
-      next.push({ kind: "ai", text: reply, agentLabel: result.agentLabel });
-      persistTurn(spoken, reply, result.agentLabel);
+      const json = (await res.json()) as { ok: boolean; data?: BrainApiData; error?: string };
+      if (!json.ok || !json.data) {
+        throw new Error(json.error || "Brain request failed");
+      }
+      if (json.data.mode) setBrainMode(json.data.mode);
+      const result: CommandResult = {
+        agent: "ceo",
+        agentLabel: json.data.agentLabel || "Atlas",
+        reply: json.data.reply,
+        needsConfirm: Boolean(json.data.needsConfirm),
+        confirmPrompt: json.data.confirmPrompt,
+        doneLabel: json.data.doneLabel,
+      };
+      const reply = styleReplyWithFeedback(result.reply);
+      if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
+        const confirmation = requestConfirmation({
+          kind: "other",
+          title: result.confirmPrompt.replace(/\?$/, ""),
+          summary: reply,
+          details: [result.confirmPrompt, `Requested from Command Center: “${trimmed}”`],
+          impact: "Atlas will only continue after you confirm.",
+          requestedBy: result.agentLabel,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            kind: "confirm",
+            text: reply,
+            agentLabel: result.agentLabel,
+            confirmPrompt: result.confirmPrompt!,
+            doneLabel: result.doneLabel!,
+            confirmationId: confirmation.id,
+          },
+        ]);
+      } else {
+        persistTurn(trimmed, reply, result.agentLabel);
+        setMessages((prev) => [
+          ...prev,
+          { kind: "ai", text: reply, agentLabel: result.agentLabel },
+        ]);
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          kind: "ai",
+          agentLabel: "Atlas",
+          text: `I couldn’t reach the Brain API (${error instanceof Error ? error.message : "error"}). Try again.`,
+        },
+      ]);
+    } finally {
+      setBusy(false);
     }
-    setMessages((prev) => [...prev, ...next]);
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
-    pushResult(runOwnerCommand(trimmed), trimmed);
+    void askBrain(trimmed);
     setInput("");
   }
 
   function onSuggestion(text: string) {
-    pushResult(runOwnerCommand(text), text);
+    void askBrain(text);
   }
 
   function resolveConfirm(index: number, approved: boolean) {
@@ -160,7 +224,7 @@ export function CommandCenter() {
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results[0]?.[0]?.transcript;
       if (transcript) {
-        pushResult(runOwnerCommand(transcript), transcript);
+        void askBrain(transcript);
         setInput("");
       }
     };
@@ -176,6 +240,14 @@ export function CommandCenter() {
         </h2>
         <p className="briefing-sub">
           {businessName} · {aiName} is your {aiRole}
+        </p>
+        <p className="muted-line" style={{ marginTop: "0.35rem" }}>
+          Brain:{" "}
+          {brainMode === "live"
+            ? "Live LLM"
+            : brainMode === "simulation"
+              ? "Simulation (keyword fallback)"
+              : "Ready — first message selects live vs simulation"}
         </p>
         <ul className="briefing-list">
           {morningBriefing.map((item) => (
@@ -200,8 +272,8 @@ export function CommandCenter() {
           <div>
             <h2>Talk to Atlas</h2>
             <p>
-              Prefer outcomes over how-tos — try Atlas Actions for multi-step work that continues on
-              every device.
+              Routed through Atlas Brain (`/api/ai/chat`). Set `ATLAS_LLM_API_KEY` for a live model;
+              otherwise simulation fallback stays on. Try: “I’m going home — handle routine tonight…”
               {account
                 ? " Signed-in chats are saved to your AI workspace."
                 : " Sign in to save conversations."}
@@ -253,25 +325,50 @@ export function CommandCenter() {
               </div>
             );
           })}
+          {busy ? (
+            <div className="bubble bubble-ai">
+              <div className="agent-tag">Atlas</div>
+              Thinking…
+            </div>
+          ) : null}
         </div>
 
         <div className="suggestion-row">
           {commandSuggestions.map((suggestion) => (
-            <button key={suggestion} type="button" className="suggestion" onClick={() => onSuggestion(suggestion)}>
+            <button
+              key={suggestion}
+              type="button"
+              className="suggestion"
+              onClick={() => onSuggestion(suggestion)}
+              disabled={busy}
+            >
               {suggestion}
             </button>
           ))}
+          <button
+            type="button"
+            className="suggestion"
+            disabled={busy}
+            onClick={() =>
+              onSuggestion(
+                "Atlas, I'm going home. Handle anything routine tonight, don't discount more than 10%, don't schedule anything before 8 AM, and wake me up only if it's an emergency.",
+              )
+            }
+          >
+            Going home — handle tonight
+          </button>
         </div>
 
         <form className="command-form" onSubmit={onSubmit}>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder='Try: “Create an invoice for Acme Corp for $1,250…” or “How is business?”'
+            placeholder='Try: “I’m going home — handle routine tonight…” or “How is business?”'
             aria-label="Talk to Atlas"
+            disabled={busy}
           />
-          <button className="btn btn-dark" type="submit">
-            Send
+          <button className="btn btn-dark" type="submit" disabled={busy}>
+            {busy ? "…" : "Send"}
           </button>
         </form>
       </section>
