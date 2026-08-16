@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { digitalEmployeeRoster, intelligenceNetworkInsights } from "@/lib/atlas-platform";
 import { audiences, industryPacks, marketplaceAssistants, phases } from "@/lib/data";
 import { sitePath } from "@/lib/hard-nav";

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { hardNavigate } from "@/lib/hard-nav";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

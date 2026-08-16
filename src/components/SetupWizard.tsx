@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { industries } from "@/lib/data";

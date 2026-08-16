@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { useEffect, useState } from "react";
 import { computerCapabilities, computerTasks, securityAuditLog } from "@/lib/atlas-platform";
 import {

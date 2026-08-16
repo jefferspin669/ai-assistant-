@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
 import { apiGet, apiSend } from "@/lib/backend/client";
 import type { DbConversation } from "@/lib/db/schema";

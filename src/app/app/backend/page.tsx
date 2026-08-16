@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
 import { apiGet, apiSend } from "@/lib/backend/client";
 import { WORKSPACE_DOMAINS } from "@/lib/backend/domains";
