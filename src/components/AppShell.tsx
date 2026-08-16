@@ -107,11 +107,12 @@ export function AppShell({
   }, [accountMenuOpen]);
 
   useEffect(() => {
-    const activeGroup = moreGroups.find((group) => groupContainsPath(pathname, group));
-    if (!activeGroup) return;
+    const activeIndex = moreGroups.findIndex((group) => groupContainsPath(pathname, group));
+    if (activeIndex < 0) return;
+    const groupKey = `${moreGroups[activeIndex].label}-${activeIndex}`;
     setMoreOpen(true);
     setOpenGroups((prev) =>
-      prev[activeGroup.label] ? prev : { ...prev, [activeGroup.label]: true },
+      prev[groupKey] ? prev : { ...prev, [groupKey]: true },
     );
   }, [pathname, moreGroups]);
 
@@ -160,7 +161,13 @@ export function AppShell({
             aria-label={collapsed ? t("shell.expandNav", "Expand sidebar") : t("shell.collapseNav", "Collapse sidebar")}
             title={collapsed ? t("shell.expandNav", "Expand sidebar") : t("shell.collapseNav", "Collapse sidebar")}
           >
-            <span aria-hidden="true">{collapsed ? "»" : "«"}</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {collapsed ? (
+                <path d="M9 6l6 6-6 6" />
+              ) : (
+                <path d="M15 6l-6 6 6 6" />
+              )}
+            </svg>
           </button>
         </div>
 
@@ -196,14 +203,15 @@ export function AppShell({
 
             {moreOpen ? (
               <div className="nav-more-panel">
-                {moreGroups.map((group) => {
-                  const open = Boolean(openGroups[group.label]) || groupContainsPath(pathname, group);
+                {moreGroups.map((group, groupIndex) => {
+                  const groupKey = `${group.label}-${groupIndex}`;
+                  const open = Boolean(openGroups[groupKey]) || groupContainsPath(pathname, group);
                   return (
-                    <div className="nav-subgroup" key={group.label}>
+                    <div className="nav-subgroup" key={groupKey}>
                       <button
                         type="button"
                         className={`nav-subgroup-toggle${open ? " open" : ""}`}
-                        onClick={() => toggleGroup(group.label)}
+                        onClick={() => toggleGroup(groupKey)}
                         aria-expanded={open}
                         title={collapsed ? tNav(group.label) : undefined}
                       >
