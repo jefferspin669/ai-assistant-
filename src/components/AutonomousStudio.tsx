@@ -59,7 +59,7 @@ export function AutonomousStudio() {
   const [refundLimit, setRefundLimit] = useState("100");
   const [discountCap, setDiscountCap] = useState("10");
   const [marketing, setMarketing] = useState("1500");
-  const [activeLoop, setActiveLoop] = useState(autonomousLoops[0].id);
+  const [activeLoop, setActiveLoop] = useState<string>(autonomousLoops[0].id);
 
   const policy = payload?.policy;
   const pending = payload?.pending || [];
@@ -95,11 +95,11 @@ export function AutonomousStudio() {
           body: JSON.stringify(body),
         }),
       );
-      setPayload((prev) =>
-        prev
-          ? { ...prev, policy: data.policy, pending: data.pending }
-          : { policy: data.policy, pending: data.pending, slogan: prev?.slogan || "" },
-      );
+      setPayload((prev) => ({
+        slogan: prev?.slogan || "Atlas runs the routine company. Humans handle the exceptions.",
+        policy: data.policy,
+        pending: data.pending,
+      }));
     } catch (error) {
       setNote(error instanceof Error ? error.message : "Update failed");
     } finally {
