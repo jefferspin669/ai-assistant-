@@ -116,6 +116,24 @@ export function loadConfirmations(): PendingConfirmation[] {
 export function saveConfirmations(items: PendingConfirmation[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 80)));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) =>
+    pushWorkspace("confirmations", items.slice(0, 80)),
+  );
+}
+
+export async function hydrateConfirmations(): Promise<PendingConfirmation[]> {
+  if (typeof window === "undefined") return [];
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<PendingConfirmation[]>("confirmations");
+    if (Array.isArray(remote)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote.slice(0, 80)));
+      return remote;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadConfirmations();
 }
 
 export function requestConfirmation(input: {
@@ -178,4 +196,37 @@ export function queueCatalogAction(kind: RiskyActionKind, requestedBy = "Atlas")
     requestedBy,
   });
   return requestConfirmation({ ...catalog, requestedBy });
+}
+
+export function addCustomConfirmation(input: {
+  title: string;
+  summary: string;
+  details?: string;
+  impact?: string;
+  requestedBy?: string;
+}): PendingConfirmation {
+  const details = (input.details || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return requestConfirmation({
+    kind: "other",
+    title: input.title.trim() || "Custom action",
+    summary: input.summary.trim() || "Atlas needs your approval before continuing.",
+    details: details.length ? details : ["Review carefully before confirming."],
+    impact: input.impact?.trim() || "Action runs only after you confirm.",
+    requestedBy: input.requestedBy || "You",
+  });
+}
+
+export function removeConfirmation(id: string): PendingConfirmation[] {
+  const next = loadConfirmations().filter((item) => item.id !== id);
+  saveConfirmations(next);
+  return next;
+}
+
+export function clearResolvedConfirmations(): PendingConfirmation[] {
+  const next = loadConfirmations().filter((item) => item.status === "pending");
+  saveConfirmations(next);
+  return next;
 }

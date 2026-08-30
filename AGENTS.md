@@ -1,15 +1,54 @@
 # Atlas AI
 
-Next.js 15 (App Router) + React 19 + TypeScript prototype of an "AI workforce" platform. The main sidebar is compact (Home, Ask Atlas, Work, Business, AI, More). Depth features live inside section hubs. Dashboard and chat must label DEMO vs LIVE data.
+Next.js 15 (App Router) + React 19 + TypeScript.
 
-API identity comes from the `atlas_session` httpOnly cookie — never from body `userId` / `organizationId`. Customers, tasks, calendar, and transactions are org-scoped in the server JSON store (`.data/atlas-db.json`). Home KPIs and Ask Atlas still mix LIVE API data with DEMO pulse/localStorage in some UI surfaces. Auth extras (reset, MFA, lockout) exist as prototype routes, not production email/TOTP providers.
+## Honest status
+
+Atlas has a large interactive product surface. Much of it is still a **sophisticated simulation**:
+
+- Keyword Brain fallback in `src/lib/commands.ts`
+- File-backed JSON under `.data/` (not shared Postgres yet)
+- Many studios mock phone/calendar/invoices
+
+**North star:** stop adding feature pages; make one beachhead real. See `docs/NORTH_STAR.md`.
+
+API identity comes from the `atlas_session` httpOnly cookie — never from body `userId` / `organizationId`. Home KPIs should label DEMO vs LIVE data honestly.
+
+## Atlas Brain (Phase 0+)
+
+- Command Center talks to `POST /api/ai/chat`
+- If `ATLAS_LLM_API_KEY` is set → live OpenAI-compatible LLM + tool calling
+- If unset → simulation/keyword fallback (demos still work)
+- Tools: business brief, propose risky action (approval), remember standing order
+- Postgres schema: `supabase/schema.sql`
+
+## Commercial beachhead (`/app/commercial`)
+
+| System | Live when | Routes |
+| --- | --- | --- |
+| Supabase | `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | store dual-write |
+| Twilio | `TWILIO_ACCOUNT_SID` + token + number | `/api/webhooks/twilio/*` |
+| Google/Microsoft calendar | OAuth client ids/secrets | `/api/calendar/oauth/*` |
+| SMS / invoice | Twilio (+ approval flag) | `/api/actions/*` |
+| Stripe | `STRIPE_SECRET_KEY` (+ price id) | `/api/billing/*` |
+
+Copy `.env.example` → `.env.local` and fill credentials to go live. Without them, actions run in simulation and write audit trails locally.
+
+## Backend today
+
+- Route Handlers under `src/app/api/**`
+- Architecture DB → `.data/atlas-db.json`
+- Workspace domains → `.data/workspace.json`
+- Open `/app/backend` for health checks
 
 ## Cursor Cloud specific instructions
 
 - Package manager is npm (`package-lock.json`); Node 20+ works (verified on Node 22). After pulling, run `npm install` so `zod` and `vitest` are present.
-- Standard scripts live in `package.json`: `npm run dev`, `npm run build`, `npm run lint`, `npm start`, `npm test`. Setup is just `npm install`.
-- Dev server runs on `http://localhost:3000`. Start it with `npm run dev` (do not use `npm run build`/`npm start` for development).
-- No env vars are required in development. Production needs `ATLAS_APP_PASSWORD` (16+ chars) if env validation is used.
-- Interactive "hello world": open `/app`. Confirm KPI badges say DEMO or LIVE honestly. Try Ask Atlas: "How did we do this week?" then "Move John's 2 PM appointment to tomorrow."
-- The marketing hero image loads from `images.unsplash.com`; if egress is blocked the image is broken but the app is otherwise fully functional.
+- Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`, `npm test`. Setup: `npm install`.
+- Dev server: `http://localhost:3000` via `npm run dev`.
+- Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
+- Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
+- Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
+- Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
 - Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo`. Dev `GET /api/session` mints a cookie for the seeded owner.
+- Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
 import { brainDomains, memoryReplay } from "@/lib/atlas-platform";
 

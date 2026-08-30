@@ -7,6 +7,17 @@ import { runOwnerCommand, type CommandResult } from "@/lib/commands";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 import { applyOwnerEffect } from "@/lib/dashboard";
+import { styleReplyWithFeedback } from "@/lib/feedback";
+
+type BrainApiData = {
+  reply: string;
+  agentLabel: string;
+  mode?: "live" | "simulation";
+  model?: string;
+  needsConfirm: boolean;
+  confirmPrompt?: string;
+  doneLabel?: string;
+};
 
 type ChatItem =
   | { kind: "user"; text: string }
@@ -34,10 +45,12 @@ type AtlasChatPanelProps = {
 };
 
 export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
-  const { ownerName, ready, account, saveConversation } = useAccount();
+  const { ownerName, businessName, ready, account, saveConversation } = useAccount();
   const greetedRef = useRef(false);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [brainMode, setBrainMode] = useState<"live" | "simulation" | "unknown">("unknown");
   const [messages, setMessages] = useState<ChatItem[]>([]);
   const [savedNote, setSavedNote] = useState("");
 
@@ -59,43 +72,94 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
     if (result.ok) setSavedNote("Saved to your AI workspace.");
   }
 
-  function pushResult(result: CommandResult, spoken: string) {
-    const next: ChatItem[] = [{ kind: "user", text: spoken }];
-    if (result.needsConfirm && result.confirmPrompt && result.doneLabel) {
+  function applyResult(result: CommandResult, spoken: string) {
+    const reply = styleReplyWithFeedback(result.reply);
+    const confirmPrompt = result.confirmPrompt;
+    const doneLabel = result.doneLabel;
+    if (result.needsConfirm && confirmPrompt && doneLabel) {
       const confirmation = requestConfirmation({
         kind: "other",
-        title: result.confirmPrompt.replace(/\?$/, ""),
-        summary: result.reply,
-        details: [result.confirmPrompt, `Requested from Command Center: “${spoken}”`],
+        title: confirmPrompt.replace(/\?$/, ""),
+        summary: reply,
+        details: [confirmPrompt, `Requested from Command Center: “${spoken}”`],
         impact: "Atlas will only continue after you confirm.",
         requestedBy: result.agentLabel,
       });
-      next.push({
-        kind: "confirm",
-        text: result.reply,
-        agentLabel: "Atlas",
-        confirmPrompt: result.confirmPrompt,
-        doneLabel: result.doneLabel,
-        confirmationId: confirmation.id,
-        effect: result.effect,
-      });
-    } else {
-      next.push({ kind: "ai", text: result.reply, agentLabel: "Atlas" });
-      persistTurn(spoken, result.reply, result.agentLabel);
+      setMessages((prev) => [
+        ...prev,
+        {
+          kind: "confirm",
+          text: reply,
+          agentLabel: result.agentLabel || "Atlas",
+          confirmPrompt,
+          doneLabel,
+          confirmationId: confirmation.id,
+          effect: result.effect,
+        },
+      ]);
+      return;
     }
-    setMessages((prev) => [...prev, ...next]);
+    persistTurn(spoken, reply, result.agentLabel);
+    setMessages((prev) => [...prev, { kind: "ai", text: reply, agentLabel: result.agentLabel || "Atlas" }]);
+  }
+
+  async function askBrain(spoken: string) {
+    const trimmed = spoken.trim();
+    if (!trimmed || busy) return;
+    setBusy(true);
+    setMessages((prev) => [...prev, { kind: "user", text: trimmed }]);
+    try {
+      const history = messages
+        .filter((m) => m.kind === "user" || m.kind === "ai")
+        .slice(-8)
+        .map((m) =>
+          m.kind === "user"
+            ? { role: "user" as const, content: m.text }
+            : { role: "assistant" as const, content: m.text },
+        );
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: trimmed,
+          ownerName,
+          businessName,
+          history,
+        }),
+      });
+      const json = (await res.json()) as { ok: boolean; data?: BrainApiData; error?: string };
+      if (!json.ok || !json.data) {
+        throw new Error(json.error || "Brain request failed");
+      }
+      if (json.data.mode) setBrainMode(json.data.mode);
+      applyResult(
+        {
+          agent: "ceo",
+          agentLabel: json.data.agentLabel || "Atlas",
+          reply: json.data.reply,
+          needsConfirm: Boolean(json.data.needsConfirm),
+          confirmPrompt: json.data.confirmPrompt,
+          doneLabel: json.data.doneLabel,
+        },
+        trimmed,
+      );
+    } catch {
+      applyResult(runOwnerCommand(trimmed), trimmed);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = input.trim();
     if (!trimmed) return;
-    pushResult(runOwnerCommand(trimmed), trimmed);
+    void askBrain(trimmed);
     setInput("");
   }
 
   function onSuggestion(text: string) {
-    pushResult(runOwnerCommand(text), text);
+    void askBrain(text);
   }
 
   function resolveConfirm(index: number, approved: boolean) {
@@ -160,7 +224,7 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results[0]?.[0]?.transcript;
       if (transcript) {
-        pushResult(runOwnerCommand(transcript), transcript);
+        void askBrain(transcript);
         setInput("");
       }
     };
@@ -175,9 +239,15 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
         <div>
           <h2>Ask Atlas</h2>
           <p>
+            Routed through Atlas Brain.{" "}
+            {brainMode === "live"
+              ? "Live LLM is on."
+              : brainMode === "simulation"
+                ? "Simulation fallback is on."
+                : "First message selects live vs simulation."}{" "}
             {account
-              ? "You talk to Atlas. Specialists run in the background."
-              : "Sign in to save conversations. Atlas still answers as Atlas."}
+              ? "Signed-in chats are saved to your AI workspace."
+              : "Sign in to save conversations."}
           </p>
           {savedNote ? <p className="auth-success">{savedNote}</p> : null}
         </div>
@@ -242,11 +312,23 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
             </div>
           );
         })}
+        {busy ? (
+          <div className="bubble bubble-ai">
+            <div className="agent-tag">Atlas</div>
+            Thinking…
+          </div>
+        ) : null}
       </div>
 
       <div className="suggestion-row">
         {suggestions.map((suggestion) => (
-          <button key={suggestion} type="button" className="suggestion" onClick={() => onSuggestion(suggestion)}>
+          <button
+            key={suggestion}
+            type="button"
+            className="suggestion"
+            onClick={() => onSuggestion(suggestion)}
+            disabled={busy}
+          >
             {suggestion}
           </button>
         ))}
@@ -256,11 +338,12 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder='Try: "How did we do this week?" or "Move John’s 2 PM to tomorrow."'
+          placeholder='Try: “How is business?” or “Going home — handle tonight”'
           aria-label="Talk to Atlas"
+          disabled={busy}
         />
-        <button className="btn btn-dark" type="submit">
-          Send
+        <button className="btn btn-dark" type="submit" disabled={busy}>
+          {busy ? "…" : "Send"}
         </button>
       </form>
     </div>

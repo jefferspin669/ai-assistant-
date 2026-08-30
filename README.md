@@ -8,6 +8,20 @@ Don’t just sell software. Build around a mission. Atlas exists so companies of
 
 Start with small service businesses that need an AI receptionist and scheduling. Expand into personal assistants and celebration/event planning on the same platform. The beachhead proves the mission where the gap hurts most.
 
+**Current priority:** make the beachhead *real* (Brain + shared DB + phone + calendar + approvals + Stripe) — not more simulated product pages. See [`docs/NORTH_STAR.md`](docs/NORTH_STAR.md).
+
+## Atlas Brain (now)
+
+- Command Center → `POST /api/ai/chat`
+- Live LLM when `ATLAS_LLM_API_KEY` is set (OpenAI-compatible)
+- Keyword simulation fallback otherwise
+- Tool calling stubs for briefs, risky-action proposals, standing orders
+- Commercial Postgres schema in `supabase/schema.sql`
+
+## Commercial beachhead (`/app/commercial`)
+
+Supabase dual-write, Twilio voice/SMS + missed-call recovery, Google/Microsoft calendar OAuth, approval-gated SMS/invoice sends, Stripe Checkout — all simulation-safe until env credentials are set. See `.env.example` and `docs/NORTH_STAR.md`.
+
 ## Platform pillars
 
 - **Intelligence Network** (`/app/network`) — anonymized industry trends across thousands of businesses
@@ -32,6 +46,8 @@ Start with small service businesses that need an AI receptionist and scheduling.
 ## Atlas Brain
 
 The central AI that remembers customers, employees, hours, services, inventory, appointments, conversations, policies, pricing, documents, past jobs, equipment, and suppliers — so every AI doesn’t start over.
+
+**Implementation status:** Phase 0 Brain router ships in this repo (`src/lib/brain`). Live model optional via env. Shared Postgres + Twilio receptionist are next.
 
 ## Run
 

@@ -1,7 +1,13 @@
-"use client";
-
-import { ConfirmationStudio } from "@/components/ConfirmationStudio";
+import { AppShell } from "@/components/AppShell";
+import { ApprovalInboxStudio } from "@/components/ApprovalInboxStudio";
 
 export default function ApprovalsPage() {
-  return <ConfirmationStudio />;
+  return (
+    <AppShell
+      title="Approval Inbox"
+      subtitle="Everything waiting on you — prioritized by Atlas — with Approve, Reject, and Ask a Question in one place."
+    >
+      <ApprovalInboxStudio />
+    </AppShell>
+  );
 }

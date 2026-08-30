@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAccount } from "@/components/AccountProvider";
+import { useLanguage } from "@/components/LanguageProvider";
 import { atlasApi } from "@/lib/api/atlas-api";
 import { settingsHub } from "@/lib/section-hubs";
 import type {
@@ -35,6 +36,7 @@ const MEMBER_STATUSES: OrgMemberStatus[] = ["active", "invited", "suspended", "r
 
 export function SettingsStudio() {
   const { account, ownerName, businessName, logout, ready } = useAccount();
+  const { setLanguage: setUiLanguage, languages: uiLanguages } = useLanguage();
   const [user, setUser] = useState<DbUser | null>(null);
   const [org, setOrg] = useState<DbOrganization | null>(null);
   const [members, setMembers] = useState<DbOrganizationMember[]>([]);
@@ -112,7 +114,8 @@ export function SettingsStudio() {
       return;
     }
     setUser(result.data);
-    setFlash("users row updated.");
+    setUiLanguage(language);
+    setFlash("users row updated — app language applied across pages.");
   }
 
   return (
@@ -176,10 +179,16 @@ export function SettingsStudio() {
             </label>
             <label>
               preferred_language
-              <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                {LANGUAGES.map((lang) => (
+              <select
+                value={language}
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  setUiLanguage(e.target.value);
+                }}
+              >
+                {(uiLanguages.length ? uiLanguages : LANGUAGES).map((lang) => (
                   <option key={lang.id} value={lang.id}>
-                    {lang.label}
+                    {"native" in lang ? `${lang.label} (${lang.native})` : lang.label}
                   </option>
                 ))}
               </select>

@@ -121,11 +121,20 @@ export function loadConnections(): ServiceConnection[] {
     }
     const parsed = JSON.parse(raw) as ServiceConnection[];
     if (!Array.isArray(parsed) || !parsed.length) return seedConnections();
-    // Merge new catalog entries
+    // Merge catalog + keep any custom services the user added
     const byId = new Map(parsed.map((c) => [c.id, c]));
-    return CATALOG.map((item) => {
+    const catalogIds = new Set(CATALOG.map((item) => item.id));
+    const merged = CATALOG.map((item) => {
       const existing = byId.get(item.id);
-      if (existing) return { ...item, ...existing, permissions: item.permissions, detail: item.detail, name: item.name };
+      if (existing) {
+        return {
+          ...item,
+          ...existing,
+          permissions: existing.permissions?.length ? existing.permissions : item.permissions,
+          detail: existing.detail || item.detail,
+          name: existing.name || item.name,
+        };
+      }
       return {
         ...item,
         connected: false,
@@ -135,6 +144,8 @@ export function loadConnections(): ServiceConnection[] {
         health: "disconnected" as const,
       };
     });
+    const customs = parsed.filter((c) => !catalogIds.has(c.id));
+    return [...merged, ...customs];
   } catch {
     return seedConnections();
   }
@@ -143,6 +154,24 @@ export function loadConnections(): ServiceConnection[] {
 export function saveConnections(items: ServiceConnection[]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  void import("@/lib/backend/client").then(({ pushWorkspace }) =>
+    pushWorkspace("connections", items),
+  );
+}
+
+export async function hydrateConnections(): Promise<ServiceConnection[]> {
+  if (typeof window === "undefined") return seedConnections();
+  try {
+    const { pullWorkspace } = await import("@/lib/backend/client");
+    const remote = await pullWorkspace<ServiceConnection[]>("connections");
+    if (Array.isArray(remote) && remote.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      return remote;
+    }
+  } catch {
+    /* fall through */
+  }
+  return loadConnections();
 }
 
 export function connectService(id: string, accountLabel?: string): ServiceConnection[] {
@@ -188,6 +217,71 @@ export function syncService(id: string): ServiceConnection[] {
   );
   saveConnections(next);
   return next;
+}
+
+export function updateConnection(
+  id: string,
+  patch: Partial<Pick<ServiceConnection, "accountLabel" | "detail" | "name" | "health" | "permissions">>,
+): ServiceConnection[] {
+  const next = loadConnections().map((c) =>
+    c.id === id
+      ? {
+          ...c,
+          ...patch,
+          accountLabel:
+            patch.accountLabel !== undefined
+              ? patch.accountLabel?.trim() || null
+              : c.accountLabel,
+          detail: patch.detail !== undefined ? patch.detail.trim() || c.detail : c.detail,
+          name: patch.name !== undefined ? patch.name.trim() || c.name : c.name,
+        }
+      : c,
+  );
+  saveConnections(next);
+  return next;
+}
+
+function slugId(name: string) {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 32);
+  return `custom-${base || "service"}-${Date.now().toString(36)}`;
+}
+
+export function addCustomConnection(input: {
+  name: string;
+  category?: ServiceConnection["category"];
+  detail?: string;
+  accountLabel?: string;
+  permissions?: string[];
+  connect?: boolean;
+}): ServiceConnection[] {
+  const stamp = nowIso();
+  const name = input.name.trim() || "Custom service";
+  const connect = input.connect !== false;
+  const item: ServiceConnection = {
+    id: slugId(name),
+    name,
+    category: input.category || "comms",
+    accountLabel: connect ? input.accountLabel?.trim() || `connected@${name.toLowerCase().replace(/\s+/g, "")}.com` : null,
+    connected: connect,
+    connectedAt: connect ? stamp : null,
+    lastSyncAt: connect ? stamp : null,
+    permissions: input.permissions?.length ? input.permissions : ["Read data", "Sync on demand"],
+    health: connect ? "healthy" : "disconnected",
+    detail: input.detail?.trim() || "Custom integration you added.",
+  };
+  const next = [item, ...loadConnections()];
+  saveConnections(next);
+  return next;
+}
+
+export function removeConnection(id: string): ServiceConnection[] {
+  const next = loadConnections().filter((c) => c.id !== id);
+  saveConnections(next.length ? next : seedConnections());
+  return loadConnections();
 }
 
 export function connectionStats(items = loadConnections()) {

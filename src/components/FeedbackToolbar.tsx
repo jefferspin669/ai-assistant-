@@ -6,9 +6,11 @@ import { FEEDBACK_ACTIONS, submitFeedback, type FeedbackKind } from "@/lib/feedb
 export function FeedbackToolbar({
   target = "Atlas reply",
   compact = false,
+  onSubmitted,
 }: {
   target?: string;
   compact?: boolean;
+  onSubmitted?: () => void;
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -18,7 +20,7 @@ export function FeedbackToolbar({
       kind === "suggest_better"
         ? window.prompt("What should Atlas have said?") || ""
         : kind === "report_problem"
-          ? window.prompt("What went wrong?") || ""
+          ? window.prompt("What went wrong? Add a few details.") || ""
           : "";
     const result = submitFeedback({ kind, target, note });
     if (!result.ok) {
@@ -28,6 +30,7 @@ export function FeedbackToolbar({
     }
     setError("");
     setMessage(result.message);
+    onSubmitted?.();
   }
 
   return (

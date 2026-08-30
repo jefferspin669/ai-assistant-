@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import type { OAuthProvider, PublicAccount } from "@/lib/account";
 import { loadDashboardLayout } from "@/lib/dashboard-layout";
+import { hardNavigate, sitePath } from "@/lib/hard-nav";
 
 const providers: OAuthProvider[] = ["google", "apple", "microsoft"];
 
@@ -19,7 +18,6 @@ function nextPath(account: PublicAccount | null | undefined) {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login, verify2fa, loginOAuth, loginPasskey, account, ready } = useAccount();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,8 +26,8 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
 
   useEffect(() => {
-    if (ready && account) router.replace(nextPath(account));
-  }, [ready, account, router]);
+    if (ready && account) hardNavigate(nextPath(account));
+  }, [ready, account]);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,7 +41,7 @@ export default function LoginPage() {
       setChallengeId(result.challengeId);
       return;
     }
-    router.push(nextPath("account" in result ? result.account : null));
+    hardNavigate(nextPath("account" in result ? result.account : null));
   }
 
   function onVerify(e: FormEvent) {
@@ -55,7 +53,7 @@ export default function LoginPage() {
       setError(result.error);
       return;
     }
-    router.push("/app");
+    hardNavigate("/app");
   }
 
   function onOAuth(provider: OAuthProvider) {
@@ -65,7 +63,7 @@ export default function LoginPage() {
       setError(result.error);
       return;
     }
-    router.push("/app/setup");
+    hardNavigate("/app/setup");
   }
 
   function onPasskey() {
@@ -79,16 +77,16 @@ export default function LoginPage() {
       setError(result.error);
       return;
     }
-    router.push("/app");
+    hardNavigate("/app");
   }
 
   return (
     <div className="auth-page">
       <div className="container auth-wrap auth-wrap-narrow">
         <div className="auth-brand">
-          <Link href="/" className="logo" style={{ color: "var(--ink)" }}>
+          <a href={sitePath("/")} className="logo" style={{ color: "var(--ink)" }}>
             Atlas <span>AI</span>
-          </Link>
+          </a>
           <h1>{challengeId ? "Two-factor check" : "Welcome back"}</h1>
           <p>
             {challengeId
@@ -166,9 +164,12 @@ export default function LoginPage() {
                     Sign in with passkey
                   </button>
                   <p>
-                    <Link href="/forgot-password">Forgot password?</Link>
+                    <a href={sitePath("/forgot-password")}>Forgot password?</a>
                     {" · "}
-                    <Link href="/signup">Create account</Link>
+                    <a href={sitePath("/signup")}>Create account</a>
+                  </p>
+                  <p>
+                    Employee? <a href={sitePath("/employee/login")}>Sign in to your work page</a>
                   </p>
                 </div>
               </form>

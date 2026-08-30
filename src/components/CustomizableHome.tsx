@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import Link from "@/components/SiteLink";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AtlasV1Home } from "@/components/AtlasV1Home";
 import { CommandCenter } from "@/components/CommandCenter";
 import { DashboardCustomizer, useDashboardLayout } from "@/components/DashboardCustomizer";
+import { useAccount } from "@/components/AccountProvider";
 import { activityFeed, dashboardMetrics } from "@/lib/data";
 import { intelligenceScore } from "@/lib/atlas-platform";
 import { activeWidgets, type DashboardWidgetId } from "@/lib/dashboard-layout";
+import { connectionStats, loadConnections } from "@/lib/connections";
+import { pendingCount, loadConfirmations } from "@/lib/confirmations";
 import { loadCalendarState } from "@/lib/smart-calendar";
 import { loadCaptures } from "@/lib/quick-capture";
 import { loadTasks, taskCounts } from "@/lib/tasks";
@@ -25,17 +28,25 @@ function WidgetShell({
 
 export function CustomizableHome() {
   const { layout, setLayout } = useDashboardLayout();
+  const { account, ownerName, businessName, aiName, aiRole, ready } = useAccount();
+  const [tick, setTick] = useState(0);
   const [taskSummary, setTaskSummary] = useState({ open: 0, high: 0 });
-  const [taxSummary, setTaxSummary] = useState({ owed: "$0", profit: "$0" });
+  const [taxSummary, setTaxSummary] = useState({ owed: "$0", profit: "$0", personal: "$0" });
   const [nextEvents, setNextEvents] = useState<{ id: string; title: string; start: string }[]>([]);
   const [recentNotes, setRecentNotes] = useState<{ id: string; title: string; kind: string }[]>([]);
+  const [connSummary, setConnSummary] = useState({ connected: 0, total: 0, attention: 0 });
+  const [pendingConfirms, setPendingConfirms] = useState(0);
 
-  useEffect(() => {
+  const refreshLive = useCallback(() => {
     const tasks = loadTasks();
     const counts = taskCounts(tasks);
     setTaskSummary({ open: counts.todo + counts.doing, high: counts.high });
     const estimate = computeTaxEstimate(loadTaxTransactions());
-    setTaxSummary({ owed: money(estimate.totalEstimated), profit: money(estimate.taxableProfit) });
+    setTaxSummary({
+      owed: money(estimate.totalEstimated),
+      profit: money(estimate.taxableProfit),
+      personal: money(estimate.personalExpenses),
+    });
     setNextEvents(
       [...loadCalendarState().events]
         .sort((a, b) => a.start.localeCompare(b.start))
@@ -48,11 +59,35 @@ export function CustomizableHome() {
         .slice(0, 4)
         .map((n) => ({ id: n.id, title: n.title, kind: n.kind })),
     );
-  }, [layout?.mode]);
+    setConnSummary(connectionStats(loadConnections()));
+    setPendingConfirms(pendingCount(loadConfirmations()));
+  }, []);
+
+  useEffect(() => {
+    refreshLive();
+  }, [layout?.mode, tick, account?.id, ownerName, businessName, refreshLive]);
+
+  useEffect(() => {
+    function bump() {
+      setTick((n) => n + 1);
+    }
+    function onStorage(e: StorageEvent) {
+      if (!e.key || e.key.startsWith("atlas-")) bump();
+    }
+    window.addEventListener("focus", bump);
+    window.addEventListener("visibilitychange", bump);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("focus", bump);
+      window.removeEventListener("visibilitychange", bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   const widgets = useMemo(() => (layout ? activeWidgets(layout) : []), [layout]);
+  const firstName = ownerName.split(" ")[0] || "there";
 
-  if (!layout) return null;
+  if (!layout || !ready) return null;
 
   function renderWidget(id: DashboardWidgetId) {
     switch (id) {
@@ -61,20 +96,57 @@ export function CustomizableHome() {
         return id === "welcome" ? <AtlasV1Home /> : null;
       case "stats":
         return (
-          <div className="stat-grid metrics-dense">
-            <div className="stat">
-              <span>Intelligence Score</span>
-              <strong>{intelligenceScore.score}</strong>
-              <small>{intelligenceScore.change}</small>
-            </div>
-            {dashboardMetrics.slice(0, 7).map((stat) => (
-              <div className="stat" key={stat.label}>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <small>{stat.detail}</small>
+          <section className="panel dash-profile-panel">
+            <div className="dash-profile-hero">
+              <div>
+                <p className="briefing-kicker">Your dashboard</p>
+                <h2>
+                  {businessName}
+                  <span className="dash-profile-owner"> · {firstName}</span>
+                </h2>
+                <p className="panel-lead">
+                  {aiName} is your {aiRole}
+                  {account?.email ? ` · ${account.email}` : account ? "" : " · Guest mode"}
+                </p>
               </div>
-            ))}
-          </div>
+              <Link className="btn btn-outline" href="/app/account">
+                Edit profile
+              </Link>
+            </div>
+            <div className="stat-grid metrics-dense">
+              <div className="stat">
+                <span>Intelligence Score</span>
+                <strong>{intelligenceScore.score}</strong>
+                <small>{intelligenceScore.change}</small>
+              </div>
+              <div className="stat">
+                <span>Open tasks</span>
+                <strong>{taskSummary.open}</strong>
+                <small>{taskSummary.high} high priority</small>
+              </div>
+              <div className="stat">
+                <span>Tax estimate</span>
+                <strong>{taxSummary.owed}</strong>
+                <small>Profit {taxSummary.profit}</small>
+              </div>
+              <div className="stat">
+                <span>Connections</span>
+                <strong>
+                  {connSummary.connected}/{connSummary.total}
+                </strong>
+                <small>
+                  {pendingConfirms} pending confirm{pendingConfirms === 1 ? "" : "s"}
+                </small>
+              </div>
+              {dashboardMetrics.slice(0, 4).map((stat) => (
+                <div className="stat" key={stat.label}>
+                  <span>{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                  <small>{stat.detail}</small>
+                </div>
+              ))}
+            </div>
+          </section>
         );
       case "command":
         return <CommandCenter />;
@@ -136,6 +208,7 @@ export function CustomizableHome() {
             <h2>Tax snapshot</h2>
             <p className="panel-lead">
               Profit {taxSummary.profit} · estimated tax {taxSummary.owed}
+              {taxSummary.personal !== "$0" ? ` · personal spend ${taxSummary.personal}` : ""}
             </p>
             <Link className="btn btn-outline" href="/app/tax">
               Open Tax Center
@@ -193,11 +266,9 @@ export function CustomizableHome() {
     }
   }
 
-  // Render starter tiles via AtlasV1Home once; avoid duplicating if both welcome+starter visible
   const showHome = widgets.some((w) => w.id === "welcome" || w.id === "starter");
   const rest = widgets.filter((w) => w.id !== "welcome" && w.id !== "starter");
 
-  // Pair overnight/jump etc into split rows when adjacent md widgets
   const rows: DashboardWidgetId[][] = [];
   for (let i = 0; i < rest.length; i++) {
     const current = rest[i];
@@ -217,7 +288,7 @@ export function CustomizableHome() {
   return (
     <>
       <DashboardCustomizer layout={layout} onChange={setLayout} />
-      {showHome ? <AtlasV1Home /> : null}
+      {showHome ? <AtlasV1Home refreshKey={tick} /> : null}
       {rows.map((row) =>
         row.length === 2 ? (
           <div className="split" key={row.join("-")}>

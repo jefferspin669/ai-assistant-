@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { loadStarterDashboard, type StarterDashboard } from "@/lib/setup";
@@ -30,8 +30,8 @@ const ROADMAP = [
   { href: "/app/memory", label: "Advanced AI memory", status: "Memory + Account memories" },
 ];
 
-export function AtlasV1Home() {
-  const { account, ownerName, ready, logout } = useAccount();
+export function AtlasV1Home({ refreshKey = 0 }: { refreshKey?: number }) {
+  const { account, ownerName, businessName, ready, logout } = useAccount();
   const [taskSummary, setTaskSummary] = useState({ open: 0, high: 0 });
   const [taxSummary, setTaxSummary] = useState({ owed: "$0", profit: "$0" });
   const [starter, setStarter] = useState<StarterDashboard | null>(null);
@@ -43,7 +43,7 @@ export function AtlasV1Home() {
     const estimate = computeTaxEstimate(loadTaxTransactions());
     setTaxSummary({ owed: money(estimate.totalEstimated), profit: money(estimate.taxableProfit) });
     setStarter(loadStarterDashboard(account?.id));
-  }, [account?.id]);
+  }, [account?.id, refreshKey, ownerName, businessName]);
 
   const vaultCopy = useMemo(() => {
     const base = vaultStatus(Boolean(account), account?.hasPassword ? "v1$x$y" : null);
@@ -61,17 +61,25 @@ export function AtlasV1Home() {
 
   return (
     <div className="account-stack" style={{ marginBottom: "1rem" }}>
-      <section className="panel sc-daily-plan">
+      <section className="panel sc-daily-plan dash-welcome-hero">
         <p className="briefing-kicker">
           {starter ? "Starter dashboard · built from setup" : "Atlas v1 · first usable version"}
         </p>
         <h2>
           {account ? `Welcome back, ${ownerName.split(" ")[0]}.` : "Your first working Atlas."}
         </h2>
-        <p className="panel-lead">
-          {starter
-            ? `${starter.accountType === "business" ? "Business" : "Personal"} workspace focused on ${starter.goals.slice(0, 2).join(" · ") || "your day-one goals"}.`
-            : "Registration, setup, global search, import/export, undo/recovery, calendar, tasks, chats, files, and tax — enough to run day one."}
+        <p className="panel-lead dash-welcome-biz">
+          {account ? (
+            <>
+              <strong>{businessName}</strong>
+              {" — "}
+              {starter
+                ? `${starter.accountType === "business" ? "Business" : "Personal"} workspace focused on ${starter.goals.slice(0, 2).join(" · ") || "your day-one goals"}.`
+                : "Registration, setup, global search, import/export, undo/recovery, calendar, tasks, chats, files, and tax — enough to run day one."}
+            </>
+          ) : (
+            "Registration, setup, global search, import/export, undo/recovery, calendar, tasks, chats, files, and tax — enough to run day one."
+          )}
         </p>
         <div className="cta-row">
           {account ? (

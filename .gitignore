@@ -1,6 +1,7 @@
 node_modules
 .next
 out
+.pages-build-stash
 build
 coverage
 .data
@@ -10,3 +11,4 @@ coverage
 .env.*
 !.env.example
 tsconfig.tsbuildinfo
+.data

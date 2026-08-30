@@ -1,96 +1,148 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import Link from "@/components/SiteLink";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { hubAssistantReply } from "@/lib/atlas-platform";
 import {
-  hubAssistantReply,
-  hubDocuments,
-  hubEmployees,
-  hubMessages,
-  hubPerformance,
-  hubPto,
-  hubSchedules,
-  trainingModules,
-} from "@/lib/atlas-platform";
+  createTeamMember,
+  createTeamTask,
+  isOpenTask,
+  loadTeamMembers,
+  loadTeamTasks,
+  saveTeamMembers,
+  saveTeamTasks,
+  TASK_STATUSES,
+  type TeamPerson,
+  type TeamTask,
+} from "@/lib/user-workspace";
 
-type Mode =
-  | "overview"
-  | "schedule"
-  | "training"
-  | "messages"
-  | "documents"
-  | "assistant"
-  | "performance"
-  | "pto";
-
+type Mode = "overview" | "tasks" | "assistant";
 type ChatMsg = { role: "ai" | "user"; text: string };
 
 const modes: { id: Mode; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "schedule", label: "Schedule" },
-  { id: "training", label: "Training" },
-  { id: "messages", label: "Messages" },
-  { id: "documents", label: "Documents" },
+  { id: "tasks", label: "Host tasks" },
   { id: "assistant", label: "AI assistant" },
-  { id: "performance", label: "Performance" },
-  { id: "pto", label: "PTO" },
 ];
 
-export function EmployeeHubStudio() {
-  const [employeeId, setEmployeeId] = useState<(typeof hubEmployees)[number]["id"]>("alex");
+export type EmployeeHubHandle = {
+  openInvite: () => void;
+};
+
+export function EmployeeHubStudio({
+  onReadyInvite,
+}: {
+  onReadyInvite?: (open: () => void) => void;
+} = {}) {
+  const [members, setMembers] = useState<TeamPerson[]>([]);
+  const [tasks, setTasks] = useState<TeamTask[]>([]);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("overview");
-  const [messageDraft, setMessageDraft] = useState("");
-  const [localMessages, setLocalMessages] = useState<Record<string, { from: string; when: string; text: string; unread?: boolean }[]>>({});
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState("Tech");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskNotes, setTaskNotes] = useState("");
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantChat, setAssistantChat] = useState<Record<string, ChatMsg[]>>({});
-  const [ptoDates, setPtoDates] = useState("");
-  const [ptoType, setPtoType] = useState("Vacation");
-  const [ptoNote, setPtoNote] = useState<string | null>(null);
-  const [extraRequests, setExtraRequests] = useState<
-    Record<string, { dates: string; type: string; status: string }[]>
-  >({});
+  const [note, setNote] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const loadedMembers = loadTeamMembers();
+    const loadedTasks = loadTeamTasks();
+    setMembers(loadedMembers);
+    setTasks(loadedTasks);
+    setEmployeeId(loadedMembers[0]?.id ?? null);
+    setShowInvite(loadedMembers.length === 0);
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    onReadyInvite?.(() => setShowInvite(true));
+  }, [onReadyInvite]);
 
   const employee = useMemo(
-    () => hubEmployees.find((person) => person.id === employeeId) ?? hubEmployees[0],
-    [employeeId],
+    () => members.find((person) => person.id === employeeId) ?? null,
+    [members, employeeId],
   );
 
-  const schedule = hubSchedules[employeeId] ?? [];
-  const messages = [...(hubMessages[employeeId] ?? []), ...(localMessages[employeeId] ?? [])];
-  const documents = hubDocuments[employeeId] ?? [];
-  const performance = hubPerformance[employeeId] ?? [];
-  const pto = hubPto[employeeId];
-  const requests = [...(pto?.requests ?? []), ...(extraRequests[employeeId] ?? [])];
-  const chat = assistantChat[employeeId] ?? [
-    {
-      role: "ai" as const,
-      text: `Hi ${employee.name.split(" ")[0]} — I’m your hub assistant. Ask about today’s schedule, manuals, refunds, or PTO.`,
-    },
-  ];
+  const memberTasks = tasks.filter((task) => task.memberId === employeeId);
 
-  function sendMessage(e: FormEvent) {
+  const chat = employee
+    ? assistantChat[employee.id] ?? [
+        {
+          role: "ai" as const,
+          text: `Hi ${employee.name.split(" ")[0]} — I’m your hub assistant. Ask about schedule, manuals, refunds, or tasks.`,
+        },
+      ]
+    : [];
+
+  function persistMembers(next: TeamPerson[]) {
+    setMembers(next);
+    saveTeamMembers(next);
+  }
+
+  function persistTasks(next: TeamTask[]) {
+    setTasks(next);
+    saveTeamTasks(next);
+  }
+
+  function onInvite(e: FormEvent) {
     e.preventDefault();
-    const trimmed = messageDraft.trim();
-    if (!trimmed) return;
-    setLocalMessages((prev) => ({
-      ...prev,
-      [employeeId]: [
-        ...(prev[employeeId] ?? []),
-        { from: employee.name, when: "Just now", text: trimmed },
-      ],
-    }));
-    setMessageDraft("");
+    const member = createTeamMember({
+      name: inviteName,
+      role: inviteRole,
+      email: inviteEmail,
+    });
+    const next = [member, ...members];
+    persistMembers(next);
+    setEmployeeId(member.id);
+    setShowInvite(false);
+    setInviteName("");
+    setInviteEmail("");
+    setNote(`Invited ${member.name}. Open their page to manage tasks.`);
+  }
+
+  function onAssignTask(e: FormEvent) {
+    e.preventDefault();
+    if (!employee) return;
+    const task = createTeamTask({
+      memberId: employee.id,
+      title: taskTitle,
+      notes: taskNotes,
+    });
+    persistTasks([task, ...tasks]);
+    setTaskTitle("");
+    setTaskNotes("");
+    setNote(`Task assigned to ${employee.name}.`);
+    setMode("tasks");
+  }
+
+  function setTaskStatus(id: string, status: TeamTask["status"]) {
+    persistTasks(tasks.map((task) => (task.id === id ? { ...task, status } : task)));
+  }
+
+  function removeMember(id: string) {
+    const next = members.filter((person) => person.id !== id);
+    persistMembers(next);
+    persistTasks(tasks.filter((task) => task.memberId !== id));
+    setEmployeeId(next[0]?.id ?? null);
+    if (next.length === 0) setShowInvite(true);
+    setNote("Team member removed.");
   }
 
   function askAssistant(e: FormEvent) {
     e.preventDefault();
+    if (!employee) return;
     const trimmed = assistantInput.trim();
     if (!trimmed) return;
     const reply = hubAssistantReply(employee.name.split(" ")[0], trimmed);
     setAssistantChat((prev) => ({
       ...prev,
-      [employeeId]: [
-        ...(prev[employeeId] ?? chat),
+      [employee.id]: [
+        ...(prev[employee.id] ?? chat),
         { role: "user", text: trimmed },
         { role: "ai", text: reply },
       ],
@@ -98,352 +150,255 @@ export function EmployeeHubStudio() {
     setAssistantInput("");
   }
 
-  function submitPto(e: FormEvent) {
-    e.preventDefault();
-    const dates = ptoDates.trim();
-    if (!dates) return;
-    setExtraRequests((prev) => ({
-      ...prev,
-      [employeeId]: [...(prev[employeeId] ?? []), { dates, type: ptoType, status: "Pending" }],
-    }));
-    setPtoNote(`Request submitted for ${dates}. Atlas checked coverage and notified Jeff.`);
-    setPtoDates("");
-  }
-
   return (
     <div className="training-studio">
-      <div className="hub-employee-row" role="group" aria-label="Choose employee">
-        {hubEmployees.map((person) => (
-          <button
-            key={person.id}
-            type="button"
-            className={employeeId === person.id ? "hub-employee active" : "hub-employee"}
-            onClick={() => {
-              setEmployeeId(person.id);
-              setMode("overview");
-              setPtoNote(null);
-            }}
-          >
-            <strong>{person.name}</strong>
-            <span>
-              {person.role} · {person.status}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="training-tabs" role="tablist" aria-label="Employee hub modules">
-        {modes.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={mode === item.id}
-            className={mode === item.id ? "training-tab active" : "training-tab"}
-            onClick={() => setMode(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-
-      {mode === "overview" ? (
-        <div className="split">
-          <section className="panel">
-            <h2>{employee.name}</h2>
-            <p className="panel-lead">
-              Each employee gets schedule, training, messages, documents, an AI assistant, performance,
-              PTO requests, and time-off balances.
-            </p>
-            <div className="stat-grid metrics-dense">
-              <div className="stat">
-                <span>Rating</span>
-                <strong>{employee.rating}</strong>
-                <small>Customer CSAT</small>
-              </div>
-              <div className="stat">
-                <span>Jobs</span>
-                <strong>{employee.jobsThisWeek}</strong>
-                <small>This week</small>
-              </div>
-              <div className="stat">
-                <span>Unread</span>
-                <strong>{messages.filter((m) => m.unread).length}</strong>
-                <small>Messages</small>
-              </div>
-              <div className="stat">
-                <span>Vacation</span>
-                <strong>{pto?.balances[0]?.days ?? 0}</strong>
-                <small>Days left</small>
-              </div>
-            </div>
-          </section>
-          <section className="panel">
-            <h2>Jump to</h2>
-            <div className="list">
-              {modes
-                .filter((item) => item.id !== "overview")
-                .map((item) => (
-                  <div className="list-row" key={item.id}>
-                    <span className="badge ok">Open</span>
-                    <p>
-                      <button type="button" className="linkish" onClick={() => setMode(item.id)}>
-                        <strong>{item.label}</strong>
-                      </button>
-                    </p>
-                  </div>
-                ))}
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {mode === "schedule" ? (
+      {showInvite ? (
         <section className="panel">
-          <h2>Schedule · {employee.name.split(" ")[0]}</h2>
-          <div className="calendar">
-            {schedule.map((slot) => (
-              <div className="cal-slot" key={slot.time + slot.job}>
-                <strong>{slot.time}</strong>
-                <div>
-                  <div>{slot.job}</div>
-                  <div style={{ color: "var(--ink-soft)", fontSize: "0.88rem" }}>{slot.place}</div>
-                </div>
-                <span className="badge">{slot.status}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {mode === "training" ? (
-        <div className="split">
-          <section className="panel">
-            <h2>Training progress</h2>
-            <div className="list">
-              {trainingModules.map((mod) => (
-                <div className="list-row" key={mod.id}>
-                  <span className={`badge${mod.progress >= 100 ? " ok" : mod.progress >= 50 ? "" : " warn"}`}>
-                    {mod.progress}%
-                  </span>
-                  <div>
-                    <p>
-                      <strong>{mod.title}</strong>
-                    </p>
-                    <small className="muted-line">
-                      {mod.type} · {mod.duration}
-                    </small>
-                    <div className="train-track" aria-hidden>
-                      <div className="train-fill" style={{ width: `${mod.progress}%` }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="panel">
-            <h2>Continue learning</h2>
-            <p className="panel-lead">
-              Atlas teaches new hires with lessons, quizzes, voice practice, and roleplay.
-            </p>
-            <Link className="btn btn-dark" href="/app/training">
-              Open AI Training
-            </Link>
-          </section>
-        </div>
-      ) : null}
-
-      {mode === "messages" ? (
-        <section className="panel">
-          <h2>Messages</h2>
-          <div className="list">
-            {messages.map((msg, index) => (
-              <div className="list-row" key={`${msg.from}-${msg.when}-${index}`}>
-                <span className={`badge${msg.unread ? " warn" : ""}`}>{msg.unread ? "New" : msg.when}</span>
-                <div>
-                  <p>
-                    <strong>{msg.from}</strong>
-                    {!msg.unread ? null : <span className="muted-line"> · {msg.when}</span>}
-                  </p>
-                  <p>{msg.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={sendMessage} className="train-form">
-            <input
-              value={messageDraft}
-              onChange={(e) => setMessageDraft(e.target.value)}
-              placeholder="Message the team or Atlas…"
-            />
+          <h2>Invite team member</h2>
+          <p className="panel-lead">
+            Add people with their own page. As host, you can assign tasks to each member.
+          </p>
+          <form className="form-grid" onSubmit={onInvite}>
+            <label>
+              Name
+              <input
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Alex Rivera"
+                required
+              />
+            </label>
+            <label>
+              Role
+              <input
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                placeholder="Lead tech"
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="alex@business.com"
+              />
+            </label>
             <button className="btn btn-dark" type="submit">
-              Send
+              Invite employee
             </button>
+            {members.length > 0 ? (
+              <button className="btn btn-outline" type="button" onClick={() => setShowInvite(false)}>
+                Cancel
+              </button>
+            ) : null}
           </form>
         </section>
       ) : null}
 
-      {mode === "documents" ? (
-        <section className="panel">
-          <h2>Documents</h2>
-          <p className="panel-lead">Handbooks, SOPs, certificates, and job aids pinned for this employee.</p>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {documents.map((doc) => (
-                <tr key={doc.name}>
-                  <td>
-                    <strong>{doc.name}</strong>
-                  </td>
-                  <td>{doc.type}</td>
-                  <td>{doc.updated}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      ) : null}
+      <div className="hub-employee-row" role="group" aria-label="Choose employee">
+        {!ready ? <p className="muted-line">Loading…</p> : null}
+        {ready && members.length === 0 ? (
+          <p className="muted-line">No team members yet — invite your first person above.</p>
+        ) : (
+          members.map((person) => (
+            <button
+              key={person.id}
+              type="button"
+              className={employeeId === person.id ? "hub-employee active" : "hub-employee"}
+              onClick={() => {
+                setEmployeeId(person.id);
+                setMode("overview");
+              }}
+            >
+              <strong>{person.name}</strong>
+              <span>
+                {person.role} · {person.status}
+              </span>
+            </button>
+          ))
+        )}
+        <button className="hub-employee" type="button" onClick={() => setShowInvite(true)}>
+          <strong>+ Invite</strong>
+          <span>Add teammate</span>
+        </button>
+      </div>
 
-      {mode === "assistant" ? (
-        <div className="split">
-          <section className="panel">
-            <h2>AI assistant</h2>
-            <div className="chat-mock" style={{ minHeight: 280 }}>
-              {chat.map((msg, index) => (
-                <div
-                  key={`${msg.role}-${index}`}
-                  className={`bubble ${msg.role === "ai" ? "bubble-ai" : "bubble-user"}`}
-                >
-                  {msg.text}
-                </div>
-              ))}
-            </div>
-            <form onSubmit={askAssistant} className="train-form">
-              <input
-                value={assistantInput}
-                onChange={(e) => setAssistantInput(e.target.value)}
-                placeholder="How do I reset this machine?"
-              />
-              <button className="btn btn-dark" type="submit">
-                Ask
+      {employee ? (
+        <>
+          <div className="training-tabs" role="tablist" aria-label="Employee hub modules">
+            {modes.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={mode === item.id}
+                className={mode === item.id ? "training-tab active" : "training-tab"}
+                onClick={() => setMode(item.id)}
+              >
+                {item.label}
               </button>
-            </form>
-          </section>
-          <section className="panel">
-            <h2>Try asking</h2>
-            <div className="list">
-              {[
-                "What’s on my schedule today?",
-                "How do I reset this machine?",
-                "How do I refund this customer?",
-                "Can I take PTO next Friday?",
-              ].map((prompt) => (
-                <div className="list-row" key={prompt}>
-                  <span className="badge">Ask</span>
-                  <button
-                    type="button"
-                    className="linkish"
-                    onClick={() => {
-                      const reply = hubAssistantReply(employee.name.split(" ")[0], prompt);
-                      setAssistantChat((prev) => ({
-                        ...prev,
-                        [employeeId]: [
-                          ...(prev[employeeId] ?? chat),
-                          { role: "user", text: prompt },
-                          { role: "ai", text: reply },
-                        ],
-                      }));
-                    }}
-                  >
-                    {prompt}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {mode === "performance" ? (
-        <section className="panel">
-          <h2>Performance dashboard</h2>
-          <div className="stat-grid metrics-dense">
-            {performance.map((stat) => (
-              <div className="stat" key={stat.label}>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <small>{stat.detail}</small>
-              </div>
             ))}
           </div>
-          <p className="panel-lead" style={{ marginTop: "1rem", marginBottom: 0 }}>
-            Atlas compares against team averages and coaching goals from AI Training.
-          </p>
-        </section>
+
+          {mode === "overview" ? (
+            <div className="split">
+              <section className="panel">
+                <h2>{employee.name}</h2>
+                <p className="panel-lead">
+                  {employee.role} · {employee.email}
+                </p>
+                <div className="stat-grid metrics-dense">
+                  <div className="stat">
+                    <span>Status</span>
+                    <strong>{employee.status}</strong>
+                    <small>Availability</small>
+                  </div>
+                  <div className="stat">
+                    <span>Open tasks</span>
+                    <strong>{memberTasks.filter((t) => isOpenTask(t.status)).length}</strong>
+                    <small>Assigned by host</small>
+                  </div>
+                  <div className="stat">
+                    <span>Jobs</span>
+                    <strong>{employee.jobsThisWeek}</strong>
+                    <small>This week</small>
+                  </div>
+                  <div className="stat">
+                    <span>Rating</span>
+                    <strong>{employee.rating}</strong>
+                    <small>Customer CSAT</small>
+                  </div>
+                </div>
+                <div className="train-actions">
+                  <Link className="btn btn-dark" href={`/app/team/${employee.id}`}>
+                    Open member page
+                  </Link>
+                  <button
+                    className="btn btn-outline"
+                    type="button"
+                    onClick={() => removeMember(employee.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </section>
+              <section className="panel">
+                <h2>Quick assign</h2>
+                <form className="form-grid" onSubmit={onAssignTask}>
+                  <label>
+                    Task
+                    <input
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      placeholder="Follow up with Elena Brooks"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Notes
+                    <input
+                      value={taskNotes}
+                      onChange={(e) => setTaskNotes(e.target.value)}
+                      placeholder="Call before noon"
+                    />
+                  </label>
+                  <button className="btn btn-dark" type="submit">
+                    Assign task
+                  </button>
+                </form>
+              </section>
+            </div>
+          ) : null}
+
+          {mode === "tasks" ? (
+            <section className="panel">
+              <h2>Tasks for {employee.name}</h2>
+              <form className="form-grid" onSubmit={onAssignTask}>
+                <label>
+                  Task
+                  <input
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    placeholder="Stock filters on truck"
+                    required
+                  />
+                </label>
+                <label>
+                  Notes
+                  <input
+                    value={taskNotes}
+                    onChange={(e) => setTaskNotes(e.target.value)}
+                    placeholder="Optional details"
+                  />
+                </label>
+                <button className="btn btn-dark" type="submit">
+                  Assign task
+                </button>
+              </form>
+              {memberTasks.length === 0 ? (
+                <p className="muted-line" style={{ marginTop: "1rem" }}>
+                  No tasks assigned yet.
+                </p>
+              ) : (
+                <div className="list" style={{ marginTop: "1rem" }}>
+                  {memberTasks.map((task) => (
+                    <div className="list-row" key={task.id}>
+                      <select
+                        value={task.status}
+                        onChange={(e) =>
+                          setTaskStatus(task.id, e.target.value as TeamTask["status"])
+                        }
+                        aria-label={`Status for ${task.title}`}
+                      >
+                        {TASK_STATUSES.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div>
+                        <p>
+                          <strong>{task.title}</strong>
+                        </p>
+                        {task.notes.length ? (
+                          <small className="muted-line">{task.notes[task.notes.length - 1].text}</small>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {mode === "assistant" ? (
+            <section className="panel command-panel">
+              <h2>AI assistant · {employee.name.split(" ")[0]}</h2>
+              <div className="command-thread">
+                {chat.map((m, i) => (
+                  <div key={i} className={`bubble ${m.role === "ai" ? "bubble-ai" : "bubble-user"}`}>
+                    {m.text}
+                  </div>
+                ))}
+              </div>
+              <form className="command-form" onSubmit={askAssistant}>
+                <input
+                  value={assistantInput}
+                  onChange={(e) => setAssistantInput(e.target.value)}
+                  placeholder="Ask about today’s work…"
+                />
+                <button className="btn btn-dark" type="submit">
+                  Send
+                </button>
+              </form>
+            </section>
+          ) : null}
+        </>
       ) : null}
 
-      {mode === "pto" ? (
-        <div className="split">
-          <section className="panel">
-            <h2>Time-off balances</h2>
-            <div className="stat-grid metrics-dense">
-              {(pto?.balances ?? []).map((balance) => (
-                <div className="stat" key={balance.label}>
-                  <span>{balance.label}</span>
-                  <strong>{balance.days}</strong>
-                  <small>Days available</small>
-                </div>
-              ))}
-            </div>
-            <h3 style={{ marginTop: "1rem" }}>Requests</h3>
-            <div className="list">
-              {requests.map((request) => (
-                <div className="list-row" key={request.dates + request.type}>
-                  <span className={`badge${request.status === "Approved" ? " ok" : request.status === "Pending" ? " warn" : ""}`}>
-                    {request.status}
-                  </span>
-                  <p>
-                    <strong>{request.type}</strong>
-                    <span className="muted-line">{request.dates}</span>
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="panel">
-            <h2>Request PTO</h2>
-            <form onSubmit={submitPto} className="hub-pto-form">
-              <label>
-                Dates
-                <input
-                  value={ptoDates}
-                  onChange={(e) => setPtoDates(e.target.value)}
-                  placeholder="Aug 21–22"
-                  required
-                />
-              </label>
-              <label>
-                Type
-                <select value={ptoType} onChange={(e) => setPtoType(e.target.value)}>
-                  <option>Vacation</option>
-                  <option>Sick</option>
-                  <option>Personal</option>
-                </select>
-              </label>
-              <button className="btn btn-dark" type="submit">
-                Submit request
-              </button>
-            </form>
-            {ptoNote ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{ptoNote}</p> : null}
-          </section>
-        </div>
-      ) : null}
+      {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
     </div>
   );
 }

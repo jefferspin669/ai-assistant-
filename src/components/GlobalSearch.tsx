@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/SiteLink";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { globalSearch, type GlobalSearchHit } from "@/lib/global-search";
 

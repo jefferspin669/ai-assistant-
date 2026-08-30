@@ -1,13 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import Link from "@/components/SiteLink";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { intelligenceScore } from "@/lib/atlas-platform";
+import { loadHealthScore, saveHealthScore } from "@/lib/ops-workspace";
 
-type Mode = "score" | "pillars" | "why" | "improve";
+type Mode = "score" | "adjust" | "pillars" | "why" | "improve";
 
 const modes: { id: Mode; label: string }[] = [
   { id: "score", label: "Score" },
+  { id: "adjust", label: "Change score" },
   { id: "pillars", label: "Pillars" },
   { id: "why", label: "Why it changed" },
   { id: "improve", label: "Improve" },
@@ -17,33 +19,63 @@ export function ScoreStudio() {
   const [mode, setMode] = useState<Mode>("score");
   const [selectedPillar, setSelectedPillar] = useState(intelligenceScore.pillars[0].name);
   const [accepted, setAccepted] = useState<Record<string, boolean>>({});
+  const [score, setScore] = useState(intelligenceScore.score);
+  const [previous, setPrevious] = useState(intelligenceScore.previous);
+  const [draft, setDraft] = useState(String(intelligenceScore.score));
+  const [ownerNote, setOwnerNote] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const { score, previous, change, business, pillars, why, drivers, recommendations, next } =
-    intelligenceScore;
+  const { business, pillars, why, drivers, recommendations, next } = intelligenceScore;
+
+  useEffect(() => {
+    const saved = loadHealthScore(intelligenceScore.score);
+    setScore(saved.score);
+    setPrevious(saved.previous);
+    setDraft(String(saved.score));
+    setOwnerNote(saved.note);
+    setReady(true);
+  }, []);
+
+  const change =
+    score === previous ? "Unchanged" : score > previous ? `Up +${score - previous}` : `Down ${score - previous}`;
 
   const selected = useMemo(
     () => pillars.find((pillar) => pillar.name === selectedPillar) ?? pillars[0],
     [pillars, selectedPillar],
   );
 
-  const weakest = useMemo(
-    () => [...pillars].sort((a, b) => a.value - b.value)[0],
-    [pillars],
-  );
+  const weakest = useMemo(() => [...pillars].sort((a, b) => a.value - b.value)[0], [pillars]);
+
+  function applyScore(e: FormEvent) {
+    e.preventDefault();
+    const nextScore = Math.max(0, Math.min(100, Number(draft) || 0));
+    const state = {
+      score: nextScore,
+      previous: score,
+      note: ownerNote.trim() || "Owner-adjusted business health score.",
+    };
+    saveHealthScore(state);
+    setPrevious(score);
+    setScore(nextScore);
+    setDraft(String(nextScore));
+    setOwnerNote(state.note);
+    setNote(`Health score set to ${nextScore}.`);
+    setMode("score");
+  }
 
   return (
     <div className="training-studio">
       <div className="stat-grid metrics-dense">
         <div className="stat">
           <span>Intelligence Score</span>
-          <strong>{score}</strong>
+          <strong>{ready ? score : "…"}</strong>
           <small>{change}</small>
         </div>
         <div className="stat">
           <span>Previous</span>
           <strong>{previous}</strong>
-          <small>Last week</small>
+          <small>Before last change</small>
         </div>
         <div className="stat">
           <span>Pillars</span>
@@ -71,6 +103,7 @@ export function ScoreStudio() {
           </button>
         ))}
       </div>
+      {note ? <p className="muted-line">{note}</p> : null}
 
       {mode === "score" ? (
         <section className="panel">
@@ -83,13 +116,13 @@ export function ScoreStudio() {
               <p className="panel-lead" style={{ marginBottom: "0.45rem" }}>
                 {change} · was {previous}
               </p>
-              <p>{why}</p>
+              <p>{ownerNote || why}</p>
               <p style={{ marginTop: "0.55rem" }}>
                 <strong>Next:</strong> {next}
               </p>
               <div className="train-actions">
-                <button className="btn btn-dark" type="button" onClick={() => setMode("why")}>
-                  Why it changed
+                <button className="btn btn-dark" type="button" onClick={() => setMode("adjust")}>
+                  Change score
                 </button>
                 <button className="btn btn-outline" type="button" onClick={() => setMode("improve")}>
                   Highest-impact fixes
@@ -100,14 +133,50 @@ export function ScoreStudio() {
         </section>
       ) : null}
 
+      {mode === "adjust" ? (
+        <section className="panel">
+          <h2>Change business health score</h2>
+          <p className="panel-lead">Set the 0–100 score yourself when you want an owner override.</p>
+          <form className="form-grid" onSubmit={applyScore}>
+            <label>
+              Score (0–100)
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+            </label>
+            <label>
+              Exact value
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+            </label>
+            <label>
+              Why you’re changing it
+              <input
+                value={ownerNote}
+                onChange={(e) => setOwnerNote(e.target.value)}
+                placeholder="Cash buffer improved after AR catch-up…"
+              />
+            </label>
+            <button className="btn btn-dark" type="submit">
+              Save score ({draft})
+            </button>
+          </form>
+        </section>
+      ) : null}
+
       {mode === "pillars" ? (
         <div className="split">
           <section className="panel">
             <h2>Health pillars (0–100)</h2>
-            <p className="panel-lead">
-              Customer satisfaction, response times, revenue trends, employee productivity, marketing
-              effectiveness, cash flow, inventory health, compliance, security, and growth.
-            </p>
             <div className="pillar-bars">
               {pillars.map((pillar) => (
                 <button
@@ -122,12 +191,7 @@ export function ScoreStudio() {
                   <div className="track">
                     <div className="fill" style={{ width: `${pillar.value}%` }} />
                   </div>
-                  <strong>
-                    {pillar.value}
-                    <small className="muted-line">
-                      {pillar.delta > 0 ? `+${pillar.delta}` : pillar.delta === 0 ? "—" : String(pillar.delta)}
-                    </small>
-                  </strong>
+                  <strong>{pillar.value}</strong>
                 </button>
               ))}
             </div>
@@ -136,20 +200,8 @@ export function ScoreStudio() {
             <h2>{selected.name}</h2>
             <div className="memory-card">
               <div className="label">This week</div>
-              <p>
-                Score {selected.value}
-                {selected.delta === 0
-                  ? " · unchanged"
-                  : selected.delta > 0
-                    ? ` · up ${selected.delta}`
-                    : ` · down ${Math.abs(selected.delta)}`}
-              </p>
+              <p>Score {selected.value}</p>
             </div>
-            {selected.name === weakest.name ? (
-              <p className="muted-line" style={{ marginTop: "0.85rem" }}>
-                This is your weakest pillar — Atlas ranks it first in improvements.
-              </p>
-            ) : null}
           </section>
         </div>
       ) : null}
@@ -157,7 +209,7 @@ export function ScoreStudio() {
       {mode === "why" ? (
         <section className="panel">
           <h2>Why the score changed</h2>
-          <p className="panel-lead">{why}</p>
+          <p className="panel-lead">{ownerNote || why}</p>
           <div className="list">
             {drivers.map((driver) => (
               <div className="list-row" key={driver.label}>
@@ -211,7 +263,6 @@ export function ScoreStudio() {
               </div>
             ))}
           </div>
-          {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
         </section>
       ) : null}
     </div>

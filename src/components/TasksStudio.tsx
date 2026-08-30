@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
   createTask,
-  loadTasks,
+  hydrateTasks,
   removeTask,
   saveTasks,
   taskCounts,
@@ -31,8 +31,15 @@ export function TasksStudio() {
   const [flash, setFlash] = useState("");
 
   useEffect(() => {
-    setTasks(loadTasks());
-    setReady(true);
+    let cancelled = false;
+    void hydrateTasks().then((next) => {
+      if (cancelled) return;
+      setTasks(next);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import { hashPassword } from "@/lib/secure-store";
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
 import { loadCalendarState } from "@/lib/smart-calendar";
-import { readJsonFile, writeJsonFile } from "@/lib/db/file-persist";
+import { fileExists, readJsonFile, writeJsonFile } from "@/lib/db/file-persist";
 import type {
   AtlasDatabase,
   DbConversation,
@@ -754,6 +754,13 @@ export function databaseStats(db: AtlasDatabase) {
     Memories: db.memories.length,
     Documents: db.documents.length,
     Subscriptions: db.subscriptions.length,
+  };
+}
+
+export function serverPersistenceInfo() {
+  return {
+    file: DB_FILE,
+    present: typeof window === "undefined" ? fileExists(DB_FILE) : false,
   };
 }
 

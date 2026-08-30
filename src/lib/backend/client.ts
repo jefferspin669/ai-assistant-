@@ -1,3 +1,5 @@
+import type { WorkspaceDomain } from "@/lib/backend/domains";
+
 export type ApiEnvelope<T> = { ok: true; data: T } | { ok: false; error: string };
 
 function apiPath(path: string): string {
@@ -47,4 +49,27 @@ export async function apiSend<T>(
   } catch {
     return { ok: false, error: "Atlas backend unreachable." };
   }
+}
+
+/** Fire-and-forget workspace push (keeps UI snappy). */
+export function pushWorkspace(domain: WorkspaceDomain, data: unknown) {
+  if (typeof window === "undefined") return;
+  void apiSend(`/api/workspace/${domain}`, "PUT", { data });
+}
+
+export async function pullWorkspace<T>(domain: WorkspaceDomain): Promise<T | null> {
+  if (typeof window === "undefined") return null;
+  const result = await apiGet<{ domain: string; data: T | null }>(`/api/workspace/${domain}`);
+  if (!result.ok) return null;
+  return result.data.data;
+}
+
+export async function fetchBackendHealth() {
+  return apiGet<{
+    status: string;
+    engine: string;
+    persistence: string;
+    workspace: unknown;
+    stats: Record<string, number>;
+  }>("/api/health");
 }

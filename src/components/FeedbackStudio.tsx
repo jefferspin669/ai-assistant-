@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import {
   FEEDBACK_ACTIONS,
+  clearFeedbackLearnedNote,
+  hydrateFeedback,
   loadFeedback,
   loadFeedbackPrefs,
+  removeFeedback,
   submitFeedback,
   type FeedbackEntry,
   type FeedbackPrefs,
@@ -16,6 +19,8 @@ export function FeedbackStudio() {
   const [entries, setEntries] = useState<FeedbackEntry[]>([]);
   const [prefs, setPrefs] = useState<FeedbackPrefs | null>(null);
   const [note, setNote] = useState("");
+  const [problemTarget, setProblemTarget] = useState("Atlas reply");
+  const [problemDetail, setProblemDetail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -25,8 +30,34 @@ export function FeedbackStudio() {
   }
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    void hydrateFeedback().then((next) => {
+      if (cancelled) return;
+      setEntries(next.entries);
+      setPrefs(next.prefs);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  function onReportProblem(e: FormEvent) {
+    e.preventDefault();
+    const result = submitFeedback({
+      kind: "report_problem",
+      target: problemTarget.trim() || "Atlas reply",
+      note: problemDetail,
+    });
+    if (!result.ok) {
+      setError(result.error);
+      setMessage("");
+      return;
+    }
+    setError("");
+    setMessage(result.message);
+    setProblemDetail("");
+    refresh();
+  }
 
   return (
     <AppShell
@@ -38,7 +69,12 @@ export function FeedbackStudio() {
         <p className="panel-lead">Demo target: “Atlas booked Friday at 2pm and labeled it Personal.”</p>
         <label className="form-grid">
           Optional note / better answer
-          <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="It should have been Work, not Personal." />
+          <textarea
+            rows={3}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="It should have been Work, not Personal."
+          />
         </label>
         <div className="feedback-grid" style={{ marginTop: "0.85rem" }}>
           {FEEDBACK_ACTIONS.map((action) => (
@@ -47,6 +83,11 @@ export function FeedbackStudio() {
               type="button"
               className="btn btn-outline"
               onClick={() => {
+                if (action.id === "report_problem" && note.trim().length < 8) {
+                  setError("Use the problem form below — or add more detail in the note first.");
+                  setMessage("");
+                  return;
+                }
                 const result = submitFeedback({
                   kind: action.id,
                   target: "Atlas booked Friday at 2pm and labeled it Personal.",
@@ -69,8 +110,36 @@ export function FeedbackStudio() {
           ))}
         </div>
         <div style={{ marginTop: "1rem" }}>
-          <FeedbackToolbar target="Inline Atlas reply demo" />
+          <FeedbackToolbar target="Inline Atlas reply demo" onSubmitted={refresh} />
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>Report a problem with details</h2>
+        <p className="panel-lead">Describe what went wrong — Atlas stores it and tightens confirmations.</p>
+        <form className="form-grid" onSubmit={onReportProblem}>
+          <label>
+            Where it happened
+            <input
+              value={problemTarget}
+              onChange={(e) => setProblemTarget(e.target.value)}
+              placeholder="Command Center · booking Friday"
+            />
+          </label>
+          <label>
+            What went wrong
+            <textarea
+              rows={4}
+              value={problemDetail}
+              onChange={(e) => setProblemDetail(e.target.value)}
+              required
+              placeholder="Atlas labeled a work job as Personal and didn’t ask before sending the text."
+            />
+          </label>
+          <button className="btn btn-dark" type="submit">
+            Submit problem details
+          </button>
+        </form>
       </section>
 
       <div className="split">
@@ -102,6 +171,16 @@ export function FeedbackStudio() {
                     <strong>Memory</strong>
                     <span>{item}</span>
                   </div>
+                  <button
+                    type="button"
+                    className="ghost-link"
+                    onClick={() => {
+                      setPrefs(clearFeedbackLearnedNote(index));
+                      setMessage("Removed learned note.");
+                    }}
+                  >
+                    Remove
+                  </button>
                 </li>
               ))}
             </ul>
@@ -122,6 +201,16 @@ export function FeedbackStudio() {
                       {entry.note || entry.applied} · {new Date(entry.at).toLocaleString()}
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    className="ghost-link"
+                    onClick={() => {
+                      setEntries(removeFeedback(entry.id));
+                      setMessage("Correction removed.");
+                    }}
+                  >
+                    Delete
+                  </button>
                 </li>
               ))
             ) : (

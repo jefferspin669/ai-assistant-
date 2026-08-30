@@ -781,12 +781,22 @@ export const metaApi = {
     const data = resetDatabase();
     return ok({ stats: databaseStats(data) });
   },
-  health(): ApiResult<{ status: "ok"; engine: string; tables: number }> {
+  health(): ApiResult<{
+    status: "ok";
+    engine: string;
+    tables: number;
+    persistence: string;
+  }> {
     const stats = databaseStats(db());
+    const persistence =
+      typeof window === "undefined"
+        ? "file:.data/atlas-db.json"
+        : "localStorage:atlas-database-v5";
     return ok({
       status: "ok",
-      engine: "atlas-database-v5 (localStorage)",
+      engine: "atlas-database-v5",
       tables: Object.keys(stats).length,
+      persistence,
     });
   },
 };
