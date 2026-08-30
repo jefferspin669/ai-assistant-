@@ -24,10 +24,10 @@ type UploadPayload = {
 function resolveIds() {
   const users = atlasApi.users.list();
   const orgs = atlasApi.businesses.list();
-  return {
-    userId: users.ok && users.data[0] ? users.data[0].id : "user_demo",
-    orgId: orgs.ok && orgs.data[0] ? orgs.data[0].id : "org_demo",
-  };
+  const userId = users.ok ? users.data[0]?.id : undefined;
+  const orgId = orgs.ok ? orgs.data[0]?.id : undefined;
+  if (!userId || !orgId) return null;
+  return { userId, orgId };
 }
 
 async function loadDocuments() {
@@ -41,8 +41,9 @@ async function loadDocuments() {
 async function saveDocument(payload: UploadPayload) {
   const remote = await apiSend<DbDocument>("/api/files/upload", "POST", payload);
   if (remote.ok) return { ok: true as const, data: remote.data, source: "backend" as const };
-  const { userId, orgId } = resolveIds();
-  const local = atlasApi.files.upload({ userId, orgId, ...payload });
+  const ids = resolveIds();
+  if (!ids) return { ok: false as const, error: "Sign in before saving files locally." };
+  const local = atlasApi.files.upload({ userId: ids.userId, orgId: ids.orgId, ...payload });
   if (local.ok) return { ok: true as const, data: local.data, source: "local" as const };
   return { ok: false as const, error: remote.error || local.error };
 }

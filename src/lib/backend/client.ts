@@ -12,11 +12,12 @@ async function parseJson<T>(res: Response): Promise<ApiEnvelope<T>> {
     return { ok: false, error: "Invalid JSON from Atlas backend." };
   }
   try {
-    const json = (await res.json()) as ApiEnvelope<T> & { error?: string };
-    if (!res.ok || json.ok === false) {
+    const json = (await res.json()) as ApiEnvelope<T> & { success?: boolean; error?: string };
+    const failed = !res.ok || json.ok === false || json.success === false;
+    if (failed) {
       return { ok: false, error: json.error || `Request failed (${res.status})` };
     }
-    return json;
+    return { ok: true, data: (json as { data: T }).data };
   } catch {
     return { ok: false, error: "Invalid JSON from Atlas backend." };
   }

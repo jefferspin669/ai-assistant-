@@ -6,8 +6,8 @@ import { CommandDashboard } from "@/components/CommandDashboard";
 export default function DashboardPage() {
   return (
     <AppShell
-      title="Atlas"
-      subtitle="How your business is doing, what needs your attention, and Atlas handles the rest."
+      title="Home"
+      subtitle="How the business is doing, what needs you, and what Atlas already handled."
     >
       <CommandDashboard />
     </AppShell>

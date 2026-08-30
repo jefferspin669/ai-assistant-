@@ -16,9 +16,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Atlas AI — Intelligent Workforce for Every Business",
+  title: "Atlas — Your business, run with AI",
   description:
-    "Every business deserves an intelligent workforce, regardless of its size. Atlas builds AI employees and systems so any company — not just the biggest — can run with an intelligent workforce.",
+    "Atlas answers customers, books appointments, follows up on leads, manages work, and tells you what needs your attention.",
   icons: { icon: "/favicon.svg" },
 };
 

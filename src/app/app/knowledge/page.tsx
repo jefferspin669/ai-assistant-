@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { knowledgeQa, knowledgeUploads } from "@/lib/atlas-platform";
+import { knowledgeHub } from "@/lib/section-hubs";
 
 export default function KnowledgePage() {
   const [query, setQuery] = useState("What’s our return policy?");
@@ -19,13 +21,13 @@ export default function KnowledgePage() {
 
   return (
     <AppShell
-      title="Knowledge Brain"
-      subtitle="Atlas learns from PDFs, manuals, emails, policies, videos, meeting notes, and websites — then answers from your documentation."
-      action={<button className="btn btn-dark">Upload documents</button>}
+      title="Knowledge"
+      subtitle="Atlas answers from your docs. Other memory tools live in this section — not as extra sidebar items."
     >
       <div className="split">
         <section className="panel">
           <h2>Library</h2>
+          <p className="panel-lead">Sample files · DEMO until you upload real documents.</p>
           <div className="list">
             {knowledgeUploads.map((item) => (
               <div className="list-row" key={item.name}>
@@ -72,6 +74,18 @@ export default function KnowledgePage() {
             </div>
           </div>
         </section>
+      </div>
+
+      <h2 className="hub-heading">Also in Knowledge</h2>
+      <div className="hub-grid">
+        {knowledgeHub
+          .filter((item) => item.href !== "/app/knowledge")
+          .map((item) => (
+            <Link className="hub-card" href={item.href} key={item.href}>
+              <h3>{item.label}</h3>
+              <p>{item.blurb}</p>
+            </Link>
+          ))}
       </div>
     </AppShell>
   );

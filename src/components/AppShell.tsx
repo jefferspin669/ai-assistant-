@@ -2,16 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { SyncStatusBar } from "@/components/SyncStatusBar";
 import { accountNeedsSetup } from "@/lib/account";
 import { navGroups } from "@/lib/atlas-platform";
-import { customEmployee } from "@/lib/data";
+import { pendingCount } from "@/lib/confirmations";
 import { applyAccessibility, loadAccessibility } from "@/lib/accessibility";
 import { refreshOfflineCache } from "@/lib/offline";
 import { ensureDailyBackup } from "@/lib/recovery";
+
+function navItemActive(pathname: string, href: string, exact?: boolean, match?: string[]) {
+  if (exact) return pathname === href;
+  if (pathname === href || pathname.startsWith(`${href}/`)) return true;
+  return Boolean(match?.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)));
+}
 
 export function AppShell({
   title,
@@ -27,29 +33,29 @@ export function AppShell({
   const pathname = usePathname();
   const { account, aiName, ownerName, ready, logout } = useAccount();
   const needsSetup = accountNeedsSetup(account);
+  const [approvals, setApprovals] = useState(0);
 
   const accountId = account?.id;
   useEffect(() => {
     if (accountId) ensureDailyBackup();
     refreshOfflineCache();
     applyAccessibility(loadAccessibility());
+    setApprovals(pendingCount());
   }, [accountId]);
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link href="/" className="sidebar-brand">
-          Atlas <span>AI</span>
+        <Link href="/app" className="sidebar-brand">
+          Atlas
         </Link>
-        <p className="sidebar-tag">Frontend · API · Database</p>
+        <p className="sidebar-tag">Your business, run with AI</p>
         <nav className="sidebar-nav">
           {navGroups.map((group) => (
             <div className="nav-group" key={group.label}>
               <div className="nav-group-label">{group.label}</div>
               {group.items.map((item) => {
-                const active = item.exact
-                  ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const active = navItemActive(pathname, item.href, item.exact, item.match);
                 return (
                   <Link
                     key={item.href}
@@ -66,12 +72,10 @@ export function AppShell({
         <div className="sidebar-foot">
           <div className="ai-chip">
             <strong>{aiName} is online</strong>
-            <span>
-              {account ? `${ownerName} · saved account` : `Never sleeps · ${customEmployee.languages.join(" · ")}`}
-            </span>
+            <span>{account ? ownerName : "Ask Atlas what to do next"}</span>
           </div>
-          <Link href="/app/account" className="ghost-link">
-            {account ? "Account Center" : "Create account"}
+          <Link href="/app/approvals" className="ghost-link">
+            Approvals{approvals ? ` · ${approvals}` : ""}
           </Link>
           {account ? (
             <button type="button" className="ghost-link" onClick={() => logout()}>
@@ -82,12 +86,6 @@ export function AppShell({
               Log in
             </Link>
           )}
-          <Link href="/app/setup" className="ghost-link">
-            First-time setup
-          </Link>
-          <Link href="/app/notes" className="ghost-link">
-            Quick capture
-          </Link>
         </div>
       </aside>
 

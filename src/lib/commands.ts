@@ -1,3 +1,5 @@
+import { dashboardChatReply, type OwnerEffectId } from "@/lib/dashboard";
+
 export type AgentId =
   | "ceo"
   | "receptionist"
@@ -16,6 +18,7 @@ export type CommandResult = {
   needsConfirm: boolean;
   confirmPrompt?: string;
   doneLabel?: string;
+  effect?: OwnerEffectId;
 };
 
 function includesAny(text: string, words: string[]) {
@@ -25,10 +28,54 @@ function includesAny(text: string, words: string[]) {
 export function runOwnerCommand(input: string): CommandResult {
   const q = input.toLowerCase().trim();
 
+  if (includesAny(q, ["do all three", "do all 3", "do them all"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas",
+      needsConfirm: true,
+      effect: "do_all_three",
+      reply:
+        "I can start missed-call follow-up and fill tomorrow’s gap in this workspace. Pausing Campaign B stays DEMO until an ads account is connected.",
+      confirmPrompt: "Start the items Atlas can actually touch here?",
+      doneLabel: "Started. Check Home for LIVE vs DEMO receipts.",
+    };
+  }
+
+  if (includesAny(q, ["what should i do", "what do i do next", "what should i handle"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas",
+      needsConfirm: false,
+      reply: dashboardChatReply("next"),
+    };
+  }
+
+  if (includesAny(q, ["how did we do this week", "weekly recap", "how was this week"])) {
+    return {
+      agent: "ceo",
+      agentLabel: "Atlas",
+      needsConfirm: false,
+      reply: dashboardChatReply("week"),
+    };
+  }
+
+  if (includesAny(q, ["move john", "john's 2", "johns 2", "2 pm appointment", "2pm appointment"])) {
+    return {
+      agent: "scheduler",
+      agentLabel: "Atlas",
+      needsConfirm: true,
+      effect: "move_john_appointment",
+      reply:
+        "I found John Smith · AC Repair at 2:00 PM. Proposed: tomorrow 2:00 PM. Calendar will update in this workspace. Customer and technician texts are DEMO until SMS is connected.",
+      confirmPrompt: "Move John to tomorrow 2:00 PM?",
+      doneLabel: "Calendar updated.",
+    };
+  }
+
   if (includesAny(q, ["most important", "focus on today", "top priority"])) {
     return {
       agent: "ceo",
-      agentLabel: "CEO Assistant",
+      agentLabel: "Atlas",
       needsConfirm: false,
       reply:
         "Your business is running well. I handled 94 routine tasks overnight. Your top priority today is approving the estimate for Johnson Construction, worth $18,400.",
@@ -67,15 +114,14 @@ export function runOwnerCommand(input: string): CommandResult {
       agent: "ceo",
       agentLabel: "Atlas",
       needsConfirm: false,
-      reply:
-        "Strong day forming. Yesterday: $4,280. Overnight: 9 bookings, 47 messages handled, 2 cancellations. Three invoices are overdue ($2,310). Next six days are fully scheduled. Want the two revenue opportunities?",
+      reply: dashboardChatReply("brief"),
     };
   }
 
   if (includesAny(q, ["who canceled", "who cancelled", "canceled", "cancelled"])) {
     return {
       agent: "scheduler",
-      agentLabel: "Scheduler",
+      agentLabel: "Atlas",
       needsConfirm: false,
       reply: "John Smith canceled his 2:30 PM filter replacement. That opens a drive-efficient slot near Alex’s afternoon route.",
     };
@@ -84,19 +130,20 @@ export function runOwnerCommand(input: string): CommandResult {
   if (includesAny(q, ["fill his spot", "fill the spot", "fill john"])) {
     return {
       agent: "scheduler",
-      agentLabel: "Scheduler",
+      agentLabel: "Atlas",
       needsConfirm: true,
+      effect: "fill_john_slot",
       reply:
-        "I found 6 waitlist customers near John’s neighborhood. I can text the top 3 and likely fill the slot within an hour.",
-      confirmPrompt: "Contact waitlist customers to fill John’s spot?",
-      doneLabel: "Contacting waitlist customers now. I’ll lock the first confirmation.",
+        "I found 6 waitlist customers near John’s neighborhood. I can flag the gap on your calendar. Texts stay DEMO until a phone is connected.",
+      confirmPrompt: "Fill John’s spot from the waitlist?",
+      doneLabel: "Open window flagged. Waitlist texts are DEMO.",
     };
   }
 
   if (includesAny(q, ["how much money", "made today", "revenue today", "make today"])) {
     return {
       agent: "finance",
-      agentLabel: "Finance Manager",
+      agentLabel: "Atlas",
       needsConfirm: false,
       reply: "$3,482 so far today — three completed jobs and one signed estimate deposit.",
     };
@@ -115,19 +162,20 @@ export function runOwnerCommand(input: string): CommandResult {
   if (includesAny(q, ["johnson", "approve the", "18,400", "estimate"])) {
     return {
       agent: "sales",
-      agentLabel: "Sales Manager",
+      agentLabel: "Atlas",
       needsConfirm: true,
+      effect: "approve_johnson",
       reply:
-        "Johnson Construction estimate is ready: remodel package $18,400, 40% deposit, start window next Tuesday.",
-      confirmPrompt: "Approve and send the $18,400 Johnson Construction estimate?",
-      doneLabel: "Estimate approved and sent. Deposit invoice queued for when they sign.",
+        "Johnson Construction estimate is ready: remodel package $18,400, 40% deposit, start window next Tuesday. Sending email is DEMO until inbox is connected.",
+      confirmPrompt: "Approve the $18,400 Johnson Construction estimate?",
+      doneLabel: "Estimate approved in this workspace.",
     };
   }
 
   if (includesAny(q, ["overdue", "who hasn’t paid", "hasnt paid", "hasn't paid", "invoices"])) {
     return {
       agent: "finance",
-      agentLabel: "Finance Manager",
+      agentLabel: "Atlas",
       needsConfirm: false,
       reply:
         "Three overdue invoices: Nina Alvarez $890, Tom Rivera $960, and Harbor Dental $460. Total $2,310. I can send reminders automatically.",
@@ -361,7 +409,7 @@ export function runOwnerCommand(input: string): CommandResult {
   if (includesAny(q, ["opportunities", "increase revenue"])) {
     return {
       agent: "ceo",
-      agentLabel: "CEO Assistant",
+      agentLabel: "Atlas",
       needsConfirm: false,
       reply:
         "Opportunity 1: fill Tuesday gaps from the waitlist (~$1,800). Opportunity 2: maintenance plan push to past AC installs (~$2,400/mo recurring).",

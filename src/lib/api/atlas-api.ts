@@ -63,13 +63,14 @@ export const authApi = {
           profile_image: null,
           timezone: "America/Chicago",
           preferred_language: "en",
+          email_verified_at: null,
           created_at: stamp,
           updated_at: stamp,
         },
         ...data.users,
       ],
       user_credentials: [
-        { user_id: userId, password_hash: hashPassword(input.password) },
+        { user_id: userId, password_hash: hashPassword(input.password), mfa_secret: null, mfa_enabled: false },
         ...data.user_credentials,
       ],
       organizations: [
@@ -555,7 +556,7 @@ export const taxesApi = {
         kind: t.kind,
         label: t.label,
         amount: t.amount,
-        category: t.category,
+        category: t.category || "",
         date: t.date,
         notes: "",
         receiptName: t.receiptName,
@@ -563,12 +564,15 @@ export const taxesApi = {
       })),
     );
     const year = new Date().getFullYear();
+    const orgId = data.organizations[0]?.id;
+    const userId = data.users[0]?.id;
+    if (!orgId || !userId) return err("No workspace is available for tax estimates.", 401);
     let record = data.taxRecords.find((r) => r.year === year);
     if (!record) {
       record = {
         id: newId("tax"),
-        orgId: data.organizations[0]?.id || "org_demo",
-        userId: data.users[0]?.id || "user_demo",
+        orgId,
+        userId,
         year,
         grossIncome: estimate.grossIncome,
         expenses: estimate.expenses,
@@ -607,7 +611,8 @@ export const aiApi = {
     const result = runOwnerCommand(trimmed);
     const data = db();
     const stamp = nowIso();
-    const userId = data.users[0]?.id || "user_demo";
+    const userId = data.users[0]?.id;
+    if (!userId) return err("No workspace user is available for chat.", 401);
     let conversation = data.conversations[0];
     if (!conversation) {
       conversation = {
@@ -758,6 +763,7 @@ export const metaApi = {
         "Organization Members",
         "Calendar Categories",
         "Calendar Events",
+        "Customers",
         "Tasks",
         "Transactions",
         "Tax Records",
@@ -765,6 +771,8 @@ export const metaApi = {
         "Memories",
         "Documents",
         "Subscriptions",
+        "Agents",
+        "Automations",
       ],
       stats: databaseStats(db()),
     });

@@ -132,13 +132,10 @@ export const aiEmployees = [
 ] as const;
 
 export const commandSuggestions = [
-  "Atlas, create an invoice for Acme Corp for $1,250, email it, remind them in 7 days if it’s unpaid, and update my books.",
-  "How do I create an invoice?",
+  "How did we do this week?",
+  "What should I do?",
+  "Move John’s 2 PM appointment to tomorrow.",
   "How is business?",
-  "What’s the most important thing I should focus on today?",
-  "Who canceled?",
-  "Fill his spot.",
-  "How much money did we make today?",
   "Approve the Johnson Construction estimate.",
   "Show overdue invoices.",
 ];
@@ -443,6 +440,7 @@ export const eventPlan = {
   ],
 };
 
+/** DEMO_CONTENT: static marketing/fallback KPIs. Home prefers /api/dashboard. */
 export const dashboardOverview = {
   yesterdayRevenue: 4280,
   weekChangePct: 8,
@@ -490,6 +488,7 @@ export const performanceChart: Record<ChartPeriod, PerformancePoint[]> = {
   ],
 };
 
+/** DEMO_CONTENT: sample briefing copy. Home builds findings from workspace pulse. */
 export const atlasBriefingItems = [
   { text: "2 customers canceled", tone: "warn" as const },
   { text: "3 invoices overdue", tone: "warn" as const },
@@ -497,6 +496,7 @@ export const atlasBriefingItems = [
   { text: "2 revenue opportunities detected", tone: "ok" as const },
 ];
 
+/** DEMO_CONTENT: sample attention rows. Home uses Approvals + pulse instead. */
 export const attentionItems = [
   {
     title: "Approve Johnson Construction estimate",

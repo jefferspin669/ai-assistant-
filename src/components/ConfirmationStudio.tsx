@@ -12,6 +12,7 @@ import {
   type RiskyActionKind,
 } from "@/lib/confirmations";
 import { setSyncStatus } from "@/lib/sync-status";
+import { actionPolicies } from "@/lib/section-hubs";
 
 export function ConfirmationStudio() {
   const [items, setItems] = useState<PendingConfirmation[]>([]);
@@ -55,8 +56,8 @@ export function ConfirmationStudio() {
 
   return (
     <AppShell
-      title="Confirmation system"
-      subtitle="Atlas never runs risky actions immediately — you see exactly what will happen first."
+      title="Approvals"
+      subtitle="One inbox for yes/no. Observe, suggest, approve, or automate — Atlas does not hide risky work in modules."
     >
       <div className="stat-grid metrics-dense">
         <div className="stat">
@@ -80,6 +81,22 @@ export function ConfirmationStudio() {
           <small>Risky action types</small>
         </div>
       </div>
+
+      <section className="panel" style={{ marginBottom: "1rem" }}>
+        <h2>Observe · Suggest · Approve · Automate</h2>
+        <p className="panel-lead">Each action has a stance. Atlas never treats “autonomous” as a single switch.</p>
+        <div className="list">
+          {actionPolicies.map((policy) => (
+            <div className="list-row" key={policy.action}>
+              <span className={`badge stance-${policy.stance.toLowerCase()}`}>{policy.stance}</span>
+              <p>
+                <strong>{policy.action}</strong>
+                <span className="muted-line">{policy.note}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="split">
         <section className="panel">

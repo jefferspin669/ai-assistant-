@@ -6,10 +6,11 @@ import { commandSuggestions } from "@/lib/data";
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
+import { applyOwnerEffect } from "@/lib/dashboard";
 
 type ChatItem =
   | { kind: "user"; text: string }
-  | { kind: "ai"; text: string; agentLabel: string }
+  | { kind: "ai"; text: string; agentLabel: string; receipts?: { label: string; source: string }[] }
   | {
       kind: "confirm";
       text: string;
@@ -17,6 +18,7 @@ type ChatItem =
       confirmPrompt: string;
       doneLabel: string;
       confirmationId?: string;
+      effect?: import("@/lib/dashboard").OwnerEffectId;
       resolved?: "approved" | "cancelled";
     };
 
@@ -71,13 +73,14 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
       next.push({
         kind: "confirm",
         text: result.reply,
-        agentLabel: result.agentLabel,
+        agentLabel: "Atlas",
         confirmPrompt: result.confirmPrompt,
         doneLabel: result.doneLabel,
         confirmationId: confirmation.id,
+        effect: result.effect,
       });
     } else {
-      next.push({ kind: "ai", text: result.reply, agentLabel: result.agentLabel });
+      next.push({ kind: "ai", text: result.reply, agentLabel: "Atlas" });
       persistTurn(spoken, result.reply, result.agentLabel);
     }
     setMessages((prev) => [...prev, ...next]);
@@ -100,7 +103,13 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
       const item = prev[index];
       if (!item || item.kind !== "confirm" || item.resolved) return prev;
       if (item.confirmationId) resolveConfirmation(item.confirmationId, approved);
-      const reply = approved ? item.doneLabel : "Understood — I won't take that action.";
+      let reply = approved ? item.doneLabel : "Understood — I won't take that action.";
+      let receipts: { label: string; source: string }[] | undefined;
+      if (approved && item.effect) {
+        const result = applyOwnerEffect(item.effect);
+        reply = result.note;
+        receipts = result.receipts;
+      }
       persistTurn(item.confirmPrompt, reply, item.agentLabel);
       const updated = prev.map((entry, i) =>
         i === index && entry.kind === "confirm"
@@ -109,7 +118,7 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
       );
       return [
         ...updated,
-        { kind: "ai" as const, agentLabel: item.agentLabel, text: reply },
+        { kind: "ai" as const, agentLabel: "Atlas", text: reply, receipts },
       ];
     });
   }
@@ -164,11 +173,11 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
     <div className={`atlas-chat-panel${compact ? " atlas-chat-panel-compact" : ""}`}>
       <div className="command-head">
         <div>
-          <h2>Talk to Atlas</h2>
+          <h2>Ask Atlas</h2>
           <p>
             {account
-              ? "Signed-in chats are saved to your AI workspace."
-              : "Sign in to save conversations."}
+              ? "You talk to Atlas. Specialists run in the background."
+              : "Sign in to save conversations. Atlas still answers as Atlas."}
           </p>
           {savedNote ? <p className="auth-success">{savedNote}</p> : null}
         </div>
@@ -215,8 +224,20 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
           }
           return (
             <div className="bubble bubble-ai" key={`a-${index}`}>
-              <div className="agent-tag">{message.agentLabel}</div>
+              <div className="agent-tag">Atlas</div>
               {message.text}
+              {message.receipts?.length ? (
+                <ul className="action-receipts">
+                  {message.receipts.map((receipt) => (
+                    <li key={receipt.label}>
+                      <span>{receipt.label}</span>
+                      <span className={`data-badge data-badge-${receipt.source === "CONNECTED DATA" ? "connected" : receipt.source.toLowerCase()}`}>
+                        {receipt.source}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <FeedbackToolbar target={message.text.slice(0, 80)} compact />
             </div>
           );
@@ -235,7 +256,7 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder='Try: "How is business?" or "Approve the Johnson Construction estimate."'
+          placeholder='Try: "How did we do this week?" or "Move John’s 2 PM to tomorrow."'
           aria-label="Talk to Atlas"
         />
         <button className="btn btn-dark" type="submit">
