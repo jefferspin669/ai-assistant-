@@ -1,5 +1,9 @@
 # Atlas North Star — Stop simulating. Ship the product.
 
+**Atlas is an autonomous AI operating system that runs the routine operations of a business, while the owner controls strategy and high-risk decisions.**
+
+The killer feature is Autopilot: tell Atlas how much authority it has (Assistant → Automate → Manager → Autopilot), then Atlas runs the business.
+
 ## Honest status (today)
 
 Atlas looks like an AI Operating System. Underneath, most “intelligence” is still:

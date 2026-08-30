@@ -58,6 +58,32 @@ const paths: Record<SidebarIconId, ReactNode> = {
       <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
     </>
   ),
+  business: (
+    <>
+      <rect x="3" y="10" width="18" height="11" rx="1.5" />
+      <path d="M7 10V7a5 5 0 0 1 10 0v3" />
+    </>
+  ),
+  team: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="16" cy="9" r="2.4" />
+      <path d="M3.5 20c1.2-3.2 3.4-4.8 5.5-4.8S13.3 16.8 14.5 20" />
+      <path d="M14 15.4c1.6-.4 3.2.2 4.6 1.8" />
+    </>
+  ),
+  atlas: (
+    <>
+      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
+      <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" />
+    </>
+  ),
+  money: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M12 9v6M9.5 12h5" />
+    </>
+  ),
 };
 
 export function NavIcon({

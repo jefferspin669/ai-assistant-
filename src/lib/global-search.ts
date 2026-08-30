@@ -19,7 +19,8 @@ export type SearchSource =
   | "cloud"
   | "memory"
   | "knowledge"
-  | "chat";
+  | "chat"
+  | "command";
 
 export type GlobalSearchHit = {
   id: string;
@@ -29,6 +30,73 @@ export type GlobalSearchHit = {
   href: string;
   score: number;
 };
+
+export const ATLAS_COMMANDS: GlobalSearchHit[] = [
+  {
+    id: "cmd-call-johnson",
+    source: "command",
+    title: "Call Johnson Construction",
+    snippet: "Open the customer and start a follow-up",
+    href: "/app/customers",
+    score: 8,
+  },
+  {
+    id: "cmd-find-sarah",
+    source: "command",
+    title: "Find Sarah Miller",
+    snippet: "Search the team and CRM",
+    href: "/app/team",
+    score: 8,
+  },
+  {
+    id: "cmd-march-invoices",
+    source: "command",
+    title: "Open March invoices",
+    snippet: "Invoices & payments",
+    href: "/app/payments",
+    score: 8,
+  },
+  {
+    id: "cmd-create-appt",
+    source: "command",
+    title: "Create an appointment",
+    snippet: "Jump to the calendar",
+    href: "/app/appointments",
+    score: 8,
+  },
+  {
+    id: "cmd-overdue",
+    source: "command",
+    title: "Show overdue invoices",
+    snippet: "What customers still owe",
+    href: "/app/payments",
+    score: 8,
+  },
+  {
+    id: "cmd-made-last-month",
+    source: "command",
+    title: "How much did we make last month?",
+    snippet: "Ask Atlas",
+    href: "/app/ask",
+    score: 8,
+  },
+  {
+    id: "cmd-leave",
+    source: "command",
+    title: "I'm leaving — run the business",
+    snippet: "Owner away / night mode",
+    href: "/app",
+    score: 7,
+  },
+];
+
+export function atlasCommandHits(query: string): GlobalSearchHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return ATLAS_COMMANDS;
+  return ATLAS_COMMANDS.filter((hit) =>
+    `${hit.title} ${hit.snippet}`.toLowerCase().includes(q),
+  );
+}
 
 const MONTHS: Record<string, number> = {
   january: 0,
@@ -129,10 +197,10 @@ function push(
 
 export function globalSearch(query: string, limit = 40): GlobalSearchHit[] {
   const intent = parseSearchIntent(query);
-  if (!intent.raw) return [];
+  if (!intent.raw) return atlasCommandHits("");
   const terms = intent.terms.length ? intent.terms : [intent.raw.toLowerCase()];
   const merchant = intent.merchant?.toLowerCase();
-  const hits: GlobalSearchHit[] = [];
+  const hits: GlobalSearchHit[] = [...atlasCommandHits(intent.raw)];
   const account = getCurrentAccount();
 
   // Calendar events

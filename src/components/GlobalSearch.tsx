@@ -2,13 +2,13 @@
 
 import Link from "@/components/SiteLink";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { globalSearch, type GlobalSearchHit } from "@/lib/global-search";
+import { atlasCommandHits, globalSearch, type GlobalSearchHit } from "@/lib/global-search";
 
 const EXAMPLES = [
-  "Find the receipt from Walmart last March.",
-  "overdue invoice",
-  "Johnson Construction",
-  "tax",
+  "Call Johnson Construction",
+  "Show overdue invoices",
+  "How much did we make last month?",
+  "Create an appointment",
 ];
 
 export function GlobalSearch() {
@@ -46,8 +46,8 @@ export function GlobalSearch() {
   return (
     <div className="global-search">
       <button type="button" className="global-search-trigger" onClick={() => setOpen(true)}>
-        <span>Search Atlas</span>
-        <kbd>⌘K</kbd>
+        <span>Ask Atlas or find anything...</span>
+        <kbd>Ctrl K</kbd>
       </button>
 
       {open ? (
@@ -59,11 +59,11 @@ export function GlobalSearch() {
               className="global-search-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder='Search or ask: “Find the receipt from Walmart last March.”'
+              placeholder="Ask Atlas or find anything..."
             />
             {!query.trim() ? (
               <div className="global-search-hints">
-                <p>Try</p>
+                <p>Ask Atlas or jump</p>
                 <div className="cta-row">
                   {EXAMPLES.map((example) => (
                     <button
@@ -76,6 +76,17 @@ export function GlobalSearch() {
                     </button>
                   ))}
                 </div>
+                <ul className="global-search-results">
+                  {atlasCommandHits("").map((hit) => (
+                    <li key={hit.id}>
+                      <Link href={hit.href} onClick={() => setOpen(false)}>
+                        <span className="global-search-source">{hit.source}</span>
+                        <strong>{hit.title}</strong>
+                        <small>{hit.snippet}</small>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
             <ul className="global-search-results">

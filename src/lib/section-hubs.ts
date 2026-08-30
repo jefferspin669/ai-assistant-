@@ -72,7 +72,10 @@ export const settingsHub: HubLink[] = [
   { href: "/app/privacy", label: "Privacy", blurb: "What Atlas stores and what it does not." },
   { href: "/app/security", label: "Security", blurb: "Prototype vault — not production auth yet." },
   { href: "/app/accessibility", label: "Accessibility", blurb: "Type size, motion, and contrast." },
+  { href: "/app/testing", label: "Testing", blurb: "Workspace checks and foundation tests." },
   { href: "/app/flags", label: "Feature flags", blurb: "Labs surfaces that are not in the main sidebar." },
+  { href: "/app/sync", label: "Status & sync", blurb: "What is live vs still a simulation." },
+  { href: "/app/offline", label: "Offline", blurb: "What Atlas can do without a connection." },
   { href: "/app/admin", label: "Admin", blurb: "Workspace-level controls." },
 ];
 

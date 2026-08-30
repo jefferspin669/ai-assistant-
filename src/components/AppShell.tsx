@@ -11,14 +11,15 @@ import { SyncStatusBar } from "@/components/SyncStatusBar";
 import { accountNeedsSetup } from "@/lib/account";
 import {
   SIDEBAR_COLLAPSED_KEY,
+  SIDEBAR_GROUP_OPEN_KEY,
   SIDEBAR_MORE_OPEN_KEY,
   getSidebarMoreGroups,
   groupContainsPath,
   isNavItemActive,
-  sidebarAdmin,
-  sidebarMain,
+  sidebarPrimary,
   type SidebarNavItem,
 } from "@/lib/sidebar-nav";
+import { AtlasStatus } from "@/components/AtlasStatus";
 import { applyAccessibility, loadAccessibility } from "@/lib/accessibility";
 import { refreshOfflineCache } from "@/lib/offline";
 import { ensureDailyBackup } from "@/lib/recovery";
@@ -68,7 +69,7 @@ export function AppShell({
 
   const [collapsed, setCollapsed] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ home: true });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +84,8 @@ export function AppShell({
     try {
       setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
       setMoreOpen(window.localStorage.getItem(SIDEBAR_MORE_OPEN_KEY) === "1");
+      const storedGroups = window.localStorage.getItem(SIDEBAR_GROUP_OPEN_KEY);
+      if (storedGroups) setOpenGroups({ home: true, ...JSON.parse(storedGroups) });
     } catch {
       /* ignore */
     }
@@ -107,13 +110,15 @@ export function AppShell({
   }, [accountMenuOpen]);
 
   useEffect(() => {
+    const match = sidebarPrimary.find((group) => groupContainsPath(pathname, group));
+    if (match) {
+      setOpenGroups((prev) => (prev[match.id] ? prev : { ...prev, [match.id]: true }));
+    }
     const activeIndex = moreGroups.findIndex((group) => groupContainsPath(pathname, group));
     if (activeIndex < 0) return;
     const groupKey = `${moreGroups[activeIndex].label}-${activeIndex}`;
     setMoreOpen(true);
-    setOpenGroups((prev) =>
-      prev[groupKey] ? prev : { ...prev, [groupKey]: true },
-    );
+    setOpenGroups((prev) => (prev[groupKey] ? prev : { ...prev, [groupKey]: true }));
   }, [pathname, moreGroups]);
 
   function toggleCollapsed() {
@@ -141,7 +146,15 @@ export function AppShell({
   }
 
   function toggleGroup(label: string) {
-    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+    setOpenGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try {
+        window.localStorage.setItem(SIDEBAR_GROUP_OPEN_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   }
 
   return (
@@ -172,19 +185,39 @@ export function AppShell({
         </div>
 
         <nav className="sidebar-nav" aria-label={t("shell.nav", "Main navigation")}>
-          <div className="nav-group">
-            <div className="nav-group-label">{tNav("Main")}</div>
-            {sidebarMain.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} tNav={tNav} />
-            ))}
-          </div>
-
-          <div className="nav-group">
-            <div className="nav-group-label">{tNav("Admin")}</div>
-            {sidebarAdmin.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} tNav={tNav} />
-            ))}
-          </div>
+          {sidebarPrimary.map((group) => {
+            const open = Boolean(openGroups[group.id]) || groupContainsPath(pathname, group);
+            return (
+              <div className="nav-group" key={group.id}>
+                <button
+                  type="button"
+                  className={`nav-section-toggle${open ? " open" : ""}`}
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={open}
+                  title={collapsed ? tNav(group.label) : undefined}
+                >
+                  <NavIcon id={group.icon} className="nav-item-icon" />
+                  <span className="nav-item-label">{tNav(group.label)}</span>
+                  <span className="nav-section-chevron" aria-hidden="true">
+                    {open ? "▾" : "▸"}
+                  </span>
+                </button>
+                {open ? (
+                  <div className="nav-subgroup-items">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.href}
+                        item={item}
+                        pathname={pathname}
+                        collapsed={collapsed}
+                        tNav={tNav}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
 
           <div className="nav-group nav-group-more">
             <button
@@ -283,6 +316,7 @@ export function AppShell({
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
           <div className="app-top-actions">
+            <AtlasStatus />
             <SyncStatusBar />
             <GlobalSearch />
             <div className="account-menu" ref={accountMenuRef}>

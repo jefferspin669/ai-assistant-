@@ -132,14 +132,22 @@ export function SettingsStudio() {
           </span>
         </div>
       </div>
-      <div className="hub-grid" style={{ marginBottom: "1.25rem" }}>
-        {settingsHub.map((item) => (
-          <Link className="hub-card" href={item.href} key={item.href}>
-            <h3>{item.label}</h3>
-            <p>{item.blurb}</p>
-          </Link>
-        ))}
-      </div>
+      <section className="panel" style={{ marginBottom: "1.25rem" }}>
+        <h2>System</h2>
+        <p className="panel-lead">Privacy, flags, and status live here — not as extra dashboard cards.</p>
+        <div className="list">
+          {settingsHub.map((item) => (
+            <div className="list-row" key={item.href}>
+              <p>
+                <Link href={item.href}>
+                  <strong>{item.label}</strong>
+                </Link>
+                <span className="muted-line">{item.blurb}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
       {flash ? (
         <p className={flash.toLowerCase().includes("no users") || flash.toLowerCase().includes("not found") ? "auth-error" : "auth-success"}>
           {flash}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import { AccountProvider } from "@/components/AccountProvider";
+import { AtlasRuntimeProvider } from "@/components/AtlasRuntimeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import "./globals.css";
 
@@ -32,7 +33,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${fraunces.variable} ${manrope.variable}`}>
         <AccountProvider>
-          <LanguageProvider>{children}</LanguageProvider>
+          <LanguageProvider>
+            <AtlasRuntimeProvider>{children}</AtlasRuntimeProvider>
+          </LanguageProvider>
         </AccountProvider>
       </body>
     </html>

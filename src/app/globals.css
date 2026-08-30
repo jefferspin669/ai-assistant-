@@ -5745,9 +5745,232 @@ a.stat.dash-kpi {
   color: #1c6b4a;
 }
 
-.dash-ask {
-  margin-top: 0.25rem;
+.command-dashboard-os {
+  max-width: 1120px;
+  gap: 1.1rem;
 }
+
+.dash-hero-os {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.dash-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.atlas-live-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--teal-deep);
+}
+
+.atlas-live-tag::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(46, 139, 87, 0.18);
+}
+
+.atlas-live-tag.is-paused {
+  color: var(--ink-soft);
+}
+
+.atlas-live-tag.is-paused::before {
+  background: #b45309;
+  box-shadow: none;
+}
+
+.kpi-delta {
+  font-weight: 700;
+}
+
+.kpi-delta-up {
+  color: #1c6b4a;
+}
+
+.kpi-delta-down {
+  color: #1c6b4a;
+}
+
+.kpi-delta-flat {
+  color: var(--ink-soft);
+  font-weight: 650;
+}
+
+.severity-list {
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.severity-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.severity-mark {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  margin-top: 0.35rem;
+}
+
+.severity-critical .severity-mark { background: #c62828; }
+.severity-attention .severity-mark { background: #ef6c00; }
+.severity-opportunity .severity-mark { background: #f9a825; }
+.severity-handled .severity-mark { background: #2e7d32; }
+
+.morning-briefing p {
+  color: var(--ink-soft);
+  margin: 0.35rem 0;
+}
+
+.autonomy-control-head h2 {
+  margin-bottom: 0.2rem;
+}
+
+.autonomy-level-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.autonomy-level-row button {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.autonomy-level-row button.active {
+  background: var(--teal-deep);
+  color: #fff;
+  border-color: var(--teal-deep);
+}
+
+.autonomy-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.autonomy-split h3 {
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
+
+.autonomy-split ul {
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.away-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem 1rem;
+  margin: 0.75rem 0;
+}
+
+.atlas-status {
+  position: relative;
+}
+
+.atlas-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--foam);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.atlas-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(46, 139, 87, 0.16);
+}
+
+.atlas-status-chip.is-paused .atlas-status-dot {
+  background: #b45309;
+  box-shadow: none;
+}
+
+.atlas-status-chip.is-away .atlas-status-dot {
+  background: var(--teal);
+}
+
+.atlas-status-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  width: min(320px, 86vw);
+  background: var(--foam);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem;
+  box-shadow: 0 12px 40px rgba(10, 24, 22, 0.12);
+  z-index: 30;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.atlas-status-kicker {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.atlas-status-stats {
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 900px) {
+  .autonomy-split,
+  .dash-hero-os {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}
+
 
 @media (max-width: 720px) {
   .finding-head,

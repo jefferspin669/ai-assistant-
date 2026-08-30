@@ -16,6 +16,17 @@ export type OwnerEffectId =
   | "move_john_appointment"
   | "do_all_three";
 
+export type Severity = "critical" | "attention" | "opportunity" | "handled";
+
+export type MoneyKpi = {
+  id: string;
+  label: string;
+  value: string;
+  delta: string;
+  direction: "up" | "down" | "flat";
+  href: string;
+};
+
 export type DashboardKpi = {
   id: string;
   label: string;
@@ -36,6 +47,7 @@ export type DashboardFinding = {
   stance: Stance;
   source: Provenance;
   open: boolean;
+  severity: Severity;
 };
 
 export type ActivityItem = {
@@ -52,8 +64,16 @@ export type ActionReceipt = {
   source: Provenance;
 };
 
+export type BriefingBullet = { text: string; tone: "warn" | "ok" | "neutral" };
+
 export type DashboardSnapshot = {
   kpis: DashboardKpi[];
+  money: MoneyKpi[];
+  headline: string;
+  morningBriefing: string[];
+  briefingBullets: BriefingBullet[];
+  handled: string[];
+  needsYou: { title: string; href: string }[];
   findings: DashboardFinding[];
   activity: ActivityItem[];
   approvals: PendingConfirmation[];
@@ -377,6 +397,7 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
       stance: pulse.overdueReminded ? "OBSERVE" : "SUGGEST",
       source: "DEMO",
       open: !pulse.overdueReminded,
+      severity: pulse.overdueReminded ? "handled" : "attention",
     },
     {
       id: "missed",
@@ -389,6 +410,7 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
       stance: pulse.missedFollowUp ? "OBSERVE" : "SUGGEST",
       source: "DEMO",
       open: !pulse.missedFollowUp,
+      severity: pulse.missedFollowUp ? "handled" : "opportunity",
     },
     {
       id: "gap",
@@ -401,6 +423,7 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
       stance: pulse.scheduleFill === "filling" ? "OBSERVE" : "SUGGEST",
       source: "DEMO",
       open: pulse.scheduleFill === "open",
+      severity: pulse.scheduleFill === "filling" ? "handled" : "opportunity",
     },
     {
       id: "expenses",
@@ -413,6 +436,7 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
       stance: "OBSERVE",
       source: "DEMO",
       open: true,
+      severity: "attention",
     },
   ];
 
@@ -428,6 +452,7 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
       stance: "APPROVE",
       source: "DEMO",
       open: true,
+      severity: "critical",
     });
   }
 
@@ -446,11 +471,62 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
     .filter(Boolean)
     .join("\n");
 
+  const pending = confirmations.filter((item) => item.status === "pending");
+  const needsYou = [
+    pending.length
+      ? { title: `${pending.length} approval${pending.length === 1 ? "" : "s"}`, href: "/app/approvals" }
+      : { title: "Johnson Construction estimate", href: "/app/approvals" },
+    { title: "$1,280 invoice", href: "/app/payments" },
+    { title: "Employee request", href: "/app/team" },
+    { title: "Pricing change", href: "/app/dna" },
+  ].slice(0, pending.length ? 4 : 4);
+
+  const briefingBullets: BriefingBullet[] = [
+    { text: "2 cancellations", tone: "warn" },
+    { text: pulse.overdueReminded ? "Invoice reminders queued" : "3 overdue invoices", tone: "warn" },
+    { text: "Sales up 11%", tone: "ok" },
+    { text: "Opportunity worth ~$2,400", tone: "ok" },
+  ];
+
+  const handled = [
+    pulse.scheduleFill === "filling" ? "Filled cancellation" : "Filled a canceled slot on the waitlist",
+    pulse.overdueReminded ? "Sent invoice reminders" : "Sent 14 reminders",
+    "Booked 4 customers",
+    "Assigned technician",
+  ];
+
+  const morningBriefing = [
+    `Yesterday revenue was $4,280, 8% above average.`,
+    `I booked 9 appointments overnight.`,
+    pulse.scheduleFill === "filling"
+      ? "Two customers canceled. I filled one opening and I'm contacting the waitlist for the other."
+      : "Two customers canceled. I filled one opening and I'm contacting the waitlist for the other.",
+    pulse.overdueReminded
+      ? "Three invoices totaling $2,840 are overdue. Reminders are queued."
+      : "Three invoices totaling $2,840 are overdue. I've sent reminders.",
+    "Marcus is scheduled to arrive 15 minutes late.",
+    "I found two sales opportunities worth approximately $1,900.",
+    pending.length || pulse.johnson === "pending"
+      ? "There are decisions that require you."
+      : "Nothing is waiting on you right now.",
+  ];
+
   return {
     kpis,
+    money: [
+      { id: "revenue", label: "Revenue", value: "$64,210", delta: "8.4%", direction: "up", href: "/app/finance" },
+      { id: "profit", label: "Profit", value: "$21,481", delta: "12.1%", direction: "up", href: "/app/finance" },
+      { id: "expenses", label: "Expenses", value: "$42,729", delta: "2.8%", direction: "down", href: "/app/finance" },
+      { id: "cash", label: "Cash", value: "$38,410", delta: "Healthy", direction: "flat", href: "/app/finance" },
+    ],
+    headline: "Business is healthy. Profit is up 12% this week.",
+    morningBriefing,
+    briefingBullets,
+    handled,
+    needsYou,
     findings,
     activity: pulse.activity,
-    approvals: confirmations.filter((item) => item.status === "pending"),
+    approvals: pending,
     pendingApprovals: pendingCount(confirmations),
     briefing,
     recommend: recommend || "Nothing urgent. Ask Atlas if you want a deeper pass.",
