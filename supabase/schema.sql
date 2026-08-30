@@ -148,3 +148,30 @@ create index if not exists idx_appointments_org_start on appointments(organizati
 create index if not exists idx_action_proposals_org_status on action_proposals(organization_id, status);
 create index if not exists idx_audit_org_created on audit_events(organization_id, created_at desc);
 create index if not exists idx_missed_calls_org on missed_calls(organization_id, received_at desc);
+
+create table if not exists autonomy_policies (
+  organization_id uuid primary key references organizations(id) on delete cascade,
+  level smallint not null default 1 check (level between 1 and 4),
+  kill_switch boolean not null default false,
+  auto_payment_limit_cents integer not null default 500000,
+  refund_limit_cents integer not null default 10000,
+  discount_cap_percent integer not null default 10,
+  marketing_budget_cents integer not null default 150000,
+  earliest_schedule_hour smallint not null default 8,
+  wake_only_emergencies boolean not null default true,
+  standing_orders jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists background_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references organizations(id) on delete cascade,
+  kind text not null,
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'queued' check (status in ('queued', 'running', 'done', 'failed')),
+  created_at timestamptz not null default now(),
+  run_at timestamptz
+);
+
+create index if not exists idx_jobs_org_status on background_jobs(organization_id, status, created_at desc);
+

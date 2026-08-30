@@ -18,27 +18,52 @@ const PRIORITY_META: Record<ApprovalPriority, { label: string; dot: string; cls:
   low: { label: "Low", dot: "🟢", cls: "badge ok" },
 };
 
+type LiveCard = {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string;
+  ownerPrompt: string;
+  band: string;
+};
+
 export function ApprovalInboxStudio() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+  const [live, setLive] = useState<LiveCard[]>([]);
   const [questionFor, setQuestionFor] = useState<string | null>(null);
   const [questionText, setQuestionText] = useState("");
   const [overrideFor, setOverrideFor] = useState<string | null>(null);
   const [overrideText, setOverrideText] = useState("");
   const [flash, setFlash] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [atlasReply, setAtlasReply] = useState<string | null>(null);
 
   const refresh = useCallback(() => setRequests(loadApprovalRequests()), []);
+
+  const refreshLive = useCallback(async () => {
+    try {
+      await fetch("/api/session");
+      const json = (await fetch("/api/autonomy").then((res) => res.json())) as {
+        ok?: boolean;
+        data?: { pending?: LiveCard[] };
+      };
+      if (json.ok && json.data?.pending) setLive(json.data.pending);
+    } catch {
+      /* demo still works from localStorage */
+    }
+  }, []);
 
   useEffect(() => {
     seedApprovalsIfEmpty();
     refresh();
+    void refreshLive();
     setReady(true);
     const onStorage = (e: StorageEvent) => {
       if (!e.key || e.key.startsWith("atlas-approval-requests")) refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [refresh]);
+  }, [refresh, refreshLive]);
 
   function decide(req: ApprovalRequest, status: "approved" | "rejected") {
     decideApprovalRequest(req.id, status);
@@ -69,13 +94,61 @@ export function ApprovalInboxStudio() {
   const pending = requests.filter((r) => r.status === "pending");
   const decided = requests.filter((r) => r.status !== "pending");
 
+  async function decideLive(id: string, decision: "approved" | "rejected") {
+    await fetch("/api/approvals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, decision }),
+    });
+    await refreshLive();
+    setFlash(`${decision === "approved" ? "Approved" : "Rejected"} live exception.`);
+  }
+
+  async function askLive(id: string) {
+    const json = await fetch("/api/autonomy/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ askApprovalId: id }),
+    }).then((res) => res.json());
+    setAtlasReply(String(json.data?.asked?.reply || "Atlas is waiting on your call."));
+  }
+
   return (
     <div className="training-studio">
       <div className="stat-grid metrics-dense">
-        <div className="stat"><span>Pending</span><strong>{pending.length}</strong><small>Awaiting you</small></div>
-        <div className="stat"><span>Urgent</span><strong>{pending.filter((r) => r.priority === "urgent").length}</strong><small>Do first</small></div>
+        <div className="stat"><span>Pending</span><strong>{pending.length + live.length}</strong><small>Awaiting you</small></div>
+        <div className="stat"><span>Urgent</span><strong>{pending.filter((r) => r.priority === "urgent").length + live.length}</strong><small>Do first</small></div>
         <div className="stat"><span>Decided</span><strong>{decided.length}</strong><small>Recent</small></div>
       </div>
+
+      {live.length ? (
+        <section className="panel">
+          <h2>Live — Atlas needs you</h2>
+          <p className="panel-lead">Server-side permission engine. Approve, reject, or ask Atlas.</p>
+          <div className="list">
+            {live.map((card) => (
+              <div className="confirm-card" key={card.id} style={{ marginBottom: "0.8rem" }}>
+                <div className="agent-tag">Live · {card.kind.replace(/_/g, " ")}</div>
+                <pre className="muted-line" style={{ whiteSpace: "pre-wrap", margin: "0.4rem 0" }}>
+                  {card.ownerPrompt || card.title}
+                </pre>
+                <div className="cta-row">
+                  <button className="btn btn-dark" type="button" onClick={() => void decideLive(card.id, "approved")}>
+                    Approve
+                  </button>
+                  <button className="btn btn-outline" type="button" onClick={() => void decideLive(card.id, "rejected")}>
+                    Reject
+                  </button>
+                  <button className="btn btn-outline" type="button" onClick={() => void askLive(card.id)}>
+                    Ask Atlas
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {atlasReply ? <p className="muted-line">{atlasReply}</p> : null}
+        </section>
+      ) : null}
 
       <section className="panel">
         <h2>Approvals</h2>

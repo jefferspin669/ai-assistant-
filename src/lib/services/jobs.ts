@@ -2,6 +2,7 @@ import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { database } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
+import { processAutonomyQueue } from "@/lib/autonomy/worker";
 
 export function enqueueJob(
   ctx: SessionContext,
@@ -23,9 +24,12 @@ export function enqueueJob(
 }
 
 export function processJobs(limit = 10) {
+  const autonomy = processAutonomyQueue(limit);
   const db = database();
-  const queued = db.jobs.filter((job) => job.status === "queued").slice(0, limit);
-  if (!queued.length) return [];
+  const queued = db.jobs
+    .filter((job) => job.status === "queued" && !String(job.kind).startsWith("autonomy:"))
+    .slice(0, limit);
+  if (!queued.length) return { generic: [], autonomy };
   const doneIds = new Set(queued.map((job) => job.id));
   saveDatabase({
     ...db,
@@ -45,7 +49,7 @@ export function processJobs(limit = 10) {
       ...db.notifications,
     ],
   });
-  return queued;
+  return { generic: queued, autonomy };
 }
 
 export function notify(

@@ -112,7 +112,7 @@ export function executeBrainTool(
       content: JSON.stringify({
         saved: true,
         order: String(args.order || ""),
-        note: "Standing order stored for this session (persisted to Postgres in Phase 1).",
+        note: "Standing order stored on the org autonomy policy.",
       }),
     };
   }

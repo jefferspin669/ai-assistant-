@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { SiteLink } from "@/components/SiteLink";
 
 type IntegrationStatus = {
   id: string;
@@ -23,8 +24,18 @@ type StatusPayload = {
   }[];
 };
 
+type AutonomyStrip = {
+  level: number;
+  levelName: string;
+  headline: string;
+  killSwitch: boolean;
+  autoPaymentLimit: string;
+  pending: number;
+};
+
 export function CommercialStudio() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
+  const [autonomy, setAutonomy] = useState<AutonomyStrip | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [phone, setPhone] = useState("+15551234567");
@@ -35,6 +46,34 @@ export function CommercialStudio() {
     const res = await fetch("/api/integrations/status");
     const json = (await res.json()) as { ok: boolean; data?: StatusPayload };
     if (json.ok && json.data) setStatus(json.data);
+    try {
+      await fetch("/api/session");
+      const auto = (await fetch("/api/autonomy").then((r) => r.json())) as {
+        ok?: boolean;
+        data?: {
+          policy?: {
+            level: number;
+            levelName: string;
+            headline: string;
+            killSwitch: boolean;
+            autoPaymentLimit: string;
+          };
+          pending?: unknown[];
+        };
+      };
+      if (auto.ok && auto.data?.policy) {
+        setAutonomy({
+          level: auto.data.policy.level,
+          levelName: auto.data.policy.levelName,
+          headline: auto.data.policy.headline,
+          killSwitch: auto.data.policy.killSwitch,
+          autoPaymentLimit: auto.data.policy.autoPaymentLimit,
+          pending: auto.data.pending?.length || 0,
+        });
+      }
+    } catch {
+      /* autonomy strip is optional on this page */
+    }
   }, []);
 
   useEffect(() => {
@@ -83,6 +122,19 @@ export function CommercialStudio() {
           <strong>{status?.missedCalls.length ?? 0}</strong>
           <small>Recovery queue</small>
         </div>
+        <div className="stat">
+          <span>Autonomy</span>
+          <strong>
+            {autonomy ? `L${autonomy.level} · ${autonomy.levelName}` : "…"}
+          </strong>
+          <small>
+            {autonomy
+              ? autonomy.killSwitch
+                ? "Kill switch on"
+                : `${autonomy.pending} waiting · pay ${autonomy.autoPaymentLimit}`
+              : "Permission engine"}
+          </small>
+        </div>
       </div>
 
       <div className="split">
@@ -109,6 +161,9 @@ export function CommercialStudio() {
             <button className="btn btn-outline" type="button" onClick={() => void refresh()} disabled={busy}>
               Refresh status
             </button>
+            <SiteLink className="btn btn-dark" href="/app/autonomous">
+              Open autonomy engine
+            </SiteLink>
           </div>
         </section>
 

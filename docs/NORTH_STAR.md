@@ -63,6 +63,32 @@ Without credentials everything stays in **simulation mode** so demos never break
 - Every tool call and approval is written to an audit log
 - Estimates / AI suggestions / accountant-reviewed / filed remain labeled when Tax ships for real
 
+## Autonomy — Atlas runs the routine company. Humans handle the exceptions.
+
+The React dashboard is not the brain. Permission checks and the action queue live **server-side** (`src/lib/autonomy`, `POST /api/autonomy/tick`) so work can continue when nobody has the site open.
+
+| Level | Name | What Atlas does |
+| --- | --- | --- |
+| 1 | Assistant | Recommends. Nothing executes without approval. |
+| 2 | Routine Autonomy | Scheduling, confirmations, reminders, follow-ups, receptionist, basic SMS/email, lead qualification, task assignment, invoice reminders, review requests |
+| 3 | Business Manager | Operational calls inside owner rules (discounts ≤ cap, refunds below limit, fill canceled slots, marketing budget) |
+| 4 | Autopilot | “I’m on vacation. Run the company.” Owner is contacted only for exceptions |
+
+**Never unrestricted** (always ask, any level): payroll changes, firing, signing contracts, filing taxes, loans, large transfers, deleting major company data, ownership/security, and **payments above the auto-pay limit**.
+
+Example owner card:
+
+```
+Atlas needs you
+Vendor payment: $18,420
+Your automatic-payment limit: $5,000
+Approve | Reject | Ask Atlas
+```
+
+Kill switch pauses execution without wiping the queue. File DB is the beachhead; `autonomy_policies` in `supabase/schema.sql` is the Postgres contract. Cron: `GET /api/autonomy/tick` with `CRON_SECRET`.
+
+Operator UI stays on existing routes: `/app/autonomous`, `/app/approvals`, `/app/commercial`.
+
 ## How to work going forward
 
 | Do | Don’t |
