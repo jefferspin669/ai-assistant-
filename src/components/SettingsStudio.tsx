@@ -6,6 +6,7 @@ import { AppShell } from "@/components/AppShell";
 import { useAccount } from "@/components/AccountProvider";
 import { useLanguage } from "@/components/LanguageProvider";
 import { atlasApi } from "@/lib/api/atlas-api";
+import { settingsHub } from "@/lib/section-hubs";
 import type {
   DbOrganization,
   DbOrganizationMember,
@@ -120,8 +121,25 @@ export function SettingsStudio() {
   return (
     <AppShell
       title="Settings"
-      subtitle="users + organizations rows — profile, business_name, tax_structure, state, and more."
+      subtitle="Workspace settings. Sign-in here is still a prototype vault — not production authentication."
     >
+      <div className="tax-safety-banner" style={{ marginBottom: "1rem" }}>
+        <div className="tax-safety-banner-head">
+          <strong>DEMO auth</strong>
+          <span>
+            Passwords are hashed in the browser for this prototype. Real Atlas needs Auth.js or Supabase Auth,
+            sessions, email verification, and recovery — this is not that yet.
+          </span>
+        </div>
+      </div>
+      <div className="hub-grid" style={{ marginBottom: "1.25rem" }}>
+        {settingsHub.map((item) => (
+          <Link className="hub-card" href={item.href} key={item.href}>
+            <h3>{item.label}</h3>
+            <p>{item.blurb}</p>
+          </Link>
+        ))}
+      </div>
       {flash ? (
         <p className={flash.toLowerCase().includes("no users") || flash.toLowerCase().includes("not found") ? "auth-error" : "auth-success"}>
           {flash}

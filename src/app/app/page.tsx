@@ -1,26 +1,15 @@
 "use client";
 
-import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
-import { CustomizableHome } from "@/components/CustomizableHome";
+import { CommandDashboard } from "@/components/CommandDashboard";
 
 export default function DashboardPage() {
   return (
     <AppShell
-      title="Atlas"
-      subtitle="Customizable home — confirmations, connections, contacts, notes, and the rest of your workspace."
-      action={
-        <div className="cta-row">
-          <Link className="btn btn-outline" href="/app/notes">
-            Quick capture
-          </Link>
-          <Link className="btn btn-dark" href="/app/confirmations">
-            Confirmations
-          </Link>
-        </div>
-      }
+      title="Home"
+      subtitle="How the business is doing, what needs you, and what Atlas already handled."
     >
-      <CustomizableHome />
+      <CommandDashboard />
     </AppShell>
   );
 }

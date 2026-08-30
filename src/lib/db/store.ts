@@ -1,3 +1,4 @@
+import { hashPassword } from "@/lib/secure-store";
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
 import { loadCalendarState } from "@/lib/smart-calendar";
@@ -8,6 +9,7 @@ import type {
   DbDocument,
   DbCalendarCategory,
   DbCalendarEvent,
+  DbCustomer,
   DbMemory,
   DbNotification,
   DbOrganization,
@@ -37,7 +39,7 @@ function getServerDb() {
   if (!g.__atlasServerDb) {
     const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
     if (fromDisk) {
-      g.__atlasServerDb = fromDisk;
+      g.__atlasServerDb = hydrateDatabase(fromDisk);
     } else {
       g.__atlasServerDb = seedDatabase();
       writeJsonFile(DB_FILE, g.__atlasServerDb);
@@ -82,6 +84,7 @@ function emptyDb(): AtlasDatabase {
     calendar_categories: [],
     calendar_events: [],
     tasks: [],
+    customers: [],
     transactions: [],
     taxRecords: [],
     conversations: [],
@@ -89,6 +92,49 @@ function emptyDb(): AtlasDatabase {
     documents: [],
     subscriptions: [],
     notifications: [],
+    agents: [],
+    automations: [],
+    sessions: [],
+    audit_logs: [],
+    approvals: [],
+    jobs: [],
+    integrations: [],
+    login_attempts: [],
+    password_resets: [],
+    quotes: [],
+    webhook_receipts: [],
+    email_verifications: [],
+  };
+}
+
+function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
+  const base = emptyDb();
+  return {
+    ...base,
+    ...raw,
+    users: (raw.users || []).map((user) => normalizeUser(user)),
+    user_credentials: (raw.user_credentials || []).map((row) => ({
+      user_id: row.user_id,
+      password_hash: row.password_hash,
+      mfa_secret: row.mfa_secret ?? null,
+      mfa_enabled: Boolean(row.mfa_enabled),
+    })),
+    sessions: raw.sessions || [],
+    audit_logs: raw.audit_logs || [],
+    approvals: raw.approvals || [],
+    jobs: raw.jobs || [],
+    integrations: raw.integrations || [],
+    login_attempts: raw.login_attempts || [],
+    password_resets: raw.password_resets || [],
+    quotes: raw.quotes || [],
+    webhook_receipts: raw.webhook_receipts || [],
+    email_verifications: raw.email_verifications || [],
+    notifications: raw.notifications || [],
+    agents: raw.agents || [],
+    automations: raw.automations || [],
+    customers: raw.customers || [],
+    tasks: raw.tasks || [],
+    transactions: raw.transactions || [],
   };
 }
 
@@ -101,6 +147,7 @@ function normalizeUser(raw: Partial<DbUser> & { name?: string; createdAt?: strin
     profile_image: raw.profile_image ?? null,
     timezone: raw.timezone || "America/Chicago",
     preferred_language: raw.preferred_language || "en",
+    email_verified_at: raw.email_verified_at ?? null,
     created_at: raw.created_at || raw.createdAt || stamp,
     updated_at: raw.updated_at || raw.updatedAt || stamp,
   };
@@ -175,13 +222,16 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
+    email_verified_at: stamp,
     created_at: stamp,
     updated_at: stamp,
   };
 
   const credential: DbUserCredential = {
     user_id: userId,
-    password_hash: "v1$seed$demo", // demo placeholder — signup/login write real hashes
+    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
+    mfa_secret: null,
+    mfa_enabled: false,
   };
 
   const org: DbOrganization = {
@@ -204,6 +254,7 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
+    email_verified_at: stamp,
     created_at: stamp,
     updated_at: stamp,
   };
@@ -214,6 +265,7 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
+    email_verified_at: null,
     created_at: stamp,
     updated_at: stamp,
   };
@@ -266,7 +318,7 @@ export function seedDatabase(): AtlasDatabase {
     icon: CATEGORY_ICONS[category.id] || "tag",
   }));
 
-  const calendar_events: DbCalendarEvent[] = (calendar?.events || []).slice(0, 12).map((event) => {
+  let calendar_events: DbCalendarEvent[] = (calendar?.events || []).slice(0, 12).map((event) => {
     const startMs = new Date(event.start).getTime();
     const reminder = new Date(startMs - 30 * 60000).toISOString();
     return {
@@ -287,6 +339,31 @@ export function seedDatabase(): AtlasDatabase {
       created_at: stamp,
     };
   });
+  if (!calendar_events.length) {
+    const start = new Date();
+    start.setHours(14, 0, 0, 0);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    calendar_events = [
+      {
+        id: newId("evt"),
+        user_id: userId,
+        organization_id: orgId,
+        title: "Johnson Construction consult",
+        description: "Estimate follow-up",
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        timezone: "America/Chicago",
+        category_id: "work",
+        location: "",
+        assignee: null,
+        priority: "normal",
+        reminder_time: null,
+        recurring_rule: null,
+        external_calendar_id: null,
+        created_at: stamp,
+      },
+    ];
+  }
 
   const tasks: DbTask[] = loadTasks().map((task) => ({
     id: task.id,
@@ -321,7 +398,7 @@ export function seedDatabase(): AtlasDatabase {
       kind: t.kind,
       label: t.label,
       amount: t.amount,
-      category: t.category,
+      category: t.category || "",
       date: t.date,
       notes: "",
       receiptName: t.receiptName,
@@ -394,6 +471,39 @@ export function seedDatabase(): AtlasDatabase {
     },
   ];
 
+  const customers: DbCustomer[] = [
+    {
+      id: newId("cust"),
+      organization_id: orgId,
+      name: "Jamie Cole",
+      email: "jamie@email.com",
+      phone: "(555) 882-1100",
+      status: "active",
+      created_at: stamp,
+      provenance: "DEMO",
+    },
+    {
+      id: newId("cust"),
+      organization_id: orgId,
+      name: "Marcus Nguyen",
+      email: "marcus@email.com",
+      phone: "(555) 204-1182",
+      status: "lead",
+      created_at: stamp,
+      provenance: "DEMO",
+    },
+    {
+      id: newId("cust"),
+      organization_id: orgId,
+      name: "Elena Brooks",
+      email: "elena@email.com",
+      phone: "(555) 301-7788",
+      status: "active",
+      created_at: stamp,
+      provenance: "DEMO",
+    },
+  ];
+
   const notifications: DbNotification[] = [
     {
       id: newId("note"),
@@ -413,6 +523,7 @@ export function seedDatabase(): AtlasDatabase {
     calendar_categories,
     calendar_events,
     tasks,
+    customers,
     transactions,
     taxRecords,
     conversations,
@@ -420,6 +531,70 @@ export function seedDatabase(): AtlasDatabase {
     documents,
     subscriptions,
     notifications,
+    agents: [
+      {
+        id: newId("agent"),
+        organization_id: orgId,
+        name: "Atlas",
+        role: "Owner cockpit",
+        status: "active",
+      },
+      {
+        id: newId("agent"),
+        organization_id: orgId,
+        name: "Receptionist",
+        role: "Front desk",
+        status: "active",
+      },
+    ],
+    automations: [
+      {
+        id: newId("auto"),
+        organization_id: orgId,
+        name: "Missed-call follow-up",
+        enabled: false,
+        trigger: "missed_call",
+        created_at: stamp,
+      },
+    ],
+    sessions: [],
+    audit_logs: [],
+    approvals: [],
+    jobs: [],
+    integrations: [
+      {
+        id: "gmail",
+        organization_id: orgId,
+        provider: "gmail",
+        status: "disconnected",
+        account_label: null,
+        last_error: null,
+        updated_at: stamp,
+      },
+      {
+        id: "google-calendar",
+        organization_id: orgId,
+        provider: "google-calendar",
+        status: "disconnected",
+        account_label: null,
+        last_error: null,
+        updated_at: stamp,
+      },
+      {
+        id: "stripe",
+        organization_id: orgId,
+        provider: "stripe",
+        status: "disconnected",
+        account_label: null,
+        last_error: null,
+        updated_at: stamp,
+      },
+    ],
+    login_attempts: [],
+    password_resets: [],
+    quotes: [],
+    webhook_receipts: [],
+    email_verifications: [],
   };
 }
 
@@ -458,6 +633,8 @@ export function loadDatabase(): AtlasDatabase {
       .map((user) => ({
         user_id: user.id,
         password_hash: user.passwordHash,
+        mfa_secret: null,
+        mfa_enabled: false,
       }));
     type LegacyOrg = Partial<DbOrganization> & {
       ownerUserId?: string;
@@ -473,7 +650,7 @@ export function loadDatabase(): AtlasDatabase {
       organization_members = organizations.map((org) => ({
         id: newId("om"),
         organization_id: org.id,
-        user_id: org.owner_id || users[0].id,
+        user_id: org.owner_id || users[0]?.id || "",
         role: "owner" as const,
         status: "active" as const,
         joined_at: org.created_at,
@@ -519,6 +696,7 @@ export function loadDatabase(): AtlasDatabase {
       calendar_categories,
       calendar_events,
       tasks: parsed.tasks || [],
+      customers: parsed.customers || [],
       transactions: parsed.transactions || [],
       taxRecords: parsed.taxRecords || [],
       conversations: parsed.conversations || [],
@@ -526,6 +704,18 @@ export function loadDatabase(): AtlasDatabase {
       documents: parsed.documents || [],
       subscriptions: parsed.subscriptions || [],
       notifications: parsed.notifications || [],
+      agents: parsed.agents || [],
+      automations: parsed.automations || [],
+      sessions: parsed.sessions || [],
+      audit_logs: parsed.audit_logs || [],
+      approvals: parsed.approvals || [],
+      jobs: parsed.jobs || [],
+      integrations: parsed.integrations || [],
+      login_attempts: parsed.login_attempts || [],
+      password_resets: parsed.password_resets || [],
+      quotes: parsed.quotes || [],
+      webhook_receipts: parsed.webhook_receipts || [],
+      email_verifications: parsed.email_verifications || [],
     };
     localStorage.setItem(DB_KEY, JSON.stringify(state));
     return state;
@@ -556,6 +746,7 @@ export function databaseStats(db: AtlasDatabase) {
     "Organization Members": db.organization_members.length,
     "Calendar Categories": db.calendar_categories.length,
     "Calendar Events": db.calendar_events.length,
+    Customers: db.customers.length,
     Tasks: db.tasks.length,
     Transactions: db.transactions.length,
     "Tax Records": db.taxRecords.length,

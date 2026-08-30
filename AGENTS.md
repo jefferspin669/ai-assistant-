@@ -12,6 +12,8 @@ Atlas has a large interactive product surface. Much of it is still a **sophistic
 
 **North star:** stop adding feature pages; make one beachhead real. See `docs/NORTH_STAR.md`.
 
+API identity comes from the `atlas_session` httpOnly cookie — never from body `userId` / `organizationId`. Home KPIs should label DEMO vs LIVE data honestly.
+
 ## Atlas Brain (Phase 0+)
 
 - Command Center talks to `POST /api/ai/chat`
@@ -41,11 +43,12 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 
 ## Cursor Cloud specific instructions
 
-- Package manager is npm (`package-lock.json`); Node 20+ works (verified on Node 22).
-- Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`. Setup: `npm install`.
+- Package manager is npm (`package-lock.json`); Node 20+ works (verified on Node 22). After pulling, run `npm install` so `zod` and `vitest` are present.
+- Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`, `npm test`. Setup: `npm install`.
 - Dev server: `http://localhost:3000` via `npm run dev`.
 - Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
 - Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
 - Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
+- Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo`. Dev `GET /api/session` mints a cookie for the seeded owner.
 - Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.

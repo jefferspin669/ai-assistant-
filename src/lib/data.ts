@@ -132,13 +132,10 @@ export const aiEmployees = [
 ] as const;
 
 export const commandSuggestions = [
-  "Atlas, create an invoice for Acme Corp for $1,250, email it, remind them in 7 days if it’s unpaid, and update my books.",
-  "How do I create an invoice?",
+  "How did we do this week?",
+  "What should I do?",
+  "Move John’s 2 PM appointment to tomorrow.",
   "How is business?",
-  "What’s the most important thing I should focus on today?",
-  "Who canceled?",
-  "Fill his spot.",
-  "How much money did we make today?",
   "Approve the Johnson Construction estimate.",
   "Show overdue invoices.",
 ];
@@ -442,5 +439,101 @@ export const eventPlan = {
     { item: "Misc / buffer", amount: "$150" },
   ],
 };
+
+/** DEMO_CONTENT: static marketing/fallback KPIs. Home prefers /api/dashboard. */
+export const dashboardOverview = {
+  yesterdayRevenue: 4280,
+  weekChangePct: 8,
+  revenue: 12840,
+  profit: 7681,
+  expenses: 5159,
+  openTasks: 7,
+};
+
+export type ChartPeriod = "7D" | "30D" | "3M" | "1Y";
+
+export type PerformancePoint = {
+  label: string;
+  revenue: number;
+  profit: number;
+  expenses: number;
+};
+
+export const performanceChart: Record<ChartPeriod, PerformancePoint[]> = {
+  "7D": [
+    { label: "Mon", revenue: 4200, profit: 2520, expenses: 1680 },
+    { label: "Tue", revenue: 3800, profit: 2280, expenses: 1520 },
+    { label: "Wed", revenue: 5100, profit: 3060, expenses: 2040 },
+    { label: "Thu", revenue: 4600, profit: 2760, expenses: 1840 },
+    { label: "Fri", revenue: 6200, profit: 3720, expenses: 2480 },
+    { label: "Sat", revenue: 5400, profit: 3240, expenses: 2160 },
+    { label: "Sun", revenue: 4280, profit: 2568, expenses: 1712 },
+  ],
+  "30D": [
+    { label: "Wk 1", revenue: 18200, profit: 10920, expenses: 7280 },
+    { label: "Wk 2", revenue: 21400, profit: 12840, expenses: 8560 },
+    { label: "Wk 3", revenue: 19800, profit: 11880, expenses: 7920 },
+    { label: "Wk 4", revenue: 23600, profit: 14160, expenses: 9440 },
+  ],
+  "3M": [
+    { label: "Jun", revenue: 58200, profit: 34920, expenses: 23280 },
+    { label: "Jul", revenue: 62400, profit: 37440, expenses: 24960 },
+    { label: "Aug", revenue: 64210, profit: 38526, expenses: 25684 },
+  ],
+  "1Y": [
+    { label: "Q1", revenue: 168000, profit: 100800, expenses: 67200 },
+    { label: "Q2", revenue: 182400, profit: 109440, expenses: 72960 },
+    { label: "Q3", revenue: 194200, profit: 116520, expenses: 77680 },
+    { label: "Q4", revenue: 206800, profit: 124080, expenses: 82720 },
+  ],
+};
+
+/** DEMO_CONTENT: sample briefing copy. Home builds findings from workspace pulse. */
+export const atlasBriefingItems = [
+  { text: "2 customers canceled", tone: "warn" as const },
+  { text: "3 invoices overdue", tone: "warn" as const },
+  { text: "Technician running 15 minutes late", tone: "neutral" as const },
+  { text: "2 revenue opportunities detected", tone: "ok" as const },
+];
+
+/** DEMO_CONTENT: sample attention rows. Home uses Approvals + pulse instead. */
+export const attentionItems = [
+  {
+    title: "Approve Johnson Construction estimate",
+    detail: "$18,400 remodel · pending your OK",
+    href: "/app/confirmations",
+    priority: "high" as const,
+  },
+  {
+    title: "Replace canceled appointment",
+    detail: "2 open slots today · waitlist ready",
+    href: "/app/appointments",
+    priority: "high" as const,
+  },
+  {
+    title: "Review overdue invoice",
+    detail: "3 invoices · $2,310 total",
+    href: "/app/payments",
+    priority: "high" as const,
+  },
+  {
+    title: "3 high-priority tasks",
+    detail: "Due today on your task board",
+    href: "/app/tasks",
+    priority: "medium" as const,
+  },
+];
+
+export function formatMoneyShort(amount: number): string {
+  if (amount >= 1000) {
+    const k = amount / 1000;
+    return k % 1 === 0 ? `$${k}K` : `$${k.toFixed(1)}K`;
+  }
+  return `$${amount.toLocaleString()}`;
+}
+
+export function formatMoneyFull(amount: number): string {
+  return `$${amount.toLocaleString()}`;
+}
 
 export { navItems, navGroups } from "@/lib/atlas-platform";
