@@ -1,6 +1,8 @@
+import twilio from "twilio";
 import { requireLive } from "@/lib/integrations/config";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { writeJsonFile, readJsonFile } from "@/lib/db/file-persist";
+import { emitEvent } from "@/lib/events/bus";
 
 export type MissedCallRecord = {
   id: string;
@@ -23,12 +25,6 @@ function saveMissed(store: MissedStore) {
   writeJsonFile("missed-calls.json", store);
 }
 
-function twilioAuthHeader() {
-  const sid = process.env.TWILIO_ACCOUNT_SID?.trim() || "";
-  const token = process.env.TWILIO_AUTH_TOKEN?.trim() || "";
-  return `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`;
-}
-
 export async function sendSms(input: {
   to: string;
   body: string;
@@ -36,27 +32,23 @@ export async function sendSms(input: {
 }): Promise<{ ok: boolean; sid?: string; mode: "live" | "simulation"; error?: string }> {
   const from = process.env.TWILIO_PHONE_NUMBER?.trim() || "";
   if (requireLive("twilio") && from) {
-    const sid = process.env.TWILIO_ACCOUNT_SID!.trim();
-    const params = new URLSearchParams({ To: input.to, From: from, Body: input.body });
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: twilioAuthHeader(),
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params,
-    });
-    const json = (await res.json()) as { sid?: string; message?: string };
-    if (!res.ok) {
-      return { ok: false, mode: "live", error: json.message || `Twilio ${res.status}` };
+    try {
+      const client = twilio(process.env.TWILIO_ACCOUNT_SID!.trim(), process.env.TWILIO_AUTH_TOKEN!.trim());
+      const message = await client.messages.create({ to: input.to, from, body: input.body });
+      await atlasStore.writeAudit({
+        organizationId: input.organizationId || atlasStore.defaultOrgId(),
+        actor: "Twilio",
+        action: "sms.sent",
+        detail: { to: input.to, sid: message.sid },
+      });
+      return { ok: true, sid: message.sid, mode: "live" };
+    } catch (error) {
+      return {
+        ok: false,
+        mode: "live",
+        error: error instanceof Error ? error.message : "Twilio SMS failed",
+      };
     }
-    await atlasStore.writeAudit({
-      organizationId: input.organizationId || atlasStore.defaultOrgId(),
-      actor: "Twilio",
-      action: "sms.sent",
-      detail: { to: input.to, sid: json.sid },
-    });
-    return { ok: true, sid: json.sid, mode: "live" };
   }
 
   await atlasStore.writeAudit({
@@ -143,6 +135,19 @@ export async function handleMissedCall(input: {
     actor: "Receptionist",
     action: "missed_call.recovered",
     detail: { from: input.from, smsSid: sms.sid, mode: sms.mode },
+  });
+
+  emitEvent({
+    type: "call.missed",
+    organizationId: atlasStore.defaultOrgId(),
+    actorLabel: "Receptionist",
+    payload: { from: input.from, to: input.to, callSid: input.callSid, phone: input.from, handled: true },
+  });
+  emitEvent({
+    type: "lead.created",
+    organizationId: atlasStore.defaultOrgId(),
+    actorLabel: "Receptionist",
+    payload: { from: input.from, phone: input.from, source: "missed-call" },
   });
 
   return record;

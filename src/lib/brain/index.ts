@@ -7,18 +7,8 @@ import {
   type BrainResult,
   type BrainToolCall,
 } from "@/lib/brain/types";
-
-type OpenAiToolCall = {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-};
-
-type OpenAiMessage = {
-  role: string;
-  content?: string | null;
-  tool_calls?: OpenAiToolCall[];
-};
+import { createOpenAIClient } from "@/lib/integrations/openai";
+import type OpenAI from "openai";
 
 function simulationBrain(input: BrainChatInput): BrainResult {
   const result = runOwnerCommand(input.message);
@@ -51,8 +41,9 @@ function simulationBrain(input: BrainChatInput): BrainResult {
 }
 
 async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
-  const { apiKey, baseUrl, model } = brainConfig();
-  const messages: OpenAiMessage[] = [
+  const { model } = brainConfig();
+  const openai = createOpenAIClient();
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: "system", content: buildSystemPrompt(input) },
     ...(input.history || []).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: input.message },
@@ -62,30 +53,14 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
   const toolCallsMade: BrainToolCall[] = [];
 
   for (let step = 0; step < 4; step += 1) {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        tools: BRAIN_TOOLS,
-        tool_choice: "auto",
-        temperature: 0.3,
-      }),
+    const completion = await openai.chat.completions.create({
+      model,
+      messages,
+      tools: BRAIN_TOOLS,
+      tool_choice: "auto",
+      temperature: 0.3,
     });
-
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`LLM error ${response.status}: ${detail.slice(0, 280)}`);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: { message?: OpenAiMessage }[];
-    };
-    const message = payload.choices?.[0]?.message;
+    const message = completion.choices[0]?.message;
     if (!message) throw new Error("LLM returned no message.");
 
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -96,20 +71,22 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
       });
 
       for (const call of message.tool_calls) {
+        const fn = call.type === "function" ? call.function : null;
+        if (!fn) continue;
         let args: Record<string, unknown> = {};
         try {
-          args = JSON.parse(call.function.arguments || "{}") as Record<string, unknown>;
+          args = JSON.parse(fn.arguments || "{}") as Record<string, unknown>;
         } catch {
           args = {};
         }
-        toolCallsMade.push({ id: call.id, name: call.function.name, arguments: args });
-        const executed = executeBrainTool(call.function.name, args);
+        toolCallsMade.push({ id: call.id, name: fn.name, arguments: args });
+        const executed = executeBrainTool(fn.name, args);
         if (executed.proposedAction) proposedAction = executed.proposedAction;
         messages.push({
           role: "tool",
           tool_call_id: call.id,
           content: executed.content,
-        } as OpenAiMessage);
+        });
       }
       continue;
     }

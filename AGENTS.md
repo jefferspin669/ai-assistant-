@@ -6,9 +6,11 @@ Next.js 15 (App Router) + React 19 + TypeScript.
 
 Atlas has a large interactive product surface. Much of it is still a **sophisticated simulation**:
 
-- Keyword Brain fallback in `src/lib/commands.ts`
-- File-backed JSON under `.data/` (not shared Postgres yet)
-- Many studios mock phone/calendar/invoices
+- Keyword Brain fallback in `src/lib/commands.ts` when no LLM key is set
+- File-backed JSON under `.data/` is still the **sync read path**
+- When `DATABASE_URL` is set, saves **dual-write** into Postgres via Drizzle
+- When `REDIS_URL` is set, jobs also go to BullMQ (`npm run worker`)
+- Many studios mock phone/calendar/invoices unless integration env vars are set
 
 **North star:** stop adding feature pages; make one beachhead real. See `docs/NORTH_STAR.md`.
 
@@ -45,17 +47,20 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 
 ## Backend today
 
-- Route Handlers under `src/app/api/**`
-- Architecture DB → `.data/atlas-db.json`
+- Route Handlers under `src/app/api/**` — Next.js stays the API (no second HTTP server)
+- Architecture DB → `.data/atlas-db.json` (reads); Postgres dual-write when `DATABASE_URL` is set
+- Event bus → `src/lib/events` (`appointment.cancelled`, `call.missed`, `invoice.overdue`, …)
+- Queue → file jobs, or BullMQ `atlas-jobs` when Redis is up
 - Workspace domains → `.data/workspace.json`
-- Open `/app/backend` for health checks
+- Open `/app/backend` for health checks; `GET /api/health` reports postgres / redis / queue driver
 
 ## Cursor Cloud specific instructions
 
 - Package manager is npm (`package-lock.json`); Node 20+ works (verified on Node 22). After pulling, run `npm install` so `zod` and `vitest` are present.
 - Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`, `npm test`. Setup: `npm install`.
+- Optional local stack: `docker compose up -d postgres redis`, then `npm run db:migrate`, `npm run worker`, `npm run dev`.
 - Dev server: `http://localhost:3000` via `npm run dev`.
-- Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
+- Optional env: copy `.env.example` → `.env.local`. `ATLAS_LLM_API_KEY` for live Brain; `DATABASE_URL` / `REDIS_URL` for Postgres + workers.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
 - Autonomy: open `/app/autonomous`. Try Level 1 vs 4, kill switch, and “Simulate $18,420 vendor payment”.
 - Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.

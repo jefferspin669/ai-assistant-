@@ -11,6 +11,7 @@ import {
 import { createApproval, listApprovals, requiresApproval } from "@/lib/services/approvals";
 import { intentFromAtlasAction, submitWork } from "@/lib/autonomy/submit";
 import { enqueueJob } from "@/lib/services/jobs";
+import { emitEvent } from "@/lib/events/bus";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database, requireCustomer } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
@@ -178,6 +179,12 @@ export function resolveApproval(ctx: SessionContext, approvalId: string, decisio
     entityId: row.id,
   });
   if (decision === "rejected") return { approval: { ...row, status: decision }, result: null };
+  emitEvent({
+    type: "approval.granted",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    payload: { id: row.id, actionType: row.action_type },
+  });
   const atlasAction = row.payload.atlasAction;
   if (atlasAction) {
     const action = decodeAtlasAction(atlasAction);

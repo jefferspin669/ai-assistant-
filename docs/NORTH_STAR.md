@@ -5,7 +5,7 @@
 Atlas looks like an AI Operating System. Underneath, most “intelligence” is still:
 
 - Keyword / rule replies in `src/lib/commands.ts` (`runOwnerCommand`)
-- File-backed JSON under `.data/` (and browser `localStorage` for some client paths)
+- File-backed JSON under `.data/` (and browser `localStorage` for some client paths). Postgres dual-write exists when `DATABASE_URL` is set; reads are still JSON until APIs go async.
 - UI studios that *simulate* phone, calendar, invoices, and payroll
 
 That was the right way to explore the surface area. It is no longer the highest-leverage work.
@@ -48,6 +48,7 @@ Tax Center, Marketplace, Simulator, etc. stay as *prototype surface* until the b
 
 ### Phase 1–3 — Commercial wiring (in progress in repo)
 
+- **Postgres + Drizzle + event bus + BullMQ** — dual-write schema in `drizzle/0000_init.sql`; events in `src/lib/events`; workers in `src/worker`
 - **Supabase client** — `src/lib/integrations/supabase.ts` dual-writes live REST when configured, else `.data`
 - **Twilio receptionist** — voice TwiML + SMS + missed-call recovery (`/api/webhooks/twilio/*`, `/api/receptionist/missed-call`)
 - **Google / Microsoft calendar** — OAuth + event create (`/api/calendar/oauth/*`, `/api/calendar/sync`)

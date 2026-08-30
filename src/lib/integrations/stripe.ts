@@ -1,29 +1,17 @@
+import Stripe from "stripe";
 import { getAppUrl, requireLive } from "@/lib/integrations/config";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { loadDatabase, saveDatabase } from "@/lib/db/store";
+import { emitEvent } from "@/lib/events/bus";
 
 function stripeKey() {
   return process.env.STRIPE_SECRET_KEY?.trim() || "";
 }
 
-async function stripeRequest<T>(path: string, init?: RequestInit & { form?: Record<string, string> }) {
+function getStripe() {
   const key = stripeKey();
   if (!key) throw new Error("STRIPE_SECRET_KEY not set");
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${key}`,
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  let body: BodyInit | undefined = init?.body as BodyInit | undefined;
-  if (init?.form) {
-    headers["Content-Type"] = "application/x-www-form-urlencoded";
-    body = new URLSearchParams(init.form);
-  }
-  const res = await fetch(`https://api.stripe.com/v1/${path}`, { ...init, headers, body });
-  const json = (await res.json()) as T & { error?: { message?: string } };
-  if (!res.ok) {
-    throw new Error(json.error?.message || `Stripe ${res.status}`);
-  }
-  return json as T;
+  return new Stripe(key);
 }
 
 export type AtlasPlan = "business_monthly";
@@ -67,19 +55,14 @@ export async function createCheckoutSession(input: {
     };
   }
 
-  const form: Record<string, string> = {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     success_url: `${getAppUrl()}/app/commercial?checkout=success`,
     cancel_url: `${getAppUrl()}/app/commercial?checkout=cancel`,
-    "line_items[0][price]": price,
-    "line_items[0][quantity]": "1",
-    "metadata[organization_id]": orgId,
-  };
-  if (input.customerEmail) form.customer_email = input.customerEmail;
-
-  const session = await stripeRequest<{ id: string; url: string }>("checkout/sessions", {
-    method: "POST",
-    form,
+    line_items: [{ price, quantity: 1 }],
+    customer_email: input.customerEmail,
+    metadata: { organization_id: orgId },
   });
 
   await atlasStore.writeAudit({
@@ -89,7 +72,7 @@ export async function createCheckoutSession(input: {
     detail: { sessionId: session.id },
   });
 
-  return { mode: "live" as const, url: session.url, sessionId: session.id };
+  return { mode: "live" as const, url: session.url || `${getAppUrl()}/app/commercial`, sessionId: session.id };
 }
 
 export async function createBillingPortalSession(input: { customerId: string }) {
@@ -99,30 +82,30 @@ export async function createBillingPortalSession(input: { customerId: string }) 
       url: `${getAppUrl()}/app/commercial?portal=simulated`,
     };
   }
-  const session = await stripeRequest<{ url: string }>("billing_portal/sessions", {
-    method: "POST",
-    form: {
-      customer: input.customerId,
-      return_url: `${getAppUrl()}/app/commercial`,
-    },
+  const stripe = getStripe();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: input.customerId,
+    return_url: `${getAppUrl()}/app/commercial`,
   });
   return { mode: "live" as const, url: session.url };
 }
 
 export async function handleStripeWebhook(rawBody: string, signature: string | null) {
-  // Signature verification requires STRIPE_WEBHOOK_SECRET; without it we accept in simulation only.
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  let event: { type: string; data: { object: Record<string, unknown> } };
+
   if (secret && signature) {
-    // Minimal presence check — full HMAC verification can be added with stripe SDK.
-    // We still parse and apply events when secret is configured.
+    const stripe = getStripe();
+    const verified = stripe.webhooks.constructEvent(rawBody, signature, secret);
+    event = {
+      type: verified.type,
+      data: { object: verified.data.object as unknown as Record<string, unknown> },
+    };
   } else if (requireLive("stripe") && secret && !signature) {
     throw new Error("Missing Stripe-Signature");
+  } else {
+    event = JSON.parse(rawBody) as typeof event;
   }
-
-  const event = JSON.parse(rawBody) as {
-    type: string;
-    data: { object: Record<string, unknown> };
-  };
 
   if (event.type === "checkout.session.completed") {
     const orgId = String(
@@ -141,6 +124,12 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
       actor: "Stripe",
       action: "subscription.activated",
       detail: { session: event.data.object.id },
+    });
+    emitEvent({
+      type: "payment.received",
+      organizationId: orgId,
+      actorLabel: "Stripe",
+      payload: { session: event.data.object.id },
     });
   }
 

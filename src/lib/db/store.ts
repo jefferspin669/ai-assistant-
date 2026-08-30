@@ -750,6 +750,13 @@ export function saveDatabase(db: AtlasDatabase) {
   if (typeof window === "undefined") {
     setServerDb(next);
     writeJsonFile(DB_FILE, next);
+    if (process.env.DATABASE_URL?.trim()) {
+      void import("@/lib/db/postgres")
+        .then((mod) => mod.persistAtlasDatabase(next))
+        .catch((error) => {
+          console.error("[atlas:pg]", error instanceof Error ? error.message : error);
+        });
+    }
     return;
   }
   localStorage.setItem(DB_KEY, JSON.stringify(next));
