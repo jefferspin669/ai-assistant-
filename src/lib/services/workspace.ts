@@ -1,6 +1,8 @@
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/domain/errors";
 import { requirePermission } from "@/lib/auth/permissions";
 import { writeAudit } from "@/lib/services/audit";
+import { emitEvent } from "@/backend/events/bus";
+import { registerAutomationHandlers } from "@/backend/automation/engine";
 import { toCalendarEvent, toCustomer, toDbTaskStatus, toTask, toTransaction } from "@/lib/domain/mappers";
 import type {
   CalendarEvent,
@@ -48,6 +50,14 @@ export function createCustomer(
   };
   saveDatabase({ ...db, customers: [row, ...db.customers] });
   writeAudit(ctx, { action: "created customer", entityType: "customer", entityId: row.id });
+  registerAutomationHandlers();
+  emitEvent({
+    type: "customer.created",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    actorLabel: "Atlas",
+    payload: { id: row.id, name: row.name, email: row.email },
+  });
   return toCustomer(row);
 }
 
@@ -176,6 +186,14 @@ export function createCustomerScopedEvent(
   };
   saveDatabase({ ...db, calendar_events: [event, ...db.calendar_events] });
   writeAudit(ctx, { action: "created appointment", entityType: "calendar_event", entityId: event.id });
+  registerAutomationHandlers();
+  emitEvent({
+    type: "appointment.created",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    actorLabel: "Atlas",
+    payload: { id: event.id, title: event.title, startTime: event.start_time, customerId: input.customerId },
+  });
   return toCalendarEvent(event);
 }
 
@@ -217,6 +235,14 @@ export function createOrgEvent(
   };
   saveDatabase({ ...db, calendar_events: [event, ...db.calendar_events] });
   writeAudit(ctx, { action: "created appointment", entityType: "calendar_event", entityId: event.id });
+  registerAutomationHandlers();
+  emitEvent({
+    type: "appointment.created",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    actorLabel: "Atlas",
+    payload: { id: event.id, title: event.title, startTime: event.start_time },
+  });
   return toCalendarEvent(event);
 }
 
@@ -241,13 +267,26 @@ export function moveOrgEvent(
 
 export function deleteOrgEvent(ctx: SessionContext, eventId: string): { id: string } {
   const db = database();
-  requireEvent(db, ctx, eventId);
+  const existing = requireEvent(db, ctx, eventId);
   requirePermission(ctx, "calendar.write");
   saveDatabase({
     ...db,
     calendar_events: db.calendar_events.filter((row) => row.id !== eventId),
   });
   writeAudit(ctx, { action: "deleted appointment", entityType: "calendar_event", entityId: eventId });
+  registerAutomationHandlers();
+  emitEvent({
+    type: "appointment.cancelled",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    actorLabel: "Atlas",
+    payload: {
+      id: eventId,
+      appointmentId: eventId,
+      title: existing.title,
+      startTime: existing.start_time,
+    },
+  });
   return { id: eventId };
 }
 

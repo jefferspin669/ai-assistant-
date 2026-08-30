@@ -36,10 +36,12 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 
 ## Backend today
 
-- Route Handlers under `src/app/api/**`
-- Architecture DB → `.data/atlas-db.json`
+- Route Handlers under `src/app/api/**` (NestJS later if the API splits out — see `docs/ARCHITECTURE.md`)
+- Modular kernel under `src/backend/**`: Brain pipeline, events, jobs, permissions, automation, audit
+- Architecture DB → `.data/atlas-db.json`; domain events → `.data/atlas-events.json`
 - Workspace domains → `.data/workspace.json`
-- Open `/app/backend` for health checks
+- Open `/app/backend` for health checks; `GET /api/backend/status` for kernel + policies
+- React never calls the model. Chat goes through `POST /api/ai/chat` → `runBrainPipeline`
 
 ## Cursor Cloud specific instructions
 
@@ -49,6 +51,7 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
 - Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
-- Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
+- Backend smoke: `curl http://localhost:3000/api/health`, `curl http://localhost:3000/api/backend/status`, or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
+- Kernel: events + file job queue + permission table + Brain pipeline. Redis/BullMQ is Phase 3 (`REDIS_URL`); do not add a second NestJS server yet.
 - Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo`. Dev `GET /api/session` mints a cookie for the seeded owner.
 - Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.

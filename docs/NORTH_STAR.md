@@ -63,6 +63,12 @@ Without credentials everything stays in **simulation mode** so demos never break
 - Every tool call and approval is written to an audit log
 - Estimates / AI suggestions / accountant-reviewed / filed remain labeled when Tax ships for real
 
+## Backend kernel (modular, not one file)
+
+Preferred long-term stack is NestJS + Postgres + Redis/BullMQ. **This repo keeps Next.js as the API** until the five cores are real; Nest would extract `src/backend/**`, not a parallel product.
+
+See [`docs/ARCHITECTURE.md`](ARCHITECTURE.md): Brain pipeline, automation engine, job queue contract, permission/approval table, audit lines. Do not call OpenAI from the React client.
+
 ## How to work going forward
 
 | Do | Don’t |

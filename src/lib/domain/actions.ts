@@ -22,9 +22,15 @@ export type AtlasActionResult =
   | { type: "MOVE_APPOINTMENT"; event: CalendarEvent; requiresApproval?: false }
   | { type: "CREATE_CUSTOMER"; customer: Customer; requiresApproval?: false }
   | {
-      type: "SEND_MESSAGE" | "CREATE_QUOTE" | "REQUEST_PAYMENT" | "REFUND_CUSTOMER";
+      type: "SEND_MESSAGE" | "CREATE_QUOTE" | "REQUEST_PAYMENT";
       queued: true;
       requiresApproval: true;
+      approvalId: string;
+    }
+  | {
+      type: "REFUND_CUSTOMER";
+      queued: true;
+      requiresApproval: boolean;
       approvalId: string;
     };
 
@@ -107,20 +113,36 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
         approvalId: quote.id,
       };
     }
-    case "REQUEST_PAYMENT":
-    case "REFUND_CUSTOMER": {
+    case "REQUEST_PAYMENT": {
       requirePermission(ctx, "payments.refund");
       requireCustomer(database(), ctx, action.payload.customerId);
-      enqueueJob(ctx, action.type.toLowerCase(), { ...action.payload, userId: ctx.userId });
+      enqueueJob(ctx, "request_payment", { ...action.payload, userId: ctx.userId });
       writeAudit(ctx, {
-        action: action.type === "REFUND_CUSTOMER" ? "refunded customer" : "requested payment",
+        action: "requested payment",
         entityType: "customer",
         entityId: action.payload.customerId,
       });
       return {
-        type: action.type,
+        type: "REQUEST_PAYMENT",
         queued: true,
         requiresApproval: true,
+        approvalId: "executed",
+      };
+    }
+    case "REFUND_CUSTOMER": {
+      requirePermission(ctx, "payments.refund");
+      requireCustomer(database(), ctx, action.payload.customerId);
+      enqueueJob(ctx, "refund_customer", { ...action.payload, userId: ctx.userId });
+      writeAudit(ctx, {
+        action: `refunded customer $${action.payload.amount}`,
+        entityType: "customer",
+        entityId: action.payload.customerId,
+        actorLabel: "Atlas",
+      });
+      return {
+        type: "REFUND_CUSTOMER",
+        queued: true,
+        requiresApproval: false,
         approvalId: "executed",
       };
     }
@@ -129,7 +151,7 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
 
 export function executeAtlasAction(input: unknown, ctx: SessionContext): AtlasActionResult {
   const action = decodeAtlasAction(input);
-  if (requiresApproval(action.type, ctx)) {
+  if (requiresApproval(action.type, ctx, action.payload as Record<string, unknown>)) {
     const approval = createApproval(ctx, action);
     return {
       type: action.type as "SEND_MESSAGE" | "CREATE_QUOTE" | "REQUEST_PAYMENT" | "REFUND_CUSTOMER",

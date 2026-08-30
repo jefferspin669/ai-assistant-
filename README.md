@@ -47,7 +47,7 @@ Supabase dual-write, Twilio voice/SMS + missed-call recovery, Google/Microsoft c
 
 The central AI that remembers customers, employees, hours, services, inventory, appointments, conversations, policies, pricing, documents, past jobs, equipment, and suppliers — so every AI doesn’t start over.
 
-**Implementation status:** Phase 0 Brain router ships in this repo (`src/lib/brain`). Live model optional via env. Shared Postgres + Twilio receptionist are next.
+**Implementation status:** Command Center → `POST /api/ai/chat` → `src/backend/ai/pipeline.ts`. Live model optional via env. Modular kernel (events, jobs, permissions, audit) lives in `src/backend/**`. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Shared Postgres + Twilio receptionist remain the beachhead.
 
 ## Run
 

@@ -1,16 +1,21 @@
 import { apiResponse, readJson } from "@/lib/api/http";
 import { ok } from "@/lib/api/types";
-import { runAtlasBrain } from "@/lib/brain";
+import { runBrainPipeline } from "@/backend/ai/pipeline";
 import { newId, nowIso, loadDatabase, saveDatabase } from "@/lib/db/store";
 
 export async function POST(req: Request) {
   const body = await readJson(req);
   const message = String(body.message || body.text || "");
-  const brain = await runAtlasBrain({
+  const data = loadDatabase();
+  const orgId = data.organizations[0]?.id;
+  const userId = data.users[0]?.id || "user_demo";
+  const brain = await runBrainPipeline({
     message,
     businessName: body.businessName ? String(body.businessName) : undefined,
     ownerName: body.ownerName ? String(body.ownerName) : undefined,
     dnaRules: Array.isArray(body.dnaRules) ? body.dnaRules.map(String) : undefined,
+    organizationId: orgId,
+    userId,
     history: Array.isArray(body.history)
       ? body.history
           .filter(
@@ -23,11 +28,9 @@ export async function POST(req: Request) {
           }))
       : undefined,
   });
-
-  const data = loadDatabase();
   const stamp = nowIso();
-  const userId = data.users[0]?.id || "user_demo";
-  let conversation = data.conversations[0];
+  const latest = loadDatabase();
+  let conversation = latest.conversations[0];
   if (!conversation) {
     conversation = {
       id: newId("chat"),
@@ -49,10 +52,10 @@ export async function POST(req: Request) {
       { role: "ai", text: `[${brain.agentLabel}/${brain.mode}] ${brain.reply}`, at: stamp },
     ],
   };
-  const conversations = data.conversations.some((c) => c.id === conversation.id)
-    ? data.conversations.map((c) => (c.id === conversation.id ? conversation : c))
-    : [conversation, ...data.conversations];
-  saveDatabase({ ...data, conversations });
+  const conversations = latest.conversations.some((c) => c.id === conversation.id)
+    ? latest.conversations.map((c) => (c.id === conversation.id ? conversation : c))
+    : [conversation, ...latest.conversations];
+  saveDatabase({ ...latest, conversations });
 
   return apiResponse(
     ok({
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
       doneLabel: brain.doneLabel,
       proposedAction: brain.proposedAction,
       toolCalls: brain.toolCalls,
+      pipeline: brain.pipeline,
       conversation,
     }),
   );

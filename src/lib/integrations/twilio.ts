@@ -145,6 +145,22 @@ export async function handleMissedCall(input: {
     detail: { from: input.from, smsSid: sms.sid, mode: sms.mode },
   });
 
+  const { emitEvent } = await import("@/backend/events/bus");
+  const { registerAutomationHandlers } = await import("@/backend/automation/engine");
+  registerAutomationHandlers();
+  emitEvent({
+    type: "customer.missed_call",
+    organizationId: atlasStore.defaultOrgId(),
+    actorLabel: "Atlas Receptionist",
+    payload: { id: record.id, from: input.from, to: input.to },
+  });
+  emitEvent({
+    type: "lead.created",
+    organizationId: atlasStore.defaultOrgId(),
+    actorLabel: "Atlas Receptionist",
+    payload: { phone: input.from, source: "missed_call" },
+  });
+
   return record;
 }
 

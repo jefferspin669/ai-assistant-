@@ -93,6 +93,17 @@ create table if not exists action_proposals (
   resolved_at timestamptz
 );
 
+-- Domain events (src/backend/events) are file-backed today: .data/atlas-events.json
+-- Promote this table in Phase 3 when the bus dual-writes to Postgres.
+-- create table if not exists domain_events (
+--   id uuid primary key default gen_random_uuid(),
+--   organization_id uuid not null references organizations(id) on delete cascade,
+--   type text not null,
+--   payload jsonb not null default '{}'::jsonb,
+--   actor_id text,
+--   created_at timestamptz not null default now()
+-- );
+
 create table if not exists audit_events (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,

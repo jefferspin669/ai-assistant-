@@ -5,11 +5,20 @@ import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
 import { notify } from "@/lib/services/jobs";
 import { hasPermission } from "@/lib/auth/permissions";
+import { authorizeAction } from "@/backend/permissions/engine";
 
 const SENSITIVE = new Set(["SEND_MESSAGE", "CREATE_QUOTE", "REQUEST_PAYMENT", "REFUND_CUSTOMER"]);
 
-export function requiresApproval(type: AtlasAction["type"], ctx: SessionContext) {
-  if (type === "REFUND_CUSTOMER") return true;
+export function requiresApproval(
+  type: AtlasAction["type"],
+  ctx: SessionContext,
+  payload?: Record<string, unknown>,
+) {
+  if (type === "REFUND_CUSTOMER") {
+    const amount = Number(payload?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return true;
+    return authorizeAction({ action: "refund", amount }).permission === "OWNER_APPROVAL_REQUIRED";
+  }
   if (!SENSITIVE.has(type)) return false;
   return !hasPermission(ctx, "atlas.autonomous");
 }
