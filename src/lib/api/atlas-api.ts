@@ -274,6 +274,7 @@ export const organizationMembersApi = {
             profile_image: null,
             timezone: "America/Chicago",
             preferred_language: "en",
+            email_verified_at: null,
             created_at: stamp,
             updated_at: stamp,
           },

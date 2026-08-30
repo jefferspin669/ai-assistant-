@@ -15,7 +15,9 @@ import { knowledgeHub } from "@/lib/section-hubs";
 export default function KnowledgePage() {
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
   const [query, setQuery] = useState("What’s our return policy?");
-  const [answer, setAnswer] = useState(knowledgeQa[0]);
+  const [answer, setAnswer] = useState(
+    knowledgeQa[0] ?? { q: "", a: "Atlas will answer from your docs.", source: "—" },
+  );
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,7 +54,9 @@ export default function KnowledgePage() {
       knowledgeQa.find((item) => q.toLowerCase().includes("refund")) ??
       knowledgeQa.find((item) => q.toLowerCase().includes("rate") || q.toLowerCase().includes("after")) ??
       knowledgeQa[0];
-    setAnswer(match);
+    setAnswer(
+      match ?? { q, a: "I don’t have that in the library yet. Upload the doc and ask again.", source: "—" },
+    );
   }
 
   function onAsk(e: FormEvent) {
@@ -71,9 +75,10 @@ export default function KnowledgePage() {
     const added = files.map((file) => createKnowledgeDoc(file.name));
     const next = [...added, ...docs];
     persist(next);
+    const first = added[0];
     setNote(
-      added.length === 1
-        ? `Uploaded “${added[0].name}”. Atlas is learning it.`
+      added.length === 1 && first
+        ? `Uploaded “${first.name}”. Atlas is learning it.`
         : `Uploaded ${added.length} documents. Atlas is learning them.`,
     );
     window.setTimeout(() => {

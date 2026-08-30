@@ -398,7 +398,7 @@ export function seedDatabase(): AtlasDatabase {
       kind: t.kind,
       label: t.label,
       amount: t.amount,
-      category: t.category,
+      category: t.category || "",
       date: t.date,
       notes: "",
       receiptName: t.receiptName,

@@ -6,11 +6,13 @@ import { err } from "@/lib/api/types";
 import { isAtlasError } from "@/lib/domain/errors";
 import type { SessionContext } from "@/lib/domain/types";
 
-export async function readJson(req: Request): Promise<unknown> {
+export async function readJson<T extends Record<string, unknown> = Record<string, unknown>>(
+  req: Request,
+): Promise<T> {
   try {
-    return await req.json();
+    return asRecord(await req.json()) as T;
   } catch {
-    return {};
+    return {} as T;
   }
 }
 

@@ -16,20 +16,22 @@ export function testSession(
 }
 
 export function requireSession(ctx: Partial<SessionContext> | null | undefined): SessionContext {
-  if (!ctx?.userId) throw new AuthenticationError();
-  if (!ctx.organizationId) throw new AuthenticationError("Organization is required.");
+  const userId = ctx?.userId;
+  const organizationId = ctx?.organizationId;
+  if (!userId) throw new AuthenticationError();
+  if (!organizationId) throw new AuthenticationError("Organization is required.");
   if (ctx.role && ctx.sessionId) {
     return {
-      userId: ctx.userId,
-      organizationId: ctx.organizationId,
+      userId,
+      organizationId,
       role: ctx.role,
       sessionId: ctx.sessionId,
     };
   }
-  const member = requireOrgMember(database(), ctx);
+  const member = requireOrgMember(database(), { userId, organizationId });
   return {
-    userId: ctx.userId,
-    organizationId: ctx.organizationId,
+    userId,
+    organizationId,
     role: member.role as OrgRole,
     sessionId: ctx.sessionId || "service",
   };
