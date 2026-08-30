@@ -9,6 +9,7 @@ import {
   updateOrgTask,
 } from "@/lib/services/workspace";
 import { createApproval, listApprovals, requiresApproval } from "@/lib/services/approvals";
+import { intentFromAtlasAction, submitWork } from "@/lib/autonomy/submit";
 import { enqueueJob } from "@/lib/services/jobs";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database, requireCustomer } from "@/lib/services/access";
@@ -129,6 +130,22 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
 
 export function executeAtlasAction(input: unknown, ctx: SessionContext): AtlasActionResult {
   const action = decodeAtlasAction(input);
+  const gated =
+    action.type === "SEND_MESSAGE" ||
+    action.type === "REQUEST_PAYMENT" ||
+    action.type === "REFUND_CUSTOMER";
+  if (gated) {
+    const submitted = submitWork(ctx, intentFromAtlasAction(action), { enqueueOnExecute: false });
+    if (submitted.decision.verdict !== "execute") {
+      return {
+        type: action.type,
+        queued: true,
+        requiresApproval: true,
+        approvalId: submitted.approvalId || "",
+      };
+    }
+    return executeApprovedAction(action, ctx);
+  }
   if (requiresApproval(action.type, ctx)) {
     const approval = createApproval(ctx, action);
     return {
@@ -161,8 +178,13 @@ export function resolveApproval(ctx: SessionContext, approvalId: string, decisio
     entityId: row.id,
   });
   if (decision === "rejected") return { approval: { ...row, status: decision }, result: null };
-  const action = decodeAtlasAction({ type: row.action_type, payload: row.payload });
-  return { approval: { ...row, status: decision }, result: executeApprovedAction(action, ctx) };
+  const atlasAction = row.payload.atlasAction;
+  if (atlasAction) {
+    const action = decodeAtlasAction(atlasAction);
+    return { approval: { ...row, status: decision }, result: executeApprovedAction(action, ctx) };
+  }
+  enqueueJob(ctx, `autonomy:${row.action_type}`, { ...row.payload, userId: ctx.userId });
+  return { approval: { ...row, status: decision }, result: { queued: true, type: row.action_type } };
 }
 
 export { listApprovals };

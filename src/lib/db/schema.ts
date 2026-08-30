@@ -291,6 +291,20 @@ export type DbEmailVerification = {
   used_at: string | null;
 };
 
+export type DbAutonomyPolicy = {
+  organization_id: string;
+  level: 1 | 2 | 3 | 4;
+  kill_switch: boolean;
+  auto_payment_limit_cents: number;
+  refund_limit_cents: number;
+  discount_cap_percent: number;
+  marketing_budget_cents: number;
+  earliest_schedule_hour: number;
+  wake_only_emergencies: boolean;
+  standing_orders: string[];
+  updated_at: string;
+};
+
 export type AtlasDatabase = {
   users: DbUser[];
   user_credentials: DbUserCredential[];
@@ -319,6 +333,7 @@ export type AtlasDatabase = {
   quotes: DbQuote[];
   webhook_receipts: DbWebhookReceipt[];
   email_verifications: DbEmailVerification[];
+  autonomy_policies: DbAutonomyPolicy[];
 };
 
 export const DB_TABLES = [
@@ -344,4 +359,5 @@ export const DB_TABLES = [
   "Integrations",
   "Quotes",
   "Webhook Receipts",
+  "Autonomy Policies",
 ] as const;

@@ -104,6 +104,7 @@ function emptyDb(): AtlasDatabase {
     quotes: [],
     webhook_receipts: [],
     email_verifications: [],
+    autonomy_policies: [],
   };
 }
 
@@ -129,6 +130,7 @@ function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
     quotes: raw.quotes || [],
     webhook_receipts: raw.webhook_receipts || [],
     email_verifications: raw.email_verifications || [],
+    autonomy_policies: raw.autonomy_policies || [],
     notifications: raw.notifications || [],
     agents: raw.agents || [],
     automations: raw.automations || [],
@@ -561,6 +563,25 @@ export function seedDatabase(): AtlasDatabase {
     audit_logs: [],
     approvals: [],
     jobs: [],
+    autonomy_policies: [
+      {
+        organization_id: orgId,
+        level: 1,
+        kill_switch: false,
+        auto_payment_limit_cents: 500_000,
+        refund_limit_cents: 10_000,
+        discount_cap_percent: 10,
+        marketing_budget_cents: 150_000,
+        earliest_schedule_hour: 8,
+        wake_only_emergencies: true,
+        standing_orders: [
+          "Never discount more than 10% without approval.",
+          "Do not schedule before 8:00 AM without approval.",
+          "Wake the owner only for true emergencies.",
+        ],
+        updated_at: stamp,
+      },
+    ],
     integrations: [
       {
         id: "gmail",

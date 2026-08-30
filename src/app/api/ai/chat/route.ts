@@ -1,6 +1,8 @@
 import { apiResponse, readJson } from "@/lib/api/http";
 import { ok } from "@/lib/api/types";
 import { runAtlasBrain } from "@/lib/brain";
+import { applyAwayMode, appendStandingOrder } from "@/lib/autonomy/policy";
+import { isAwayPhrase, LEVEL_LABELS } from "@/lib/autonomy";
 import { newId, nowIso, loadDatabase, saveDatabase } from "@/lib/db/store";
 
 export async function POST(req: Request) {
@@ -26,6 +28,21 @@ export async function POST(req: Request) {
 
   const data = loadDatabase();
   const stamp = nowIso();
+  const orgId = data.organizations[0]?.id;
+  let awayPolicy = null;
+  if (orgId) {
+    for (const call of brain.toolCalls || []) {
+      if (call.name === "remember_standing_order") {
+        const order = String(call.arguments.order || "");
+        if (order) appendStandingOrder(orgId, order);
+      }
+    }
+  }
+  if (orgId && isAwayPhrase(message)) {
+    awayPolicy = applyAwayMode(orgId, message);
+    const level = LEVEL_LABELS[awayPolicy.level];
+    brain.reply = `${brain.reply}\n\nAutonomy is now Level ${awayPolicy.level} — ${level.name}. ${level.headline} Payments over $${(awayPolicy.autoPaymentLimitCents / 100).toLocaleString()} still need you. Kill switch is off.`;
+  }
   const userId = data.users[0]?.id || "user_demo";
   let conversation = data.conversations[0];
   if (!conversation) {
@@ -49,10 +66,11 @@ export async function POST(req: Request) {
       { role: "ai", text: `[${brain.agentLabel}/${brain.mode}] ${brain.reply}`, at: stamp },
     ],
   };
-  const conversations = data.conversations.some((c) => c.id === conversation.id)
-    ? data.conversations.map((c) => (c.id === conversation.id ? conversation : c))
-    : [conversation, ...data.conversations];
-  saveDatabase({ ...data, conversations });
+  const latest = loadDatabase();
+  const conversations = latest.conversations.some((c) => c.id === conversation.id)
+    ? latest.conversations.map((c) => (c.id === conversation.id ? conversation : c))
+    : [conversation, ...latest.conversations];
+  saveDatabase({ ...latest, conversations });
 
   return apiResponse(
     ok({
@@ -66,6 +84,9 @@ export async function POST(req: Request) {
       proposedAction: brain.proposedAction,
       toolCalls: brain.toolCalls,
       conversation,
+      autonomy: awayPolicy
+        ? { level: awayPolicy.level, killSwitch: awayPolicy.killSwitch }
+        : undefined,
     }),
   );
 }

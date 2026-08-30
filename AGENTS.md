@@ -34,6 +34,15 @@ API identity comes from the `atlas_session` httpOnly cookie — never from body 
 
 Copy `.env.example` → `.env.local` and fill credentials to go live. Without them, actions run in simulation and write audit trails locally.
 
+## Autonomy engine
+
+- Levels 1–4 + kill switch + spending limits live in `src/lib/autonomy` (file DB today; `autonomy_policies` in `supabase/schema.sql`)
+- `GET`/`PUT /api/autonomy` — policy and pending owner cards
+- `POST /api/autonomy/work` — submit work or `{ "demo": "vendor_payment" }`
+- `GET`/`POST /api/autonomy/tick` — drain the queue (session or `Authorization: Bearer $CRON_SECRET`)
+- Chat “I’m going on vacation. Run the company.” raises Autopilot
+- UI: `/app/autonomous` (not a new studio). Goal: Atlas runs the routine company; humans handle exceptions.
+
 ## Backend today
 
 - Route Handlers under `src/app/api/**`
@@ -48,7 +57,8 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Dev server: `http://localhost:3000` via `npm run dev`.
 - Optional env: copy `.env.example` → `.env.local` and set `ATLAS_LLM_API_KEY` for live Brain.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
+- Autonomy: open `/app/autonomous`. Try Level 1 vs 4, kill switch, and “Simulate $18,420 vendor payment”.
 - Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
 - Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
 - Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo`. Dev `GET /api/session` mints a cookie for the seeded owner.
-- Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.
+- Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist / autonomy-engine work.
