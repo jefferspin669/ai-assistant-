@@ -621,7 +621,7 @@ export function seedDatabase(): AtlasDatabase {
 
 export function loadDatabase(): AtlasDatabase {
   if (typeof window === "undefined") {
-    return getServerDb();
+    return hydrateDatabase(getServerDb());
   }
   try {
     let raw = localStorage.getItem(DB_KEY);
@@ -746,12 +746,13 @@ export function loadDatabase(): AtlasDatabase {
 }
 
 export function saveDatabase(db: AtlasDatabase) {
+  const next = hydrateDatabase(db);
   if (typeof window === "undefined") {
-    setServerDb(db);
-    writeJsonFile(DB_FILE, db);
+    setServerDb(next);
+    writeJsonFile(DB_FILE, next);
     return;
   }
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  localStorage.setItem(DB_KEY, JSON.stringify(next));
 }
 
 export function resetDatabase() {

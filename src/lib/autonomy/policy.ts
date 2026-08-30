@@ -9,27 +9,27 @@ export { defaultPolicy };
 
 export function getPolicy(organizationId: string): AutonomyPolicy {
   const db = database();
-  const row = db.autonomy_policies.find((item) => item.organization_id === organizationId);
+  const policies = db.autonomy_policies || [];
+  const row = policies.find((item) => item.organization_id === organizationId);
   if (row) return fromRow(row);
   const created = defaultPolicy(organizationId);
   saveDatabase({
     ...db,
-    autonomy_policies: [toRow(created), ...db.autonomy_policies],
+    autonomy_policies: [toRow(created), ...policies],
   });
   return created;
 }
 
 export function savePolicy(next: AutonomyPolicy): AutonomyPolicy {
   const db = database();
+  const policies = db.autonomy_policies || [];
   const row = toRow({ ...next, updatedAt: nowIso() });
-  const exists = db.autonomy_policies.some((item) => item.organization_id === next.organizationId);
+  const exists = policies.some((item) => item.organization_id === next.organizationId);
   saveDatabase({
     ...db,
     autonomy_policies: exists
-      ? db.autonomy_policies.map((item) =>
-          item.organization_id === next.organizationId ? row : item,
-        )
-      : [row, ...db.autonomy_policies],
+      ? policies.map((item) => (item.organization_id === next.organizationId ? row : item))
+      : [row, ...policies],
   });
   return fromRow(row);
 }
