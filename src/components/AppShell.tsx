@@ -315,6 +315,7 @@ export function AppShell({
                     <button
                       type="button"
                       role="menuitem"
+                      className="account-logout"
                       onClick={() => {
                         setAccountMenuOpen(false);
                         logout();
