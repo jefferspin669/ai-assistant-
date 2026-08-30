@@ -2,6 +2,9 @@ import { atlasApi } from "@/lib/api/atlas-api";
 import { apiResponse, readJson } from "@/lib/api/http";
 import { err } from "@/lib/api/types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   const body = await readJson(req);
   const users = atlasApi.users.list();
@@ -19,6 +22,9 @@ export async function POST(req: Request) {
       title,
       content,
       kind: (body.kind as "file" | "document" | "conversation" | "template") || "file",
+      fileName: body.fileName != null ? String(body.fileName) : null,
+      mimeType: body.mimeType != null ? String(body.mimeType) : null,
+      sizeBytes: typeof body.sizeBytes === "number" ? body.sizeBytes : null,
     }),
   );
 }

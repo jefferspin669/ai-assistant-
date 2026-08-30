@@ -678,6 +678,9 @@ export const filesApi = {
     title: string;
     content: string;
     kind?: DbDocument["kind"];
+    fileName?: string | null;
+    mimeType?: string | null;
+    sizeBytes?: number | null;
   }): ApiResult<DbDocument> {
     const stamp = nowIso();
     const doc: DbDocument = {
@@ -687,6 +690,9 @@ export const filesApi = {
       title: input.title.trim() || "Untitled",
       kind: input.kind || "file",
       content: input.content,
+      fileName: input.fileName ?? null,
+      mimeType: input.mimeType ?? null,
+      sizeBytes: input.sizeBytes ?? null,
       createdAt: stamp,
       updatedAt: stamp,
     };

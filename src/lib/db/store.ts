@@ -1,6 +1,7 @@
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
 import { loadCalendarState } from "@/lib/smart-calendar";
+import { readJsonFile, writeJsonFile } from "@/lib/db/file-persist";
 import type {
   AtlasDatabase,
   DbConversation,
@@ -20,6 +21,7 @@ import type {
 } from "@/lib/db/schema";
 
 const DB_KEY = "atlas-database-v5";
+const DB_FILE = "atlas-db.json";
 const LEGACY_DB_KEYS = [
   "atlas-database-v4",
   "atlas-database-v3",
@@ -32,7 +34,15 @@ type AtlasGlobal = typeof globalThis & { __atlasServerDb?: AtlasDatabase };
 
 function getServerDb() {
   const g = globalThis as AtlasGlobal;
-  if (!g.__atlasServerDb) g.__atlasServerDb = seedDatabase();
+  if (!g.__atlasServerDb) {
+    const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
+    if (fromDisk) {
+      g.__atlasServerDb = fromDisk;
+    } else {
+      g.__atlasServerDb = seedDatabase();
+      writeJsonFile(DB_FILE, g.__atlasServerDb);
+    }
+  }
   return g.__atlasServerDb;
 }
 
@@ -527,6 +537,7 @@ export function loadDatabase(): AtlasDatabase {
 export function saveDatabase(db: AtlasDatabase) {
   if (typeof window === "undefined") {
     setServerDb(db);
+    writeJsonFile(DB_FILE, db);
     return;
   }
   localStorage.setItem(DB_KEY, JSON.stringify(db));

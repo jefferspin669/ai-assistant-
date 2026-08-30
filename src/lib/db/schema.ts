@@ -143,6 +143,9 @@ export type DbDocument = {
   title: string;
   kind: "file" | "document" | "conversation" | "template";
   content: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
   createdAt: string;
   updatedAt: string;
 };
