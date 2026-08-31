@@ -8,10 +8,15 @@ import {
   loadApprovalTiers,
   loadPurchases,
   parseReceiptText,
+  pendingInventoryFromPurchase,
   saveApprovalTiers,
   type ApprovalTier,
   type ExpensePurchase,
 } from "@/lib/expenses-workspace";
+import {
+  addInventoryFromReceipt,
+  type ReceiptInventoryLine,
+} from "@/lib/inventory-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -21,10 +26,11 @@ function ExpensesStudioInner() {
   const tab = searchParams.get("tab") ?? "purchases";
   const [purchases, setPurchases] = useState<ExpensePurchase[]>([]);
   const [tiers, setTiers] = useState<ApprovalTier[]>([]);
-  const [receiptText, setReceiptText] = useState("Home Depot\n$184.27\nEquipment parts");
-  const [project, setProject] = useState("Warehouse Upgrade");
+  const [receiptText, setReceiptText] = useState("Office Depot\n$840.00\n20 boxes printer paper");
+  const [project, setProject] = useState("Office Renovation");
   const [employeeId, setEmployeeId] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [pendingInventory, setPendingInventory] = useState<ReceiptInventoryLine[] | null>(null);
 
   useEffect(() => {
     seedDemoTeamIfEmpty();
@@ -39,11 +45,31 @@ function ExpensesStudioInner() {
     const member = loadTeamMembers().find((m) => m.id === employeeId);
     if (!member) return;
     const scan = parseReceiptText(receiptText);
-    const purchase = createPurchaseFromReceipt(scan, member.id, member.name, project);
+    const purchase = createPurchaseFromReceipt(scan, member.id, member.name, project, receiptText);
     setPurchases(loadPurchases());
-    setNote(
-      `${purchase.merchant} $${purchase.amount.toFixed(2)} · Receipt ✓ · Card ${purchase.cardMatched ? "✓ matched" : "pending"} · ${purchase.status}`,
-    );
+    const lines = pendingInventoryFromPurchase(purchase);
+    if (lines.length) {
+      setPendingInventory(lines);
+      setNote(
+        `Purchase AI recognized: ${lines.map((l) => `${l.quantity} × ${l.itemName}`).join(", ")}. Add to inventory?`,
+      );
+    } else {
+      setPendingInventory(null);
+      setNote(
+        `${purchase.merchant} $${purchase.amount.toFixed(2)} · Receipt ✓ · Card ${purchase.cardMatched ? "✓ matched" : "pending"} · ${purchase.status}`,
+      );
+    }
+  }
+
+  function onAddInventory() {
+    const member = loadTeamMembers().find((m) => m.id === employeeId);
+    if (!pendingInventory?.length) return;
+    for (const line of pendingInventory) {
+      addInventoryFromReceipt(line.itemName, line.quantity, line.unit, member?.name);
+    }
+    const summary = pendingInventory.map((l) => `${l.quantity} ${l.unit} ${l.itemName}`).join(", ");
+    setPendingInventory(null);
+    setNote(`Added ${summary} to inventory.`);
   }
 
   function saveRules() {
@@ -59,13 +85,23 @@ function ExpensesStudioInner() {
         <div className="memory-card">
           <div className="label">Atlas</div>
           <p>{note}</p>
+          {pendingInventory?.length ? (
+            <div className="cta-row" style={{ marginTop: "0.75rem" }}>
+              <button className="btn btn-dark" type="button" onClick={onAddInventory}>
+                Add inventory
+              </button>
+              <Link className="btn btn-outline" href="/app/inventory">Open inventory</Link>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {tab === "scan" ? (
         <section className="panel">
           <h2>Scan receipt</h2>
-          <p className="panel-lead">Atlas reads merchant, date, amount, taxes, and items. Purchaser is your logged-in employee.</p>
+          <p className="panel-lead">
+            Atlas reads merchant, date, amount, taxes, and items. Receipts with stock lines link to inventory automatically.
+          </p>
           <form className="form-grid" onSubmit={onScan}>
             <label>
               Employee
@@ -143,12 +179,17 @@ function ExpensesStudioInner() {
                   </p>
                   <p className="muted-line">
                     Receipt: {p.receiptMatched ? "✓" : "✗"} · Card: {p.cardMatched ? "✓ matched" : "pending"} · {p.status}
+                    {p.inventoryLines?.length
+                      ? ` · Inventory: ${p.inventoryLines.map((l) => `${l.quantity} ${l.unit} ${l.itemName}`).join(", ")}`
+                      : ""}
                   </p>
                 </div>
                 {!p.receiptMatched ? (
                   <Link className="btn btn-outline" href={`/app/messages?to=${encodeURIComponent(p.purchasedById)}`}>
                     Message employee
                   </Link>
+                ) : p.inventoryLines?.length ? (
+                  <Link className="btn btn-outline" href="/app/inventory">View inventory</Link>
                 ) : null}
               </div>
             ))}

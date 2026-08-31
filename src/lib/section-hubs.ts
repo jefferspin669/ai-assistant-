@@ -39,14 +39,16 @@ export const salesHub: HubLink[] = [
 ];
 
 export const operationsHub: HubLink[] = [
+  { href: "/app/ask", label: "Talk to Atlas", blurb: "Main AI interface — command center and quick actions." },
+  { href: "/app/messages", label: "Messages", blurb: "Direct, teams, projects, and announcements." },
+  { href: "/app/workforce", label: "Workforce", blurb: "Employees, scheduling, time off, and locations." },
+  { href: "/app/purchasing", label: "Expenses & Purchases", blurb: "Receipts, company-card spend, and approvals." },
+  { href: "/app/inventory", label: "Inventory", blurb: "Stock tracking, usage, and purchase orders." },
+  { href: "/app/quality", label: "Quality", blurb: "Customer, service, and product quality intelligence." },
   { href: "/app/scheduling", label: "Scheduling", blurb: "Fill the day, assign techs, protect drive time." },
   { href: "/app/receptionist", label: "Receptionist", blurb: "Answer the call, recognize the customer, book the job." },
   { href: "/app/missed-calls", label: "Missed calls", blurb: "Recover leads that never reached a person." },
   { href: "/app/routes", label: "Routes", blurb: "Order jobs so the truck wastes less time." },
-  { href: "/app/inventory", label: "Inventory", blurb: "Parts on trucks and in the shop." },
-  { href: "/app/risk", label: "Risk Center", blurb: "Warn before cash, burnout, or compliance gets expensive." },
-  { href: "/app/quality", label: "Quality", blurb: "Callbacks, warranties, and job photos." },
-  { href: "/app/compliance", label: "Compliance", blurb: "Licenses, insurance, and retention rules." },
   { href: "/app/training", label: "Training", blurb: "Atlas Academy for the crew." },
 ];
 

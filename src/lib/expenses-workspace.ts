@@ -1,4 +1,9 @@
-/** Expenses & purchases — receipt scan, card match, approval rules. */
+/** Expenses & purchases — receipt scan, card match, approval rules, inventory integration. */
+
+import {
+  parseReceiptInventoryLines,
+  type ReceiptInventoryLine,
+} from "@/lib/inventory-workspace";
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -48,6 +53,7 @@ export type ExpensePurchase = {
   paymentMethod?: string;
   note?: string;
   createdAt: string;
+  inventoryLines?: ReceiptInventoryLine[];
 };
 
 const PURCHASES_KEY = "atlas-expenses-v1";
@@ -111,8 +117,10 @@ export function createPurchaseFromReceipt(
   employeeId: string,
   employeeName: string,
   project?: string,
+  receiptRaw?: string,
 ): ExpensePurchase {
   const approver = approverForAmount(scan.amount);
+  const inventoryLines = receiptRaw ? parseReceiptInventoryLines(receiptRaw) : [];
   const purchase: ExpensePurchase = {
     id: newId("exp"),
     merchant: scan.merchant,
@@ -128,10 +136,15 @@ export function createPurchaseFromReceipt(
     tax: scan.tax,
     items: scan.items,
     paymentMethod: scan.paymentMethod,
+    inventoryLines: inventoryLines.length ? inventoryLines : undefined,
     createdAt: nowIso(),
   };
   savePurchases([purchase, ...loadPurchases()]);
   return purchase;
+}
+
+export function pendingInventoryFromPurchase(purchase: ExpensePurchase): ReceiptInventoryLine[] {
+  return purchase.inventoryLines ?? [];
 }
 
 export function flagUnmatchedTransactions(): ExpensePurchase[] {

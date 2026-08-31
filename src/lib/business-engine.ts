@@ -1,6 +1,7 @@
 /** Atlas Business Engine — company model, decisions, simulation, health, predictions. */
 
 import { intelligenceScore, predictiveAlerts, explainableRecommendations } from "@/lib/atlas-platform";
+import { inventoryCostSummary } from "@/lib/inventory-workspace";
 import { loadHealthScore } from "@/lib/ops-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 import { workloadByMember } from "@/lib/projects-workspace";
@@ -127,9 +128,16 @@ export function loadCompanyModel(): CompanyModel {
   const members = loadTeamMembers();
   const workload = workloadByMember();
   const openTasks = Object.values(workload).reduce((n, w) => n + w.open, 0);
+  const inventory = inventoryCostSummary();
+  const inventoryBurn =
+    inventory.monthlyBurn > 0 ? ` · ~$${inventory.monthlyBurn}/mo inventory burn` : "";
+  const inventoryValue =
+    inventory.totalValue > 0
+      ? ` · $${Math.round(inventory.totalValue).toLocaleString()} stock on hand`
+      : "";
   return loadJson(MODEL_KEY, {
     revenue: "$2.4M",
-    expenses: "$1.62M",
+    expenses: inventory.monthlyBurn > 0 ? `$1.62M (+$${inventory.monthlyBurn}/mo inventory)` : "$1.62M",
     cash: "$890K",
     debt: "$120K",
     customers: 1842,
@@ -139,8 +147,11 @@ export function loadCompanyModel(): CompanyModel {
     conversionRate: 46,
     churn: 4.1,
     pipeline: "$420K",
-    capacity: `${openTasks} open tasks · ${members.length} employees`,
-    customNotes: "",
+    capacity: `${openTasks} open tasks · ${members.length} employees${inventoryValue}${inventoryBurn}`,
+    customNotes:
+      inventory.totalValue > 0
+        ? `Inventory costs feed projections — ${Math.round(inventory.totalValue).toLocaleString()} on hand, ~$${inventory.monthlyBurn}/mo usage burn.`
+        : "",
   });
 }
 

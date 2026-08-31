@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
             },
           ],
         },
+        async redirects() {
+          return [
+            {
+              source: "/app/coverage",
+              destination: "/app/time-off?tab=coverage",
+              permanent: false,
+            },
+            {
+              source: "/app/communications",
+              destination: "/app/messages",
+              permanent: false,
+            },
+          ];
+        },
         async headers() {
           return [
             {

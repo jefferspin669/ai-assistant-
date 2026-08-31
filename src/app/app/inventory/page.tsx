@@ -1,36 +1,21 @@
-import { FeatureView } from "@/components/FeatureView";
-import { inventoryItems } from "@/lib/atlas-platform";
+import { AppShell } from "@/components/AppShell";
+import { InventoryStudio } from "@/components/InventoryStudio";
+import Link from "@/components/SiteLink";
 
 export default function InventoryPage() {
   return (
-    <FeatureView
-      title="AI Inventory"
-      subtitle="Atlas predicts shortages before they strand a truck — order in five days, not after the stockout."
-      sections={[
-        {
-          type: "table",
-          title: "Stock outlook",
-          headers: ["SKU", "Item", "On hand", "Days left", "Action"],
-          rows: inventoryItems.map((item) => [
-            item.sku,
-            item.name,
-            String(item.onHand),
-            String(item.daysLeft),
-            item.action,
-          ]),
-        },
-        {
-          type: "chat",
-          title: "Inventory brain",
-          bubbles: [
-            { role: "user", text: "What am I running low on?" },
-            {
-              role: "ai",
-              text: "You’re running low on 16×25 filters. Order in five days. Thermostats should be reordered now — two left across trucks.",
-            },
-          ],
-        },
-      ]}
-    />
+    <AppShell
+      title="Inventory"
+      subtitle="Real stock tracking — add items, log usage, stock movements, and purchasing intelligence."
+      action={
+        <div className="cta-row">
+          <Link className="btn btn-outline" href="/app/inventory?tab=use">Use inventory</Link>
+          <Link className="btn btn-outline" href="/app/inventory?tab=intelligence">Intelligence</Link>
+          <Link className="btn btn-outline" href="/app/purchasing?tab=scan">Scan receipt</Link>
+        </div>
+      }
+    >
+      <InventoryStudio />
+    </AppShell>
   );
 }
