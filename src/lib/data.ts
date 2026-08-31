@@ -501,7 +501,7 @@ export const attentionItems = [
   {
     title: "Approve Johnson Construction estimate",
     detail: "$18,400 remodel · pending your OK",
-    href: "/app/confirmations",
+    href: "/app/approvals",
     priority: "high" as const,
   },
   {

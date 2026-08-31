@@ -9,8 +9,8 @@ export default function BoardPage() {
 
   return (
     <AppShell
-      title="AI Board Advisor"
-      subtitle="Imagine having your own board of advisors — add decisions, debate them, and delete when you’re done."
+      title="Board Advisor"
+      subtitle="Strategic AI advisor — add decisions, debate them, and delete when you’re done. Not the daily dashboard."
       action={
         <button className="btn btn-dark" type="button" onClick={() => setNewSignal((n) => n + 1)}>
           New decision

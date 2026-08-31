@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+/** Zod request/response shapes for the domain types in `lib/domain/types.ts`. */
+
 export const customerStatusSchema = z.enum(["lead", "active", "inactive"]);
 export const taskStatusSchema = z.enum(["todo", "in_progress", "blocked", "completed"]);
 export const taskPrioritySchema = z.enum(["low", "normal", "high"]);

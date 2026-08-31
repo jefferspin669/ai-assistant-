@@ -98,7 +98,7 @@ export default function KnowledgePage() {
 
   return (
     <AppShell
-      title="Knowledge Brain"
+      title="Knowledge Base"
       subtitle="Upload PDFs, manuals, policies, and more — Atlas learns them and answers from your documentation."
       action={
         <button className="btn btn-dark" type="button" onClick={onUploadClick}>
