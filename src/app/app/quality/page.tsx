@@ -5,8 +5,7 @@ export default function QualityPage() {
   return (
     <AppShell
       title="AI Quality Control"
-      subtitle="Reads customer feedback, detects patterns, and alerts the owner — like five customers mentioning “Long wait.”"
-      action={<button className="btn btn-dark">Notify owner</button>}
+      subtitle="Patterns from complaints, tickets, reviews, refunds, and project issues — with alerts and improvement actions."
     >
       <QualityStudio />
     </AppShell>

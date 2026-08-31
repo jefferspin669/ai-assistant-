@@ -5,7 +5,7 @@ export default function WorkforceMapPage() {
   return (
     <AppShell
       title="Workforce Map"
-      subtitle="Your whole workforce on one screen — and ask Atlas anything about it."
+      subtitle="Real locations and employee assignments — privacy-conscious status, not fake pre-populated staff."
     >
       <WorkforceMapStudio />
     </AppShell>
