@@ -121,7 +121,7 @@ export default function HomePage() {
                   company. Marketplace and industry packs help you specialize.
                 </p>
                 <div className="cta-row">
-                  <Link className="btn btn-primary" href="/app/digital-employees">
+                  <Link className="btn btn-primary" href="/app/workforce">
                     Meet digital employees
                   </Link>
                   <Link className="btn btn-ghost" href="/app/marketplace" style={{ color: "var(--foam)", borderColor: "rgba(244,248,247,0.28)" }}>

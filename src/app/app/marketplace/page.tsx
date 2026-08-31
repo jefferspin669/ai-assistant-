@@ -5,7 +5,7 @@ export default function MarketplacePage() {
   return (
     <AppShell
       title="Atlas Marketplace"
-      subtitle="One place to discover, install, and publish agents, automations, integrations, templates, and modules."
+      subtitle="Agents, integrations, workflows, and industry packs — where businesses expand Atlas."
     >
       <MarketplaceStudio />
     </AppShell>

@@ -61,7 +61,7 @@ export function MissionStudio() {
           </div>
         </div>
         <div className="cta-row" style={{ marginTop: "1rem" }}>
-          <Link className="btn btn-dark" href="/app/digital-employees">
+          <Link className="btn btn-dark" href="/app/workforce">
             Meet the workforce
           </Link>
           <Link className="btn btn-outline" href="/onboarding">
