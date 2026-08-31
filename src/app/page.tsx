@@ -242,8 +242,8 @@ export default function HomePage() {
         <section className="section" id="simulator" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Business Simulator</h2>
-              <p>Like SimCity — but for a real company. Ask what happens before you decide.</p>
+              <h2>Atlas Business Engine</h2>
+              <p>Company model, decisions, simulation, health score, and predictions — with explainability built in.</p>
             </div>
             <div className="vision-chat">
               <div className="bubble bubble-user">What happens if minimum wage increases?</div>
@@ -253,7 +253,7 @@ export default function HomePage() {
               </div>
             </div>
             <div style={{ marginTop: "1.25rem" }}>
-              <Link className="btn btn-dark" href="/app/simulator">
+              <Link className="btn btn-dark" href="/app/business-engine?tab=simulate">
                 Run a simulation
               </Link>
             </div>
@@ -277,9 +277,9 @@ export default function HomePage() {
         <section className="section" id="network" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Atlas Intelligence Network</h2>
+              <h2>Atlas Market Intelligence</h2>
               <p>
-                Thousands of businesses. Shared industry trends. Nobody’s private data exposed.
+                Track competitors, public pricing and hiring signals, and simulate competitive responses.
               </p>
             </div>
             <div className="module-grid">
@@ -291,8 +291,8 @@ export default function HomePage() {
               ))}
             </div>
             <div style={{ marginTop: "1.25rem" }}>
-              <Link className="btn btn-dark" href="/app/network">
-                Open Intelligence Network
+              <Link className="btn btn-dark" href="/app/market-intelligence">
+                Open Market Intelligence
               </Link>
             </div>
           </div>
@@ -385,10 +385,10 @@ export default function HomePage() {
         <section className="section" id="explainable" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-head">
-              <h2>Explainable AI</h2>
+              <h2>Why Atlas thinks this</h2>
               <p>
-                Instead of “Raise prices,” Atlas shows why, supporting data, risks, expected
-                outcomes, confidence, and alternatives — so decision-makers can trust the call.
+                Every decision and prediction in the Business Engine shows supporting data, risks,
+                expected outcomes, confidence, and alternatives.
               </p>
             </div>
             <div className="vision-chat">
@@ -399,8 +399,8 @@ export default function HomePage() {
               </div>
             </div>
             <div style={{ marginTop: "1.25rem" }}>
-              <Link className="btn btn-dark" href="/app/explainable">
-                Open Explainable AI
+              <Link className="btn btn-dark" href="/app/business-engine?tab=decision">
+                Test a decision
               </Link>
             </div>
           </div>

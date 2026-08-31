@@ -21,6 +21,7 @@ export const memoryHub: HubLink[] = [
 ];
 
 export const trustHub: HubLink[] = [
+  { href: "/app/security-center", label: "Security Center", blurb: "Live defensive monitoring, risk scores, and incident response." },
   { href: "/app/security", label: "Security", blurb: "Threats, devices, 2FA, and vault health." },
   { href: "/app/risk", label: "Risk", blurb: "Cash, burnout, and compliance warnings before they get expensive." },
   { href: "/app/compliance", label: "Compliance", blurb: "Licenses, insurance, and retention rules." },

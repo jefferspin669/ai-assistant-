@@ -161,12 +161,9 @@ export const navGroups: NavGroup[] = [
     label: "Intelligence",
     items: [
       { href: "/app/analytics", label: "AI Dashboard" },
-      { href: "/app/insights", label: "Predictive Analytics" },
-      { href: "/app/network", label: "Intelligence Network" },
-      { href: "/app/score", label: "Business Health Score" },
-      { href: "/app/decisions", label: "Decision Engine" },
-      { href: "/app/explainable", label: "Explainable AI" },
-      { href: "/app/simulator", label: "Business Simulator" },
+      { href: "/app/business-engine", label: "Business Engine" },
+      { href: "/app/market-intelligence", label: "Market Intelligence" },
+      { href: "/app/security-center", label: "Security Center" },
     ],
   },
   {
@@ -182,7 +179,6 @@ export const navGroups: NavGroup[] = [
       { href: "/app/succession", label: "Succession Planner" },
       { href: "/app/legacy", label: "Legacy & Long-Term" },
       { href: "/app/deal-rooms", label: "Confidential Deal Rooms" },
-      { href: "/app/crisis", label: "Crisis Simulation" },
       { href: "/app/negotiation", label: "Negotiation War Room" },
     ],
   },

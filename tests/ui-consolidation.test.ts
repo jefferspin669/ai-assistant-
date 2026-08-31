@@ -43,15 +43,27 @@ describe("product consolidation", () => {
     expect(sidebarMain.concat(sidebarAdmin).map((item) => item.href)).not.toContain("/app/tax");
   });
 
-  it("exposes Money / Memory / Trust hubs without a second store", () => {
-    expect(moneyHub.map((item) => item.href)).toEqual([
-      "/app/finance",
-      "/app/payments",
-      "/app/tax",
-      "/app/accountant",
-    ]);
-    expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(true);
+  it("consolidates Intelligence into Business Engine, Market Intelligence, and Security Center", () => {
+    const intelligence = navGroups.find((group) => group.label === "Intelligence");
+    const hrefs = intelligence?.items.map((item) => item.href) ?? [];
+    expect(hrefs).toContain("/app/business-engine");
+    expect(hrefs).toContain("/app/market-intelligence");
+    expect(hrefs).toContain("/app/security-center");
+    expect(hrefs).not.toContain("/app/simulator");
+    expect(hrefs).not.toContain("/app/explainable");
+    expect(hrefs).not.toContain("/app/network");
+    expect(hrefs).not.toContain("/app/score");
+    expect(hrefs).not.toContain("/app/insights");
+    expect(hrefs).not.toContain("/app/decisions");
+    expect(navGroups.find((g) => g.label === "Executive Suite")?.items.map((i) => i.href)).not.toContain(
+      "/app/crisis",
+    );
+  });
+
+  it("exposes Security Center on Trust hub", () => {
+    expect(trustHub.map((item) => item.href)).toContain("/app/security-center");
     expect(trustHub.map((item) => item.label)).toEqual([
+      "Security Center",
       "Security",
       "Risk",
       "Compliance",
@@ -59,6 +71,16 @@ describe("product consolidation", () => {
       "Privacy",
       "Audit Log",
     ]);
+  });
+
+  it("exposes Money / Memory hubs without a second store", () => {
+    expect(moneyHub.map((item) => item.href)).toEqual([
+      "/app/finance",
+      "/app/payments",
+      "/app/tax",
+      "/app/accountant",
+    ]);
+    expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(true);
   });
 
   it("drops Command Language from nav", () => {
