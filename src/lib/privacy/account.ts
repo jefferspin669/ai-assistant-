@@ -56,6 +56,7 @@ export function deleteOrganizationData(ctx: SessionContext) {
     documents: latest.documents.filter((row) => row.orgId !== orgId),
     notifications: latest.notifications.filter((row) => row.organizationId !== orgId),
   });
+  void import("@/lib/orchestrator/store").then((mod) => mod.deleteOrgOrchestratorState(orgId));
   return { deleted: true, organizationId: orgId };
 }
 

@@ -79,4 +79,14 @@ Automated rails live in `src/lib/safety`, `src/lib/billing/entitlements.ts`, and
 - CI: `.github/workflows/atlas-ci.yml` runs `tsc`, `npm test`, and `npm audit`
 - Environments: `ATLAS_ENV=development|staging|production` (see `docs/PRODUCTION_SAFETY.md`)
 
-Do **not** add a new `/app/*` studio for this. Owners already have `/app/autonomous` and `/app/commercial`.
+## Atlas Orchestrator
+
+The Brain is not the execution engine. `src/lib/orchestrator` plans a goal, checks the **capability registry** (`src/lib/capabilities`) and **business rules** (`src/lib/rules` — distinct from `src/lib/auth/permissions`), then sends work through **existing** Atlas Actions, Approvals, Audit, and Jobs.
+
+- `POST /api/orchestrator` `{ "goal": "Get Johnson Construction's overdue invoice paid." }`
+- Persistent runs + technical traces: `.data/orchestrator.json` (audit stays the governance log)
+- Event router (`src/lib/events/router.ts`) decides which existing job, automation, or orchestrator intent cares about an event
+- Integration adapters wrap Twilio / Stripe / Calendar / Resend — not a second integration engine
+- BullMQ remains `atlas-jobs` with worker **lanes** (sms, email, payment, …)
+
+Do **not** add a new `/app/*` studio. Inspect runs via the API or `/api/health` → `orchestrator`.

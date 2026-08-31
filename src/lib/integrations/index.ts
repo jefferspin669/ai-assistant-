@@ -21,5 +21,6 @@ export {
   handleStripeWebhook,
 } from "@/lib/integrations/stripe";
 export { sendCustomerSms, createAndSendInvoice } from "@/lib/integrations/actions";
+export { invokeAdapter } from "@/lib/integrations/adapters";
 export { sendEmail, resendConfigured } from "@/lib/integrations/resend";
 export { createOpenAIClient, openaiConfigured } from "@/lib/integrations/openai";

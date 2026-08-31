@@ -57,6 +57,22 @@ export const BRAIN_TOOLS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "run_business_goal",
+      description:
+        "Have the Atlas Orchestrator plan and start a multi-step business goal (collect an overdue invoice, recover a missed call, etc.). Uses existing Actions, Approvals, and Jobs. Does not invent capabilities Atlas cannot perform.",
+      parameters: {
+        type: "object",
+        properties: {
+          goal: { type: "string", description: "The owner's goal in plain language." },
+        },
+        required: ["goal"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 export function buildSystemPrompt(input: BrainChatInput): string {
@@ -81,7 +97,8 @@ ${dna}
 
 Behavior:
 - Be concise, operational, and concrete.
-- Use tools when you need a brief or must propose a risky action.
+- Use tools when you need a brief, must propose a risky action, or should run a multi-step business goal through the Orchestrator.
+- Never claim you completed a capability that is DISCONNECTED or UNAVAILABLE.
 - Never pretend you already sent money, filed taxes, or mass-texted — propose those for approval.
 - If the owner is going offline, acknowledge standing orders and summarize what you will handle autonomously.
 - Separate facts you know from estimates/suggestions.
@@ -130,6 +147,16 @@ export function executeBrainTool(
     return {
       content: JSON.stringify({ status: "awaiting_owner_approval", ...proposedAction }),
       proposedAction,
+    };
+  }
+
+  if (name === "run_business_goal") {
+    return {
+      content: JSON.stringify({
+        accepted: true,
+        goal: String(args.goal || ""),
+        note: "Orchestrator will plan this on the server using live capabilities, business rules, and Atlas Actions.",
+      }),
     };
   }
 

@@ -39,6 +39,9 @@ export function enqueueJob(
 
 export function processJobs(limit = 10) {
   const autonomy = processAutonomyQueue(limit);
+  if (typeof window === "undefined") {
+    void import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns()).catch(() => undefined);
+  }
   const db = database();
   const queued = db.jobs
     .filter((job) => job.status === "queued" && !String(job.kind).startsWith("autonomy:"))
