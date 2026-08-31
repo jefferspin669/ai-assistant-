@@ -15,26 +15,32 @@ describe("product consolidation", () => {
     expect(labels).toContain("Trust & Governance");
   });
 
-  it("keeps Approvals and Marketplace; drops duplicate nav entries", () => {
+  it("keeps Approvals and Marketplace; consolidates primary product nav", () => {
     expect(hrefs).toContain("/app/approvals");
     expect(hrefs).toContain("/app/marketplace");
     expect(hrefs).toContain("/app/ask");
+    expect(hrefs).toContain("/app/workforce");
+    expect(hrefs).toContain("/app/appointments");
     expect(hrefs).not.toContain("/app/confirmations");
     expect(hrefs).not.toContain("/app/app-store");
     expect(hrefs).not.toContain("/app/chat");
+    expect(hrefs).not.toContain("/app/digital-employees");
+    expect(hrefs).not.toContain("/app/events");
+    expect(hrefs).not.toContain("/app/personal");
+    expect(hrefs).not.toContain("/app/talk");
     expect(navItems.find((item) => item.href === "/app/chatbot")?.label).toBe("Customer Chatbot");
+  });
+
+  it("pins Atlas Assistant on the primary sidebar", () => {
+    const chat = sidebarMain.find((item) => item.icon === "chat");
+    expect(chat?.href).toBe("/app/ask");
+    expect(chat?.label).toBe("Atlas Assistant");
   });
 
   it("puts Tax under Money instead of pinning it as a second product", () => {
     const money = navGroups.find((group) => group.label === "Money");
     expect(money?.items.map((item) => item.href)).toContain("/app/tax");
     expect(sidebarMain.concat(sidebarAdmin).map((item) => item.href)).not.toContain("/app/tax");
-  });
-
-  it("pins Ask Atlas on the primary sidebar", () => {
-    const chat = sidebarMain.find((item) => item.icon === "chat");
-    expect(chat?.href).toBe("/app/ask");
-    expect(chat?.label).toBe("Ask Atlas");
   });
 
   it("exposes Money / Memory / Trust hubs without a second store", () => {

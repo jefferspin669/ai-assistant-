@@ -1642,7 +1642,7 @@ export type TaskSuggestion = {
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 /** Resolve a natural due phrase to a label + ISO date (when possible). */
-function resolveDue(phrase: string): { label: string; date: string } {
+export function resolveDue(phrase: string): { label: string; date: string } {
   const p = phrase.toLowerCase();
   const now = new Date();
   if (/\btoday\b|end of day|\beod\b/.test(p)) return { label: "today", date: todayISO(now) };

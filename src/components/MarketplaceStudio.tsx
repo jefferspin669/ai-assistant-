@@ -8,9 +8,11 @@ import { marketplaceShareTypes, marketplaceShares } from "@/lib/atlas-platform";
 const TABS = [
   { id: "discover", label: "Discover" },
   { id: "installed", label: "Installed" },
-  { id: "agents", label: "Agents" },
-  { id: "automations", label: "Automations" },
+  { id: "agents", label: "AI Agents" },
   { id: "integrations", label: "Integrations" },
+  { id: "workflows", label: "Workflows" },
+  { id: "industry-packs", label: "Industry Packs" },
+  { id: "automations", label: "Automations" },
   { id: "templates", label: "Templates" },
   { id: "developer", label: "Developer" },
 ] as const;
@@ -19,6 +21,8 @@ type TabId = (typeof TABS)[number]["id"];
 
 const TAB_TYPE: Partial<Record<TabId, (typeof marketplaceShareTypes)[number]>> = {
   agents: "Industry agents",
+  workflows: "Workflows",
+  "industry-packs": "Industry packs",
   automations: "Automations",
   integrations: "Integrations",
   templates: "Templates",
@@ -74,7 +78,14 @@ function MarketplaceStudioInner() {
     setPublishName("");
   }
 
-  const browse = tab === "discover" || tab === "agents" || tab === "automations" || tab === "integrations" || tab === "templates";
+  const browse =
+    tab === "discover" ||
+    tab === "agents" ||
+    tab === "workflows" ||
+    tab === "industry-packs" ||
+    tab === "automations" ||
+    tab === "integrations" ||
+    tab === "templates";
 
   return (
     <div className="training-studio">
@@ -87,7 +98,7 @@ function MarketplaceStudioInner() {
         <div className="stat">
           <span>Categories</span>
           <strong>{marketplaceShareTypes.length - 1}</strong>
-          <small>Agents to templates</small>
+          <small>Agents · workflows · packs</small>
         </div>
         <div className="stat">
           <span>Installed</span>
@@ -122,8 +133,8 @@ function MarketplaceStudioInner() {
             <section className="panel">
               <h2>{tab === "discover" ? "Discover" : TABS.find((item) => item.id === tab)?.label}</h2>
               <p className="panel-lead">
-                Developers publish industry agents, automations, integrations, and templates. Businesses install what they
-                need.
+                Expand Atlas with AI agents, integrations, workflows, and industry packs — install what your business
+                needs.
               </p>
               <div className="list">
                 {filtered.map((item) => (
