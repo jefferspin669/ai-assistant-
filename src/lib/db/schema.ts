@@ -1,4 +1,7 @@
-/** Atlas Database schema — mirrors the product architecture tree. */
+/** Atlas Database schema — mirrors the product architecture tree.
+ * Column-shaped records for the JSON adapter. Postgres lives in `drizzle-schema.ts`;
+ * public types live in `lib/domain/types.ts`. Do not fork a third Customer type here.
+ */
 
 /** `users` table */
 export type DbUser = {

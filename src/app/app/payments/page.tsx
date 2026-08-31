@@ -4,8 +4,8 @@ import { payments } from "@/lib/data";
 export default function PaymentsPage() {
   return (
     <AppShell
-      title="Payments"
-      subtitle="Cards, ACH, deposits, payment plans, and automatic invoices."
+      title="Invoices & payments"
+      subtitle="Cards, ACH, deposits, payment plans, and automatic invoices — part of Money."
     >
       <div className="stat-grid">
         {["Credit cards", "ACH", "Deposits", "Payment plans", "Auto invoices"].map((method) => (

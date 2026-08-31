@@ -90,3 +90,25 @@ The Brain is not the execution engine. `src/lib/orchestrator` plans a goal, chec
 - BullMQ remains `atlas-jobs` with worker **lanes** (sms, email, payment, …)
 
 Do **not** add a new `/app/*` studio. Inspect runs via the API or `/api/health` → `orchestrator`.
+
+## Product consolidation (one place per capability)
+
+Before adding another Atlas feature, check: **Does Atlas already have this somewhere?**
+
+Do not add a second page that does the same job. Redirect or wrap instead.
+
+| Keep | Redirect / parent |
+| --- | --- |
+| `/app/approvals` | `/app/confirmations` |
+| `/app/marketplace` | `/app/app-store`, `/app/apps` |
+| `/app` (`CommandDashboard`) | `AtlasV1Home` / `CustomizableHome` wrappers |
+| `/app/tax` (`TaxCenter`) | no separate “Advanced Tax Center” page |
+| `/app/ask` | `/app/chat` — `/app/chatbot` is the **customer** website widget |
+| Money group | `/app/money`, `/app/finance`, `/app/payments`, `/app/tax`, `/app/accountant` |
+| Atlas Memory | `/app/memory` and children |
+| Trust & Governance | `/app/governance` and Security / Risk / Compliance / Privacy / Audit |
+
+Dashboard = current status. Mission Control = live Atlas ops. Executive = strategy. Board Advisor = strategic AI. Mission = company goals.
+
+API routes should use `withWorkspace` / `withAuth` / `withPermission`, `parseBody`, `apiSuccess` in `src/lib/api/http.ts` instead of copying session + try/catch on every file.
+
