@@ -106,6 +106,22 @@ Do not add more studios. Climb this path:
 
 Step 10 proofs live in `tests/safety.test.ts` and `docs/PRODUCTION_SAFETY.md`.
 
+## Atlas Orchestrator (extend, do not duplicate)
+
+Before adding a backend system, check whether Atlas already owns that responsibility.
+
+| Piece | Where it lives |
+| --- | --- |
+| Orchestrator / planner / run state / saga | `src/lib/orchestrator` → existing Actions |
+| Business rules | `src/lib/rules` reading autonomy policy (not a second permission engine) |
+| Capability registry | `src/lib/capabilities` wrapping `integrationStatus()` |
+| Event router | `src/lib/events/router.ts` (existing bus + jobs) |
+| Integration adapters | `src/lib/integrations/adapters.ts` calling Twilio/Stripe/Calendar/Resend |
+| Workers | existing `atlas-jobs` + `src/lib/queue/lanes.ts` |
+| Traces | `src/lib/observability/trace.ts` (technical). Audit remains governance. |
+
+Try: `POST /api/orchestrator` with `{ "goal": "Get Johnson Construction's overdue invoice paid." }`
+
 ## How to work going forward
 
 | Do | Don’t |

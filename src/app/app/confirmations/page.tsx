@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { ConfirmationStudio } from "@/components/ConfirmationStudio";
-
-export default function ConfirmationsPage() {
-  return <ConfirmationStudio />;
+/** Confirmations merged into Approvals — keep this path for old bookmarks. */
+export default function ConfirmationsRedirectPage() {
+  redirect("/app/approvals");
 }

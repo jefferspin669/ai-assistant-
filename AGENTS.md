@@ -79,4 +79,36 @@ Automated rails live in `src/lib/safety`, `src/lib/billing/entitlements.ts`, and
 - CI: `.github/workflows/atlas-ci.yml` runs `tsc`, `npm test`, and `npm audit`
 - Environments: `ATLAS_ENV=development|staging|production` (see `docs/PRODUCTION_SAFETY.md`)
 
-Do **not** add a new `/app/*` studio for this. Owners already have `/app/autonomous` and `/app/commercial`.
+## Atlas Orchestrator
+
+The Brain is not the execution engine. `src/lib/orchestrator` plans a goal, checks the **capability registry** (`src/lib/capabilities`) and **business rules** (`src/lib/rules` — distinct from `src/lib/auth/permissions`), then sends work through **existing** Atlas Actions, Approvals, Audit, and Jobs.
+
+- `POST /api/orchestrator` `{ "goal": "Get Johnson Construction's overdue invoice paid." }`
+- Persistent runs + technical traces: `.data/orchestrator.json` (audit stays the governance log)
+- Event router (`src/lib/events/router.ts`) decides which existing job, automation, or orchestrator intent cares about an event
+- Integration adapters wrap Twilio / Stripe / Calendar / Resend — not a second integration engine
+- BullMQ remains `atlas-jobs` with worker **lanes** (sms, email, payment, …)
+
+Do **not** add a new `/app/*` studio. Inspect runs via the API or `/api/health` → `orchestrator`.
+
+## Product consolidation (one place per capability)
+
+Before adding another Atlas feature, check: **Does Atlas already have this somewhere?**
+
+Do not add a second page that does the same job. Redirect or wrap instead.
+
+| Keep | Redirect / parent |
+| --- | --- |
+| `/app/approvals` | `/app/confirmations` |
+| `/app/marketplace` | `/app/app-store`, `/app/apps` |
+| `/app` (`CommandDashboard`) | `AtlasV1Home` / `CustomizableHome` wrappers |
+| `/app/tax` (`TaxCenter`) | no separate “Advanced Tax Center” page |
+| `/app/ask` | `/app/chat` — `/app/chatbot` is the **customer** website widget |
+| Money group | `/app/money`, `/app/finance`, `/app/payments`, `/app/tax`, `/app/accountant` |
+| Atlas Memory | `/app/memory` and children |
+| Trust & Governance | `/app/governance` and Security / Risk / Compliance / Privacy / Audit |
+
+Dashboard = current status. Mission Control = live Atlas ops. Executive = strategy. Board Advisor = strategic AI. Mission = company goals.
+
+API routes should use `withWorkspace` / `withAuth` / `withPermission`, `parseBody`, `apiSuccess` in `src/lib/api/http.ts` instead of copying session + try/catch on every file.
+

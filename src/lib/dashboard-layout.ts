@@ -35,7 +35,7 @@ export const DEFAULT_PAGE_OPTIONS = [
   { href: "/app", label: "Dashboard" },
   { href: "/app/appointments", label: "Calendar" },
   { href: "/app/tasks", label: "Tasks" },
-  { href: "/app/chat", label: "AI Chat" },
+  { href: "/app/ask", label: "Ask Atlas" },
   { href: "/app/tax", label: "Tax Center" },
   { href: "/app/notes", label: "Quick capture" },
   { href: "/app/contacts", label: "Contacts" },

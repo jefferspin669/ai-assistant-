@@ -1,10 +1,11 @@
 import { sessionFromToken, readCookie } from "@/lib/auth/session";
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
+import { ZodError, type ZodType } from "zod";
 import type { ApiResult } from "@/lib/api/types";
-import { err } from "@/lib/api/types";
+import { err, ok } from "@/lib/api/types";
 import { isAtlasError, AuthenticationError } from "@/lib/domain/errors";
-import type { SessionContext } from "@/lib/domain/types";
+import type { Permission, SessionContext } from "@/lib/domain/types";
+import { requirePermission } from "@/lib/auth/permissions";
 import { ensureServerDatabase } from "@/lib/db/ensure";
 import { readCachedSession } from "@/lib/auth/session-cache";
 import {
@@ -88,4 +89,53 @@ export async function resolveSession(req: Request, _body?: Record<string, unknow
 export async function resolveUserId(req: Request, _bodyUserId?: string) {
   void _bodyUserId;
   return (await resolveSession(req)).userId;
+}
+
+export function apiSuccess<T>(data: T, headers?: HeadersInit) {
+  return apiResponse(ok(data), headers);
+}
+
+export function apiError(error: unknown) {
+  return jsonError(error);
+}
+
+export function parseBody<T>(schema: ZodType<T>, body: unknown): T {
+  return schema.parse(body);
+}
+
+export type ApiHandlerContext = {
+  req: Request;
+  workspace: SessionContext;
+  body: Record<string, unknown>;
+};
+
+type ApiHandler = (ctx: ApiHandlerContext) => Promise<Response> | Response;
+
+/**
+ * Session + JSON body + error conversion. `workspace` is the authenticated org session.
+ * Identity never comes from the request body.
+ */
+export function withAuth(handler: ApiHandler) {
+  return async (req: Request) => {
+    try {
+      const workspace = await resolveSession(req);
+      const body =
+        req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS"
+          ? {}
+          : await readJson(req);
+      return await handler({ req, workspace, body });
+    } catch (error) {
+      return jsonError(error);
+    }
+  };
+}
+
+/** Alias: session already carries organizationId. */
+export const withWorkspace = withAuth;
+
+export function withPermission(permission: Permission, handler: ApiHandler) {
+  return withAuth(async (ctx) => {
+    requirePermission(ctx.workspace, permission);
+    return handler(ctx);
+  });
 }

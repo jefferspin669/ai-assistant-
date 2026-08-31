@@ -31,7 +31,8 @@ async function runTick(req: Request) {
   try {
     const auth = await authorizeTick(req);
     const processed = processJobs(20);
-    return apiResponse(ok({ via: auth.via, processed }));
+    const orch = await import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns());
+    return apiResponse(ok({ via: auth.via, processed, orchestrator: orch.map((run) => run.id) }));
   } catch (error) {
     return jsonError(error);
   }

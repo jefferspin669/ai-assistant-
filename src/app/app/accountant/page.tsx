@@ -5,8 +5,8 @@ import { payments } from "@/lib/data";
 export default function AccountantPage() {
   return (
     <FeatureView
-      title="AI Accountant Helper"
-      subtitle="Not replacing accountants — helping them with expenses, receipts, profit estimates, tax reminders, and cash flow. Deep income and deduction work lives in Tax Center."
+      title="Accountant"
+      subtitle="Not replacing accountants — helping them with expenses, receipts, profit estimates, tax reminders, and cash flow. Deep income and deduction work lives in Tax."
       sections={[
         {
           type: "panel",

@@ -5,10 +5,28 @@ export type HubLink = {
 };
 
 export const moneyHub: HubLink[] = [
-  { href: "/app/finance", label: "Financial command", blurb: "Revenue, expenses, and cash in one place." },
+  { href: "/app/finance", label: "Banking", blurb: "Cash, forecasts, and the books in one place." },
   { href: "/app/payments", label: "Invoices & payments", blurb: "What customers owe and what you have collected." },
-  { href: "/app/tax", label: "Tax Center", blurb: "Estimates, receipts, and filing — clearly labeled." },
-  { href: "/app/accountant", label: "Accountant helper", blurb: "Packages for your bookkeeper or CPA." },
+  { href: "/app/tax", label: "Tax", blurb: "Estimates, receipts, and filing — clearly labeled." },
+  { href: "/app/accountant", label: "Accountant", blurb: "Packages for your bookkeeper or CPA." },
+];
+
+export const memoryHub: HubLink[] = [
+  { href: "/app/memory", label: "Business Memory", blurb: "What Atlas should remember about this company." },
+  { href: "/app/ceo-memory", label: "CEO Memory", blurb: "Why you made a decision — with the notes attached." },
+  { href: "/app/customer-twin", label: "Customer Memory", blurb: "Preferences, history, and how each customer likes to work." },
+  { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
+  { href: "/app/executive-timeline", label: "Timeline", blurb: "The story of the business across months, not chats." },
+  { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
+];
+
+export const trustHub: HubLink[] = [
+  { href: "/app/security", label: "Security", blurb: "Threats, devices, 2FA, and vault health." },
+  { href: "/app/risk", label: "Risk", blurb: "Cash, burnout, and compliance warnings before they get expensive." },
+  { href: "/app/compliance", label: "Compliance", blurb: "Licenses, insurance, and retention rules." },
+  { href: "/app/governance", label: "Governance", blurb: "Roles, permissions, and who can approve what." },
+  { href: "/app/privacy", label: "Privacy", blurb: "What Atlas stores and what it does not." },
+  { href: "/app/access", label: "Audit Log", blurb: "Every sensitive action, recorded." },
 ];
 
 export const salesHub: HubLink[] = [
@@ -49,17 +67,16 @@ export const automationsHub: HubLink[] = [
 ];
 
 export const knowledgeHub: HubLink[] = [
-  { href: "/app/knowledge", label: "Knowledge brain", blurb: "Handbooks, prices, and policies Atlas can quote." },
-  { href: "/app/memory", label: "Memory", blurb: "What Atlas should remember about your business." },
-  { href: "/app/ceo-memory", label: "Executive memory", blurb: "Why you made a decision — with the notes attached." },
+  { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
+  { href: "/app/memory", label: "Atlas Memory", blurb: "Business, CEO, customer, and timeline memory in one system." },
+  { href: "/app/ceo-memory", label: "CEO Memory", blurb: "Why you made a decision — with the notes attached." },
   { href: "/app/documents", label: "Documents", blurb: "Contracts, manuals, and files." },
   { href: "/app/dna", label: "Business DNA", blurb: "Voice, discounts, escalation, and pricing philosophy." },
-  { href: "/app/global-memory", label: "Global memory", blurb: "Hours, holidays, tax, currency, and local rules." },
+  { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
 ];
 
 export const appsHub: HubLink[] = [
-  { href: "/app/marketplace", label: "Marketplace", blurb: "Install agents, dashboards, and templates." },
-  { href: "/app/app-store", label: "App Store", blurb: "Packaged tools for this workspace." },
+  { href: "/app/marketplace", label: "Atlas Marketplace", blurb: "Discover, install, and publish agents, automations, and modules." },
   { href: "/app/connections", label: "Connections", blurb: "Banks, calendars, phones — labeled CONNECTED DATA." },
   { href: "/app/files", label: "Files", blurb: "Uploads Atlas can search." },
   { href: "/app/developers", label: "API", blurb: "Build on Atlas when the core loop is real." },

@@ -211,7 +211,7 @@ export function globalSearch(query: string, limit = 40): GlobalSearchHit[] {
         source: "conversation",
         title: chat.title,
         snippet: chat.preview,
-        href: "/app/chat",
+        href: "/app/ask",
         score: 2,
       });
     }

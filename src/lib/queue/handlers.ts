@@ -39,6 +39,20 @@ export async function handleQueuedWork(kind: string, job: JobBody) {
   }
 
   try {
+    if (kind.startsWith("orchestrator:")) {
+      const { tickRun, getRun, tickDueOrchestratorRuns } = await import("@/lib/orchestrator");
+      if (kind === "orchestrator:tick-due") {
+        await tickDueOrchestratorRuns();
+        finishJob(job.jobId, true);
+        return { ok: true, kind };
+      }
+      const runId = String(job.payload.runId || "");
+      const run = getRun(runId, job.organizationId);
+      if (run) await tickRun(run);
+      finishJob(job.jobId, true);
+      return { ok: true, kind };
+    }
+
     if (isPaymentKind(kind)) {
       const attempt = Math.max(job.attemptsMade || 1, 1);
       const outcome = paymentAttemptOutcome(attempt);

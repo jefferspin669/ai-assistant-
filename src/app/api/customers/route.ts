@@ -1,23 +1,11 @@
 import { createCustomerSchema } from "@/lib/domain/schemas";
-import { apiResponse, jsonError, readJson, resolveSession } from "@/lib/api/http";
-import { ok } from "@/lib/api/types";
+import { apiSuccess, parseBody, withPermission } from "@/lib/api/http";
 import { createCustomer, listCustomers } from "@/lib/services/workspace";
 
-export async function GET(req: Request) {
-  try {
-    const ctx = await resolveSession(req);
-    return apiResponse(ok(listCustomers(ctx)));
-  } catch (error) {
-    return jsonError(error);
-  }
-}
+export const GET = withPermission("customers.read", async ({ workspace }) => {
+  return apiSuccess(listCustomers(workspace));
+});
 
-export async function POST(req: Request) {
-  try {
-    const ctx = await resolveSession(req);
-    const parsed = createCustomerSchema.parse(await readJson(req));
-    return apiResponse(ok(createCustomer(ctx, parsed)));
-  } catch (error) {
-    return jsonError(error);
-  }
-}
+export const POST = withPermission("customers.write", async ({ workspace, body }) => {
+  return apiSuccess(createCustomer(workspace, parseBody(createCustomerSchema, body)));
+});

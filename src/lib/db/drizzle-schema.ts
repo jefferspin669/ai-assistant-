@@ -1,6 +1,8 @@
 import { boolean, integer, jsonb, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
-/** Postgres contract. Runtime uses this when DATABASE_URL is set; otherwise `.data/*.json`. */
+/** Postgres contract. Runtime uses this when DATABASE_URL is set; otherwise `.data/*.json`.
+ * Infer domain types from this schema where possible; keep `lib/domain/types.ts` as the public API.
+ */
 
 export const organizations = pgTable("organizations", {
   id: text("id").primaryKey(),
