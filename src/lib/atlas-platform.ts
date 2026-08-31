@@ -14,7 +14,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/app", label: "Dashboard", exact: true },
       { href: "/app/appointments", label: "Atlas Calendar" },
-      { href: "/app/ask", label: "Atlas Assistant" },
+      { href: "/app/ask", label: "Talk to Atlas" },
       { href: "/app/workforce", label: "Workforce" },
       { href: "/app/marketplace", label: "Atlas Marketplace" },
       { href: "/app/files", label: "Files" },
@@ -129,7 +129,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/app/routes", label: "Route Optimization" },
       { href: "/app/inventory", label: "AI Inventory" },
-      { href: "/app/purchasing", label: "Purchasing AI" },
+      { href: "/app/purchasing", label: "Expenses & Purchases" },
       { href: "/app/workforce-status", label: "Workforce Status" },
       { href: "/app/goals", label: "Employee Goals" },
       { href: "/app/shifts", label: "Scheduling" },
@@ -137,8 +137,6 @@ export const navGroups: NavGroup[] = [
       { href: "/app/performance", label: "Performance" },
       { href: "/app/team-training", label: "Training & Certs" },
       { href: "/app/messages", label: "Messages" },
-      { href: "/app/communications", label: "Communications" },
-      { href: "/app/coverage", label: "Coverage Mode" },
       { href: "/app/suggestions", label: "Suggestions" },
       { href: "/app/time-off", label: "Time-Off" },
       { href: "/app/training", label: "Atlas Academy" },
@@ -148,7 +146,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Atlas Assistant",
     items: [
-      { href: "/app/ask", label: "Atlas Assistant" },
+      { href: "/app/ask", label: "Talk to Atlas" },
     ],
   },
   {

@@ -3,7 +3,7 @@
 import Link from "@/components/SiteLink";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
-import { AtlasChatPanel } from "@/components/AtlasChatPanel";
+import { DashboardAskAtlas } from "@/components/DashboardAskAtlas";
 import { DashboardCustomizer, useDashboardLayout } from "@/components/DashboardCustomizer";
 import {
   applyOwnerEffect,
@@ -172,11 +172,7 @@ export function CommandDashboard() {
         </section>
       </div>
 
-      <section className="panel dash-ask">
-        <h2>Ask Atlas</h2>
-        <p className="panel-lead">Try “How did we do this week?” then “What should I do?”</p>
-        <AtlasChatPanel compact />
-      </section>
+      <DashboardAskAtlas />
 
       <section className="panel">
         <h2>Jump into Atlas</h2>
@@ -187,7 +183,7 @@ export function CommandDashboard() {
             { href: "/app/marketplace", label: "Marketplace", text: "Agents, automations, modules" },
             { href: "/app/memory", label: "Atlas Memory", text: "Business, CEO, customer, timeline" },
             { href: "/app/governance", label: "Trust & Governance", text: "Security, risk, audit" },
-            { href: "/app/ask", label: "Ask Atlas", text: "Tell Atlas the outcome" },
+            { href: "/app/ask", label: "Talk to Atlas", text: "Command center for the whole product" },
           ].map((item) => (
             <div className="list-row" key={item.href}>
               <span className="badge ok">Open</span>

@@ -31,10 +31,10 @@ describe("product consolidation", () => {
     expect(navItems.find((item) => item.href === "/app/chatbot")?.label).toBe("Customer Chatbot");
   });
 
-  it("pins Atlas Assistant on the primary sidebar", () => {
+  it("pins Talk to Atlas on the primary sidebar", () => {
     const chat = sidebarMain.find((item) => item.icon === "chat");
     expect(chat?.href).toBe("/app/ask");
-    expect(chat?.label).toBe("Atlas Assistant");
+    expect(chat?.label).toBe("Talk to Atlas");
   });
 
   it("puts Tax under Money instead of pinning it as a second product", () => {

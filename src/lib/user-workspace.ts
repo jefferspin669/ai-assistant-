@@ -3608,15 +3608,18 @@ export function seedCalendarsIfEmpty(): void {
 
 /* ─── PTO / time-off requests + staffing ───────────────────────────────── */
 
-export type TimeOffType = "Vacation" | "Sick" | "Personal";
+export type TimeOffType = "PTO" | "Vacation" | "Sick" | "Personal" | "Unpaid";
 export type TimeOffStatus = "pending" | "approved" | "rejected";
+export type DayPortion = "full" | "partial";
 export type TimeOffRequest = {
   id: string;
   memberId: string;
   startDate: string;
   endDate: string;
   type: TimeOffType;
+  portion: DayPortion;
   note: string;
+  managerNote?: string;
   status: TimeOffStatus;
   createdAt: string;
   decidedAt?: string;
@@ -3644,6 +3647,7 @@ export function createTimeOffRequest(input: {
   startDate: string;
   endDate: string;
   type: TimeOffType;
+  portion?: DayPortion;
   note?: string;
 }): TimeOffRequest {
   const req: TimeOffRequest = {
@@ -3652,6 +3656,7 @@ export function createTimeOffRequest(input: {
     startDate: input.startDate,
     endDate: input.endDate || input.startDate,
     type: input.type,
+    portion: input.portion ?? "full",
     note: (input.note || "").trim(),
     status: "pending",
     createdAt: nowIso(),
@@ -3659,8 +3664,17 @@ export function createTimeOffRequest(input: {
   saveTimeOff([req, ...loadTimeOff()]);
   return req;
 }
-export function decideTimeOff(id: string, status: TimeOffStatus): TimeOffRequest[] {
-  const next = loadTimeOff().map((r) => (r.id === id ? { ...r, status, decidedAt: nowIso() } : r));
+export function decideTimeOff(id: string, status: TimeOffStatus, managerNote?: string): TimeOffRequest[] {
+  const next = loadTimeOff().map((r) =>
+    r.id === id ? { ...r, status, managerNote: managerNote ?? r.managerNote, decidedAt: nowIso() } : r,
+  );
+  saveTimeOff(next);
+  return next;
+}
+export function requestTimeOffChange(id: string, managerNote: string): TimeOffRequest[] {
+  const next = loadTimeOff().map((r) =>
+    r.id === id ? { ...r, status: "pending" as TimeOffStatus, managerNote, decidedAt: undefined } : r,
+  );
   saveTimeOff(next);
   return next;
 }
@@ -3690,6 +3704,26 @@ export function staffingImpact(
   const available = Math.max(0, deptMembers.length - off.size);
   const recommended = recommendedStaff(department, deptMembers.length);
   return { department, deptSize: deptMembers.length, available, recommended, short: available < recommended };
+}
+
+export type CoverageCandidate = { id: string; name: string; reason: string };
+
+/** Suggest employees who could cover during a time-off window. */
+export function findCoverageForTimeOff(
+  members: TeamPerson[],
+  requests: TimeOffRequest[],
+  req: TimeOffRequest,
+  now = Date.now(),
+): { understaffed: boolean; message: string; candidates: CoverageCandidate[] } {
+  const member = members.find((m) => m.id === req.memberId);
+  if (!member) return { understaffed: false, message: "Employee not found.", candidates: [] };
+  const plan = coveragePlan(member, now);
+  const impact = staffingImpact(members, requests, req);
+  const candidates = plan.items[0]?.suggestions ?? [];
+  const message = impact.short
+    ? `${impact.department} may be understaffed (${impact.available}/${impact.recommended} available).`
+  : `Coverage looks acceptable for ${member.name}.`;
+  return { understaffed: impact.short, message, candidates };
 }
 
 /* ─── Departments / team pages ─────────────────────────────────────────── */
@@ -4507,6 +4541,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
           startDate: "2026-08-21",
           endDate: "2026-08-23",
           type: "Vacation",
+          portion: "full",
           note: "Family trip",
           status: "pending",
           createdAt: nowIso(),

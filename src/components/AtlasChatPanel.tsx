@@ -15,6 +15,7 @@ import {
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 import { applyOwnerEffect } from "@/lib/dashboard";
+import { loadTodayAttention, loadCommandDataSources } from "@/lib/command-center";
 import { styleReplyWithFeedback } from "@/lib/feedback";
 
 type BrainApiData = {
@@ -50,9 +51,10 @@ function timeGreeting() {
 
 type AtlasChatPanelProps = {
   compact?: boolean;
+  commandCenter?: boolean;
 };
 
-export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
+export function AtlasChatPanel({ compact = false, commandCenter = false }: AtlasChatPanelProps) {
   const { ownerName, businessName, ready, account, saveConversation } = useAccount();
   const greetedRef = useRef(false);
   const [input, setInput] = useState("");
@@ -114,6 +116,26 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
   async function askBrain(spoken: string) {
     const trimmed = spoken.trim();
     if (!trimmed || busy) return;
+
+    if (/attention today|needs my attention|what should i focus/i.test(trimmed)) {
+      const attention = loadTodayAttention();
+      setBusy(true);
+      setMessages((prev) => [
+        ...prev,
+        { kind: "user", text: trimmed },
+        {
+          kind: "ai",
+          agentLabel: "Atlas",
+          text: `${attention.summary}\n\nWhy Atlas thinks this: pulled from tasks, time-off, approvals, and your business model.`,
+          receipts: loadCommandDataSources().slice(0, 4).map((s) => ({
+            label: s.label,
+            source: s.status === "live" ? "CONNECTED DATA" : "DEMO",
+          })),
+        },
+      ]);
+      setBusy(false);
+      return;
+    }
 
     const assignSuggestion = (() => {
       seedDemoTeamIfEmpty();
@@ -266,7 +288,8 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
   const suggestions = compact ? commandSuggestions.slice(0, 4) : commandSuggestions;
 
   return (
-    <div className={`atlas-chat-panel${compact ? " atlas-chat-panel-compact" : ""}`}>
+    <div className={`atlas-chat-panel${compact ? " atlas-chat-panel-compact" : ""}${commandCenter ? " atlas-chat-panel-command" : ""}`}>
+      {!commandCenter ? (
       <div className="command-head">
         <div>
           <h2>Ask Atlas</h2>
@@ -291,6 +314,9 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
           {listening ? "Listening…" : "Speak"}
         </button>
       </div>
+      ) : (
+        <p className="panel-lead">Ask anything — Atlas shows confidence, data sources, and links to records.</p>
+      )}
 
       <div className="command-thread" aria-live="polite">
         {messages.map((message, index) => {
