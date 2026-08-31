@@ -85,6 +85,16 @@ const nextConfig: NextConfig = {
               destination: "/app/appointments?tab=team",
               permanent: false,
             },
+            {
+              source: "/app/ceo-memory",
+              destination: "/app/memory?type=leadership",
+              permanent: false,
+            },
+            {
+              source: "/app/customer-twin",
+              destination: "/app/memory?type=customer",
+              permanent: false,
+            },
           ];
         },
         async headers() {

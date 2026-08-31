@@ -12,9 +12,7 @@ export const moneyHub: HubLink[] = [
 ];
 
 export const memoryHub: HubLink[] = [
-  { href: "/app/memory", label: "Business Memory", blurb: "What Atlas should remember about this company." },
-  { href: "/app/ceo-memory", label: "CEO Memory", blurb: "Why you made a decision — with the notes attached." },
-  { href: "/app/customer-twin", label: "Customer Memory", blurb: "Preferences, history, and how each customer likes to work." },
+  { href: "/app/memory", label: "Business Memory", blurb: "One engine — company, leadership, employee, customer, operational." },
   { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
   { href: "/app/executive-timeline", label: "Timeline", blurb: "The story of the business across months, not chats." },
   { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
@@ -83,8 +81,7 @@ export const automationsHub: HubLink[] = [
 
 export const knowledgeHub: HubLink[] = [
   { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
-  { href: "/app/memory", label: "Atlas Memory", blurb: "Business, CEO, customer, and timeline memory in one system." },
-  { href: "/app/ceo-memory", label: "CEO Memory", blurb: "Why you made a decision — with the notes attached." },
+  { href: "/app/memory", label: "Business Memory", blurb: "One permission-aware memory engine for the company." },
   { href: "/app/documents", label: "Documents", blurb: "Contracts, manuals, and files." },
   { href: "/app/dna", label: "Business DNA", blurb: "Voice, discounts, escalation, and pricing philosophy." },
   { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },

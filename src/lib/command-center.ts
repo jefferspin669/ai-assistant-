@@ -162,6 +162,7 @@ export function loadCommandActivity(): CommandActivity[] {
 export function loadCommandDataSources(): DataSource[] {
   const demo = isDemoWorkspace();
   return [
+    { id: "memory", label: "Business Memory", status: demo ? "demo" : "workspace", detail: "Company, leadership, customer facts" },
     { id: "workforce", label: "Workforce", status: demo ? "demo" : "workspace", detail: demo ? "Demo team" : "Your employees and tasks" },
     { id: "finance", label: "Finance", status: demo ? "demo" : "workspace", detail: demo ? "Demo model" : "Connect Stripe or banking" },
     { id: "calendar", label: "Calendar", status: "workspace", detail: "Meetings and shifts" },

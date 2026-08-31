@@ -73,7 +73,8 @@ describe("product consolidation", () => {
       "/app/tax",
       "/app/accountant",
     ]);
-    expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(true);
+    expect(memoryHub.some((item) => item.href === "/app/memory")).toBe(true);
+    expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(false);
   });
 
   it("drops Command Language from nav", () => {

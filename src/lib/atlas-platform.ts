@@ -35,8 +35,6 @@ export const navGroups: NavGroup[] = [
     label: "Atlas Memory",
     items: [
       { href: "/app/memory", label: "Business Memory" },
-      { href: "/app/ceo-memory", label: "CEO Memory" },
-      { href: "/app/customer-twin", label: "Customer Memory" },
       { href: "/app/knowledge", label: "Knowledge Base" },
       { href: "/app/executive-timeline", label: "Timeline" },
       { href: "/app/global-memory", label: "Memory Settings" },

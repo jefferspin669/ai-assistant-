@@ -1,14 +1,5 @@
-import { AppShell } from "@/components/AppShell";
-import { CeoMemoryStudio } from "@/components/CeoMemoryStudio";
+import { redirect } from "next/navigation";
 
-export default function CeoMemoryPage() {
-  return (
-    <AppShell
-      title="CEO Memory"
-      subtitle="Atlas remembers years of decisions — ask why, and get context, supporting data, and meeting notes."
-      action={<button className="btn btn-dark">Log decision</button>}
-    >
-      <CeoMemoryStudio />
-    </AppShell>
-  );
+export default function CeoMemoryRedirectPage() {
+  redirect("/app/memory?type=leadership");
 }
