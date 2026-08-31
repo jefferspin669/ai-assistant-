@@ -68,7 +68,7 @@ function monthMatrix(anchor: Date) {
   return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 }
 
-export function SmartCalendarStudio() {
+export function SmartCalendarStudio({ embedded = false }: { embedded?: boolean } = {}) {
   const { ownerName } = useAccount();
   const [ready, setReady] = useState(false);
   const [categories, setCategories] = useState<CalendarCategory[]>([]);
@@ -327,47 +327,45 @@ export function SmartCalendarStudio() {
   const yearMonths = Array.from({ length: 12 }, (_, i) => new Date(anchor.getFullYear(), i, 1));
   const agendaDays = Array.from({ length: 14 }, (_, i) => addDays(anchor, i - 1));
 
+  const navActions = (
+    <div className="cta-row">
+      <button
+        type="button"
+        className="btn btn-outline"
+        onClick={() =>
+          setAnchor(addDays(anchor, view === "yearly" ? -365 : view === "monthly" ? -30 : -7))
+        }
+        disabled={view === "life"}
+      >
+        Prev
+      </button>
+      <button type="button" className="btn btn-outline" onClick={() => setAnchor(new Date())}>
+        Today
+      </button>
+      <button
+        type="button"
+        className="btn btn-dark"
+        onClick={() =>
+          setAnchor(addDays(anchor, view === "yearly" ? 365 : view === "monthly" ? 30 : 7))
+        }
+        disabled={view === "life"}
+      >
+        Next
+      </button>
+    </div>
+  );
+
   if (!ready) {
+    if (embedded) return <div className="panel">Loading your planner…</div>;
     return (
-      <AppShell title="Calendar" subtitle="Loading your planner…">
+      <AppShell title="Atlas Calendar" subtitle="Loading your planner…">
         <div className="panel">Loading…</div>
       </AppShell>
     );
   }
 
-  return (
-    <AppShell
-      title="Calendar"
-      subtitle="One calendar — add and delete events anytime. Voice, planning, shared calendars, and Life Timeline included."
-      action={
-        <div className="cta-row">
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={() =>
-              setAnchor(addDays(anchor, view === "yearly" ? -365 : view === "monthly" ? -30 : -7))
-            }
-            disabled={view === "life"}
-          >
-            Prev
-          </button>
-          <button type="button" className="btn btn-outline" onClick={() => setAnchor(new Date())}>
-            Today
-          </button>
-          <button
-            type="button"
-            className="btn btn-dark"
-            onClick={() =>
-              setAnchor(addDays(anchor, view === "yearly" ? 365 : view === "monthly" ? 30 : 7))
-            }
-            disabled={view === "life"}
-          >
-            Next
-          </button>
-        </div>
-      }
-    >
-      <div className="smart-cal">
+  const calendarBody = (
+    <div className="smart-cal">
         <div className="sc-toolbar">
           <div className="biz-switcher">
             {VIEWS.map((item) => (
@@ -910,6 +908,24 @@ export function SmartCalendarStudio() {
           </aside>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return (
+      <div>
+        <div className="sc-toolbar" style={{ marginBottom: "0.75rem" }}>{navActions}</div>
+        {calendarBody}
+      </div>
+    );
+  }
+
+  return (
+    <AppShell
+      title="Atlas Calendar"
+      subtitle="Scheduling, AI planning, team meetings, deadlines, shifts, and milestones — Events AI lives here."
+      action={navActions}
+    >
+      {calendarBody}
     </AppShell>
   );
 }
