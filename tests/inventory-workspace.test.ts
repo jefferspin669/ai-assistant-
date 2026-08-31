@@ -1,13 +1,36 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { loadCompanyModel } from "../src/lib/business-engine";
 import { parseReceiptText, createPurchaseFromReceipt } from "../src/lib/expenses-workspace";
 import {
   parseReceiptInventoryLines,
   inventoryIntelligence,
   loadInventoryItems,
+  useInventory,
+  loadStockMovements,
 } from "../src/lib/inventory-workspace";
 
+function mockLocalStorage() {
+  const store: Record<string, string> = {};
+  const storage = {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      Object.keys(store).forEach((k) => delete store[k]);
+    },
+  };
+  vi.stubGlobal("localStorage", storage);
+  vi.stubGlobal("window", { localStorage: storage });
+}
+
 describe("inventory workspace", () => {
+  beforeEach(() => {
+    mockLocalStorage();
+  });
   it("parses printer paper from receipt text", () => {
     const lines = parseReceiptInventoryLines("Office Depot\n20 boxes printer paper\n$840");
     expect(lines).toHaveLength(1);
@@ -47,5 +70,16 @@ describe("inventory workspace", () => {
     const model = loadCompanyModel();
     expect(model.capacity).toContain("stock on hand");
     expect(model.customNotes.toLowerCase()).toContain("inventory");
+  });
+
+  it("decrements stock when employee uses inventory", () => {
+    const paper = loadInventoryItems().find((i) => i.name === "Printer Paper");
+    expect(paper).toBeTruthy();
+    useInventory(paper!.id, 3, "emp-1", "Marcus Lee", "Office Renovation");
+    const updated = loadInventoryItems().find((i) => i.id === paper!.id);
+    expect(updated?.quantity).toBe(11);
+    const move = loadStockMovements().find((m) => m.project === "Office Renovation");
+    expect(move?.employeeName).toBe("Marcus Lee");
+    expect(move?.quantity).toBe(3);
   });
 });
