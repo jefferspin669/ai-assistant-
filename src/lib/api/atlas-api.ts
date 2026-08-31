@@ -28,6 +28,7 @@ import type {
 import { err, ok, type ApiResult } from "@/lib/api/types";
 import { hashPassword, verifyPassword } from "@/lib/secure-store";
 import { computeTaxEstimate } from "@/lib/tax-ledger";
+import { assertSeatAvailable } from "@/lib/billing/entitlements";
 
 function db(): AtlasDatabase {
   return loadDatabase();
@@ -294,6 +295,11 @@ export const organizationMembersApi = {
       )
     ) {
       return err("User is already a member of this organization.", 409);
+    }
+
+    const seats = assertSeatAvailable(input.organization_id);
+    if (!seats.ok) {
+      return err(`Plan seat limit reached (${seats.used}/${seats.cap}). Upgrade to invite more people.`, 402);
     }
 
     const member: DbOrganizationMember = {

@@ -90,6 +90,22 @@ Kill switch pauses execution without wiping the queue. File DB is the beachhead;
 
 Operator UI stays on existing routes: `/app/autonomous`, `/app/approvals`, `/app/commercial`.
 
+## Trust ladder (how we finish)
+
+Do not add more studios. Climb this path:
+
+| Step | What “done” means |
+| --- | --- |
+| **7** Make the data real | `DATABASE_URL` → Postgres is source of truth (JSON is the adapter when unset) |
+| **7.5** Run when nobody is online | Event bus + BullMQ/`/api/autonomy/tick` workers, heartbeat, dead letters |
+| **8** Give Atlas its brain | Live LLM + tools when `ATLAS_LLM_API_KEY` is set |
+| **8.5** Interact with the outside world | Twilio, calendar OAuth, Stripe — live when credentials exist |
+| **9** Controlled authority | Autonomy levels 1–4, spending limits, human-only approval of restricted work |
+| **9.5** Failures recoverable and observable | Retries with backoff, DLQ, backups + restore tests, `/api/health`, Sentry |
+| **10** Safe enough to trust with a real company | Tenant isolation, plan enforcement, privacy export/delete, audit, **autonomy safety tests** |
+
+Step 10 proofs live in `tests/safety.test.ts` and `docs/PRODUCTION_SAFETY.md`.
+
 ## How to work going forward
 
 | Do | Don’t |

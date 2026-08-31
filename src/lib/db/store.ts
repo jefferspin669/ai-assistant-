@@ -477,7 +477,7 @@ export function seedDatabase(): AtlasDatabase {
     {
       id: newId("sub"),
       orgId,
-      plan: "pro",
+      plan: "business",
       status: "active",
       renewsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 28).toISOString(),
       seats: 5,

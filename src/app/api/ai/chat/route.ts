@@ -1,12 +1,18 @@
-import { apiResponse, readJson } from "@/lib/api/http";
+import { apiResponse, jsonError, readJson } from "@/lib/api/http";
 import { ok } from "@/lib/api/types";
 import { runAtlasBrain } from "@/lib/brain";
 import { applyAwayMode, appendStandingOrder } from "@/lib/autonomy/policy";
 import { isAwayPhrase, LEVEL_LABELS } from "@/lib/autonomy";
 import { newId, nowIso, loadDatabase, saveDatabase } from "@/lib/db/store";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 
 export async function POST(req: Request) {
+  try {
+    rateLimit(`chat:${clientKey(req)}`, 40, 60_000);
+  } catch (error) {
+    return jsonError(error);
+  }
   await ensureServerDatabase();
   const body = await readJson(req);
   const message = String(body.message || body.text || "");

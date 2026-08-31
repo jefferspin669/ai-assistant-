@@ -41,6 +41,7 @@ export function startAtlasWorker() {
         organizationId: String(job.data.organizationId || ""),
         userId: String(job.data.userId || "atlas"),
         payload: (job.data.payload || {}) as Record<string, unknown>,
+        attemptsMade: job.attemptsMade,
       });
     },
     { connection: conn, concurrency: 4 },

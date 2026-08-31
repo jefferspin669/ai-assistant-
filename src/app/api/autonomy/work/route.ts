@@ -1,4 +1,5 @@
 import { apiResponse, asRecord, jsonError, readJson, resolveSession } from "@/lib/api/http";
+import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 import { err, ok } from "@/lib/api/types";
 import { requirePermission } from "@/lib/auth/permissions";
 import {
@@ -15,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    rateLimit(`autonomy-work:${clientKey(req)}`, 60, 60_000);
     const ctx = await resolveSession(req);
     requirePermission(ctx, "atlas.autonomous");
     const body = asRecord(await readJson(req));

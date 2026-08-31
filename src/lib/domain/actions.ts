@@ -1,5 +1,6 @@
 import { parseAtlasAction, type AtlasAction } from "@/lib/domain/schemas";
 import { NotFoundError, ValidationError } from "@/lib/domain/errors";
+import { assertHumanApproval } from "@/lib/safety/guards";
 import type { CalendarEvent, Customer, SessionContext, Task } from "@/lib/domain/types";
 import {
   createCustomer,
@@ -161,6 +162,7 @@ export function executeAtlasAction(input: unknown, ctx: SessionContext): AtlasAc
 
 export function resolveApproval(ctx: SessionContext, approvalId: string, decision: "approved" | "rejected") {
   requirePermission(ctx, "payments.refund");
+  assertHumanApproval(ctx);
   const db = database();
   const row = db.approvals.find(
     (item) => item.id === approvalId && item.organization_id === ctx.organizationId,

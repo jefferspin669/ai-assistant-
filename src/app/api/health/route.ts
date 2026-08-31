@@ -10,6 +10,10 @@ import { queueDriver } from "@/lib/queue/env";
 import { databaseDriver } from "@/lib/db/driver";
 import { ensureServerDatabase } from "@/lib/db/ensure";
 import { supabaseAuthConfigured } from "@/lib/auth/supabase-auth";
+import { readWorkerHeartbeat } from "@/lib/queue/heartbeat";
+import { listDeadLetters } from "@/lib/queue/dead-letter";
+import { publicEnvReport } from "@/lib/secrets/redact";
+import { atlasRuntimeEnv } from "@/lib/ops/environment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +25,8 @@ export async function GET() {
   const postgres = await pingPostgres();
   const redis = await pingRedis();
   const driver = databaseDriver();
+  const worker = await readWorkerHeartbeat();
+  const secrets = publicEnvReport();
   return NextResponse.json({
     ok: true,
     data: {
@@ -39,6 +45,10 @@ export async function GET() {
       },
       redis,
       queue: queueDriver(),
+      worker,
+      deadLetters: listDeadLetters().length,
+      secrets,
+      environment: atlasRuntimeEnv(),
       auth: supabaseAuthConfigured() ? "supabase+atlas_session" : "atlas_session",
       businessStore: atlasStore.mode(),
       workspaceFile: fileExists("workspace.json") ? "file:.data/workspace.json" : "memory-seeding",

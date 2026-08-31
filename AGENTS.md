@@ -66,4 +66,17 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
 - Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
 - Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo`. Dev `GET /api/session` mints a cookie for the seeded owner.
-- Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist / autonomy-engine work.
+- Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.
+
+## Production safety (trust with a real company)
+
+Automated rails live in `src/lib/safety`, `src/lib/billing/entitlements.ts`, and `tests/safety.test.ts`. They prove Atlas cannot overspend, self-approve, fire staff, leak tenants, retry payments forever, or spam a customer after a worker crash. Sensitive actions always write an audit row.
+
+- Privacy: `GET`/`DELETE /api/privacy` (export / owner delete)
+- Support snapshot: `GET /api/admin/support` (owner/admin, this org only)
+- Worker heartbeat + dead letters: `GET /api/health`
+- Backups: `npm run db:backup` / `npm run db:restore` (JSON locally; `pg_dump` when `DATABASE_URL` is set)
+- CI: `.github/workflows/atlas-ci.yml` runs `tsc`, `npm test`, and `npm audit`
+- Environments: `ATLAS_ENV=development|staging|production` (see `docs/PRODUCTION_SAFETY.md`)
+
+Do **not** add a new `/app/*` studio for this. Owners already have `/app/autonomous` and `/app/commercial`.

@@ -2,6 +2,13 @@ import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
+import {
+  calendarOAuthConfigured,
+  calendarReconnectUrl,
+  disconnectCalendar,
+  refreshConnectedTokens,
+  type CalendarProvider,
+} from "@/lib/integrations/calendar";
 
 const CATALOG = [
   { id: "gmail", provider: "gmail", label: "Gmail" },
@@ -81,4 +88,50 @@ export function ingestWebhook(ctx: SessionContext, eventId: string) {
     ],
   });
   return { accepted: true, ignored: false as const, eventId };
+}
+
+function calendarProvider(provider: string): CalendarProvider | null {
+  if (provider === "google" || provider === "google-calendar") return "google";
+  if (provider === "microsoft" || provider === "microsoft-calendar") return "microsoft";
+  return null;
+}
+
+export async function reconnectIntegration(ctx: SessionContext, provider: string) {
+  const db = database();
+  requireOrgMember(db, ctx);
+  const cal = calendarProvider(provider);
+  if (cal) {
+    disconnectCalendar(cal);
+    setIntegrationStatus(ctx, provider === "google" ? "google-calendar" : provider, "disconnected");
+    writeAudit(ctx, {
+      action: `reconnect ${provider}`,
+      entityType: "integration",
+      entityId: provider,
+    });
+    const configured = calendarOAuthConfigured(cal);
+    return {
+      provider,
+      action: "reconnect" as const,
+      configured,
+      url: configured ? calendarReconnectUrl(cal, `org:${ctx.organizationId}`) : null,
+    };
+  }
+  setIntegrationStatus(ctx, provider, "expired");
+  writeAudit(ctx, {
+    action: `reconnect ${provider}`,
+    entityType: "integration",
+    entityId: provider,
+  });
+  return { provider, action: "reconnect" as const, configured: false, url: null };
+}
+
+export async function refreshIntegrationTokens(ctx: SessionContext) {
+  requireOrgMember(database(), ctx);
+  const refreshed = await refreshConnectedTokens();
+  writeAudit(ctx, {
+    action: "refreshed integration tokens",
+    entityType: "integration",
+    entityId: ctx.organizationId,
+  });
+  return { refreshed };
 }
