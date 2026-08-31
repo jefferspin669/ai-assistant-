@@ -31,25 +31,38 @@ export const trustHub: HubLink[] = [
 ];
 
 export const salesHub: HubLink[] = [
-  { href: "/app/quotes", label: "Quotes", blurb: "Draft, send, and approve estimates." },
-  { href: "/app/sales-coach", label: "Sales coach", blurb: "Talk tracks and follow-ups for open deals." },
-  { href: "/app/marketing", label: "Marketing", blurb: "Campaigns, ads, and what actually brought work in." },
-  { href: "/app/reviews", label: "Reputation", blurb: "Review requests after finished jobs." },
+  { href: "/app/marketing", label: "Marketing", blurb: "Campaigns, audiences, and attributed revenue." },
+  { href: "/app/sales", label: "Sales", blurb: "Pipeline and verified revenue metrics." },
+  { href: "/app/sales-coach", label: "Sales Coach", blurb: "Employee coaching from real activity signals." },
+  { href: "/app/customers", label: "CRM", blurb: "Customers and full relationship timeline." },
+  { href: "/app/reviews", label: "Reputation", blurb: "Reviews inbox and reply approvals." },
   { href: "/app/portal", label: "Customer portal", blurb: "Let customers book, pay, and see job status." },
 ];
 
+export const growthHub: HubLink[] = [
+  { href: "/app/marketing", label: "Marketing", blurb: "Campaigns across email, SMS, and social." },
+  { href: "/app/sales", label: "Sales", blurb: "Leads, pipeline, and honest revenue labeling." },
+  { href: "/app/customers", label: "CRM", blurb: "Profiles plus unified customer timeline." },
+  { href: "/app/reviews", label: "Reputation", blurb: "Connected review sources and replies." },
+];
+
+export const communicationHub: HubLink[] = [
+  { href: "/app/messages", label: "Messages", blurb: "Direct, teams, projects, announcements." },
+  { href: "/app/phone", label: "Phone & Reception", blurb: "Calls, routing, receptionist AI, transcripts." },
+  { href: "/app/chatbot", label: "Customer chatbot", blurb: "Website widget for customers." },
+];
+
+export const peopleHub: HubLink[] = [
+  { href: "/app/workforce", label: "Workforce", blurb: "Employees, scheduling, and locations." },
+  { href: "/app/time-off", label: "Time Off", blurb: "Requests, approvals, coverage." },
+  { href: "/app/projects", label: "Projects", blurb: "Jobs, tasks, and delivery." },
+];
+
 export const operationsHub: HubLink[] = [
-  { href: "/app/ask", label: "Talk to Atlas", blurb: "Main AI interface — command center and quick actions." },
-  { href: "/app/messages", label: "Messages", blurb: "Direct, teams, projects, and announcements." },
-  { href: "/app/workforce", label: "Workforce", blurb: "Employees, scheduling, time off, and locations." },
-  { href: "/app/purchasing", label: "Expenses & Purchases", blurb: "Receipts, company-card spend, and approvals." },
-  { href: "/app/inventory", label: "Inventory", blurb: "Stock tracking, usage, and purchase orders." },
-  { href: "/app/quality", label: "Quality", blurb: "Customer, service, and product quality intelligence." },
-  { href: "/app/scheduling", label: "Scheduling", blurb: "Fill the day, assign techs, protect drive time." },
-  { href: "/app/receptionist", label: "Receptionist", blurb: "Answer the call, recognize the customer, book the job." },
-  { href: "/app/missed-calls", label: "Missed calls", blurb: "Recover leads that never reached a person." },
-  { href: "/app/routes", label: "Routes", blurb: "Order jobs so the truck wastes less time." },
-  { href: "/app/training", label: "Training", blurb: "Atlas Academy for the crew." },
+  { href: "/app/appointments", label: "Calendar", blurb: "Personal, team, meetings, deadlines, time off." },
+  { href: "/app/routes", label: "Route Optimization", blurb: "Map, stops, traffic-aware routing." },
+  { href: "/app/inventory", label: "Inventory", blurb: "Stock tracking and usage." },
+  { href: "/app/purchasing", label: "Purchases", blurb: "Receipts, card match, approvals." },
 ];
 
 export const agentsHub: HubLink[] = [

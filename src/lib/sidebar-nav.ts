@@ -22,7 +22,7 @@ export type SidebarNavItem = NavItem & { icon: SidebarIconId };
 /** Always-visible primary destinations. */
 export const sidebarMain: SidebarNavItem[] = [
   { href: "/app", label: "Dashboard", exact: true, icon: "dashboard" },
-  { href: "/app/appointments", label: "Atlas Calendar", icon: "calendar" },
+  { href: "/app/appointments", label: "Calendar", icon: "calendar" },
   { href: "/app/ask", label: "Talk to Atlas", icon: "chat" },
   { href: "/app/files", label: "Files", icon: "files" },
   { href: "/app/settings", label: "Settings", icon: "settings" },

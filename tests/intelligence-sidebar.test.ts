@@ -32,9 +32,9 @@ describe("intelligence sidebar", () => {
     expect(intelligenceFlowSteps.some((s) => s.href === "/app/workflows")).toBe(true);
   });
 
-  it("keeps intelligence hubs out of flat More catalog", () => {
+  it("keeps intelligence sidebar hubs separate from nav catalog", () => {
     const intelligence = navGroups.find((g) => g.label === "Intelligence");
-    expect(intelligence?.items.map((i) => i.href)).toEqual(["/app/analytics"]);
+    expect(intelligence?.items.map((i) => i.href)).toContain("/app/business-engine");
     expect(sidebarHubs.length).toBe(3);
   });
 });

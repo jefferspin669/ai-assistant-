@@ -1,12 +1,13 @@
-import { salesHub } from "@/lib/section-hubs";
-import { SectionHub } from "@/components/SectionHub";
+import { AppShell } from "@/components/AppShell";
+import { SalesStudio } from "@/components/SalesStudio";
 
 export default function SalesPage() {
   return (
-    <SectionHub
+    <AppShell
       title="Sales"
-      subtitle="Quotes, follow-ups, and the front door for new work."
-      items={salesHub}
-    />
+      subtitle="Pipeline, win rate, and revenue — honest labeling when data is not connected or verified."
+    >
+      <SalesStudio />
+    </AppShell>
   );
 }

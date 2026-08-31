@@ -65,6 +65,26 @@ const nextConfig: NextConfig = {
               destination: "/app/messages",
               permanent: false,
             },
+            {
+              source: "/app/quotes",
+              destination: "/app/sales",
+              permanent: false,
+            },
+            {
+              source: "/app/receptionist",
+              destination: "/app/phone",
+              permanent: false,
+            },
+            {
+              source: "/app/timeline",
+              destination: "/app/customers?tab=timeline",
+              permanent: false,
+            },
+            {
+              source: "/app/calendar-hub",
+              destination: "/app/appointments?tab=team",
+              permanent: false,
+            },
           ];
         },
         async headers() {
