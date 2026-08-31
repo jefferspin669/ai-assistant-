@@ -5,7 +5,7 @@
 Atlas looks like an AI Operating System. Underneath, most “intelligence” is still:
 
 - Keyword / rule replies in `src/lib/commands.ts` (`runOwnerCommand`)
-- File-backed JSON under `.data/` (and browser `localStorage` for some client paths)
+- File-backed JSON under `.data/` is the fallback adapter when `DATABASE_URL` is unset. With Postgres configured, Atlas hydrates from Drizzle once per instance and write-throughs — it does not reseed demo data per request.
 - UI studios that *simulate* phone, calendar, invoices, and payroll
 
 That was the right way to explore the surface area. It is no longer the highest-leverage work.
@@ -48,6 +48,7 @@ Tax Center, Marketplace, Simulator, etc. stay as *prototype surface* until the b
 
 ### Phase 1–3 — Commercial wiring (in progress in repo)
 
+- **Postgres + Drizzle + event bus + BullMQ** — dual-write schema in `drizzle/0000_init.sql`; events in `src/lib/events`; workers in `src/worker`
 - **Supabase client** — `src/lib/integrations/supabase.ts` dual-writes live REST when configured, else `.data`
 - **Twilio receptionist** — voice TwiML + SMS + missed-call recovery (`/api/webhooks/twilio/*`, `/api/receptionist/missed-call`)
 - **Google / Microsoft calendar** — OAuth + event create (`/api/calendar/oauth/*`, `/api/calendar/sync`)
@@ -88,6 +89,22 @@ Approve | Reject | Ask Atlas
 Kill switch pauses execution without wiping the queue. File DB is the beachhead; `autonomy_policies` in `supabase/schema.sql` is the Postgres contract. Cron: `GET /api/autonomy/tick` with `CRON_SECRET`.
 
 Operator UI stays on existing routes: `/app/autonomous`, `/app/approvals`, `/app/commercial`.
+
+## Trust ladder (how we finish)
+
+Do not add more studios. Climb this path:
+
+| Step | What “done” means |
+| --- | --- |
+| **7** Make the data real | `DATABASE_URL` → Postgres is source of truth (JSON is the adapter when unset) |
+| **7.5** Run when nobody is online | Event bus + BullMQ/`/api/autonomy/tick` workers, heartbeat, dead letters |
+| **8** Give Atlas its brain | Live LLM + tools when `ATLAS_LLM_API_KEY` is set |
+| **8.5** Interact with the outside world | Twilio, calendar OAuth, Stripe — live when credentials exist |
+| **9** Controlled authority | Autonomy levels 1–4, spending limits, human-only approval of restricted work |
+| **9.5** Failures recoverable and observable | Retries with backoff, DLQ, backups + restore tests, `/api/health`, Sentry |
+| **10** Safe enough to trust with a real company | Tenant isolation, plan enforcement, privacy export/delete, audit, **autonomy safety tests** |
+
+Step 10 proofs live in `tests/safety.test.ts` and `docs/PRODUCTION_SAFETY.md`.
 
 ## How to work going forward
 

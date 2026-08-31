@@ -4,7 +4,7 @@ import { ok } from "@/lib/api/types";
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     return apiResponse(atlasApi.users.get(ctx.userId));
   } catch (error) {
     return jsonError(error);
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     return apiResponse(
       atlasApi.users.update(ctx.userId, {

@@ -46,12 +46,14 @@ export type BrainChatInput = {
 };
 
 export function brainMode(): BrainMode {
-  return process.env.ATLAS_LLM_API_KEY?.trim() ? "live" : "simulation";
+  return process.env.ATLAS_LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()
+    ? "live"
+    : "simulation";
 }
 
 export function brainConfig() {
   return {
-    apiKey: process.env.ATLAS_LLM_API_KEY?.trim() || "",
+    apiKey: process.env.ATLAS_LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "",
     baseUrl: (process.env.ATLAS_LLM_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, ""),
     model: process.env.ATLAS_LLM_MODEL || "gpt-4o-mini",
   };

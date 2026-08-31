@@ -6,7 +6,13 @@ export type IntegrationId =
   | "google_calendar"
   | "microsoft_calendar"
   | "stripe"
-  | "brain";
+  | "brain"
+  | "postgres"
+  | "redis"
+  | "resend"
+  | "sentry"
+  | "posthog"
+  | "storage";
 
 export type IntegrationStatus = {
   id: IntegrationId;
@@ -33,9 +39,9 @@ export function integrationStatus(): IntegrationStatus[] {
     {
       id: "brain",
       label: "Atlas Brain (LLM)",
-      configured: present("ATLAS_LLM_API_KEY"),
-      mode: present("ATLAS_LLM_API_KEY") ? "live" : "simulation",
-      detail: present("ATLAS_LLM_API_KEY")
+      configured: Boolean(process.env.ATLAS_LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()),
+      mode: Boolean(process.env.ATLAS_LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim()) ? "live" : "simulation",
+      detail: Boolean(process.env.ATLAS_LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim())
         ? `Model ${process.env.ATLAS_LLM_MODEL || "gpt-4o-mini"}`
         : "Keyword fallback — set ATLAS_LLM_API_KEY",
     },
@@ -85,6 +91,63 @@ export function integrationStatus(): IntegrationStatus[] {
       detail: present("STRIPE_SECRET_KEY")
         ? "Checkout + portal ready"
         : "Set STRIPE_SECRET_KEY (+ optional price IDs)",
+    },
+    {
+      id: "postgres",
+      label: "PostgreSQL (Drizzle)",
+      configured: present("DATABASE_URL"),
+      mode: present("DATABASE_URL") ? "live" : "simulation",
+      detail: present("DATABASE_URL")
+        ? "Dual-write from JSON store"
+        : "Using .data JSON — set DATABASE_URL (local Docker or Supabase)",
+    },
+    {
+      id: "redis",
+      label: "Redis / BullMQ",
+      configured: present("REDIS_URL"),
+      mode: present("REDIS_URL") ? "live" : "simulation",
+      detail: present("REDIS_URL")
+        ? "Workers drain atlas-jobs"
+        : "File job queue — set REDIS_URL and run npm run worker",
+    },
+    {
+      id: "resend",
+      label: "Resend email",
+      configured: present("RESEND_API_KEY"),
+      mode: present("RESEND_API_KEY") ? "live" : "simulation",
+      detail: present("RESEND_API_KEY") ? "Transactional email ready" : "Set RESEND_API_KEY",
+    },
+    {
+      id: "storage",
+      label: "Object storage",
+      configured: present("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_STORAGE_BUCKET") &&
+        (present("SUPABASE_SERVICE_ROLE_KEY") || present("SUPABASE_ANON_KEY")),
+      mode:
+        present("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_STORAGE_BUCKET") &&
+        (present("SUPABASE_SERVICE_ROLE_KEY") || present("SUPABASE_ANON_KEY"))
+          ? "live"
+          : "simulation",
+      detail: present("SUPABASE_STORAGE_BUCKET")
+        ? "Supabase Storage bucket configured"
+        : "File vault stays local — set SUPABASE_STORAGE_BUCKET",
+    },
+    {
+      id: "sentry",
+      label: "Sentry",
+      configured: present("SENTRY_DSN"),
+      mode: present("SENTRY_DSN") ? "live" : "simulation",
+      detail: present("SENTRY_DSN") ? "Exception reporting on" : "Set SENTRY_DSN",
+    },
+    {
+      id: "posthog",
+      label: "PostHog",
+      configured: Boolean(process.env.POSTHOG_KEY?.trim() || process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim()),
+      mode: Boolean(process.env.POSTHOG_KEY?.trim() || process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim())
+        ? "live"
+        : "simulation",
+      detail: Boolean(process.env.POSTHOG_KEY?.trim() || process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim())
+        ? "Product analytics on"
+        : "Set POSTHOG_KEY",
     },
   ];
 }

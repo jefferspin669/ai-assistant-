@@ -4,7 +4,7 @@ import { database, requireOrgMember } from "@/lib/services/access";
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const db = database();
     requireOrgMember(db, ctx);
     return apiResponse(

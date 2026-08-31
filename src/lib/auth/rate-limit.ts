@@ -2,6 +2,10 @@ import { RateLimitError } from "@/lib/domain/errors";
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
+export function resetRateLimitForTests() {
+  buckets.clear();
+}
+
 export function rateLimit(key: string, max = 20, windowMs = 15 * 60 * 1000) {
   const now = Date.now();
   const current = buckets.get(key);

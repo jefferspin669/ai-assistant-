@@ -1,10 +1,16 @@
 import { apiResponse, asRecord, jsonError, readJson, resolveSession } from "@/lib/api/http";
 import { ok } from "@/lib/api/types";
-import { listIntegrations, setIntegrationStatus } from "@/lib/services/integrations";
+import {
+  listIntegrations,
+  reconnectIntegration,
+  refreshIntegrationTokens,
+  setIntegrationStatus,
+} from "@/lib/services/integrations";
+import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     return apiResponse(ok(listIntegrations(ctx)));
   } catch (error) {
     return jsonError(error);
@@ -13,8 +19,16 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    rateLimit(`integrations:${clientKey(req)}`, 30, 60_000);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
+    const provider = String(body.provider || "");
+    if (body.action === "reconnect") {
+      return apiResponse(ok(await reconnectIntegration(ctx, provider)));
+    }
+    if (body.action === "refresh") {
+      return apiResponse(ok(await refreshIntegrationTokens(ctx)));
+    }
     const status =
       body.status === "connected" ||
       body.status === "expired" ||
@@ -26,7 +40,7 @@ export async function POST(req: Request) {
       ok(
         setIntegrationStatus(
           ctx,
-          String(body.provider || ""),
+          provider,
           status,
           body.accountLabel != null ? String(body.accountLabel) : undefined,
         ),

@@ -7,6 +7,8 @@ import type { AutonomyDecision, AutonomyKind, WorkIntent } from "@/lib/autonomy/
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
 import { enqueueJob, notify } from "@/lib/services/jobs";
+import { maxAutonomyLevelForPlan, subscriptionForOrg } from "@/lib/billing/entitlements";
+import { isAtlasActor } from "@/lib/safety/guards";
 
 export type SubmittedWork = {
   decision: AutonomyDecision;
@@ -87,14 +89,17 @@ export function submitWork(
 ): SubmittedWork {
   const db = database();
   requireOrgMember(db, ctx);
-  const policy = getPolicy(ctx.organizationId);
+  const stored = getPolicy(ctx.organizationId);
+  const sub = subscriptionForOrg(ctx.organizationId);
+  const maxLevel = maxAutonomyLevelForPlan(sub?.plan || "free");
+  const policy = stored.level > maxLevel ? { ...stored, level: maxLevel } : stored;
   const decision = decideWork(intent, policy);
 
   writeAudit(ctx, {
     action: `autonomy:${decision.verdict}:${intent.kind}`,
     entityType: "autonomy",
     entityId: ctx.organizationId,
-    actorLabel: "Atlas",
+    actorLabel: isAtlasActor(ctx) ? "Atlas" : ctx.userId,
   });
 
   if (decision.verdict === "execute") {

@@ -3,6 +3,7 @@ import { err, ok } from "@/lib/api/types";
 import { requirePermission } from "@/lib/auth/permissions";
 import { processJobs } from "@/lib/services/jobs";
 import type { SessionContext } from "@/lib/domain/types";
+import { ensureServerDatabase } from "@/lib/db/ensure";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,18 +13,23 @@ export const dynamic = "force-dynamic";
  * Session (owner) or `Authorization: Bearer $CRON_SECRET`.
  * Vercel cron sends GET; operators may POST.
  */
-function authorizeTick(req: Request): { via: "cron" } | { via: "session"; ctx: SessionContext } {
+async function authorizeTick(
+  req: Request,
+): Promise<{ via: "cron" } | { via: "session"; ctx: SessionContext }> {
   const secret = (process.env.CRON_SECRET || "").trim();
   const header = req.headers.get("authorization") || "";
-  if (secret && header === `Bearer ${secret}`) return { via: "cron" };
-  const ctx = resolveSession(req);
+  if (secret && header === `Bearer ${secret}`) {
+    await ensureServerDatabase();
+    return { via: "cron" };
+  }
+  const ctx = await resolveSession(req);
   requirePermission(ctx, "atlas.autonomous");
   return { via: "session", ctx };
 }
 
-function runTick(req: Request) {
+async function runTick(req: Request) {
   try {
-    const auth = authorizeTick(req);
+    const auth = await authorizeTick(req);
     const processed = processJobs(20);
     return apiResponse(ok({ via: auth.via, processed }));
   } catch (error) {

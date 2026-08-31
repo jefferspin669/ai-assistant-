@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     requirePermission(ctx, "atlas.autonomous");
     return apiResponse(ok(processJobs()));
   } catch (error) {

@@ -6,9 +6,11 @@ import {
   readCookie,
   sessionFromToken,
 } from "@/lib/auth/session";
+import { ensureServerDatabase } from "@/lib/db/ensure";
 
 export async function GET(req: Request) {
   try {
+    await ensureServerDatabase();
     try {
       const ctx = sessionFromToken(readCookie(req));
       return apiResponse(ok(ctx));

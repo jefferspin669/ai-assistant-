@@ -1,29 +1,19 @@
+import Stripe from "stripe";
 import { getAppUrl, requireLive } from "@/lib/integrations/config";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { loadDatabase, saveDatabase } from "@/lib/db/store";
+import { emitEvent } from "@/lib/events/bus";
+import { bindStripeAccount, stripeAccountForOrg } from "@/lib/billing/stripe-accounts";
+import type { DbSubscription } from "@/lib/db/schema";
 
 function stripeKey() {
   return process.env.STRIPE_SECRET_KEY?.trim() || "";
 }
 
-async function stripeRequest<T>(path: string, init?: RequestInit & { form?: Record<string, string> }) {
+function getStripe() {
   const key = stripeKey();
   if (!key) throw new Error("STRIPE_SECRET_KEY not set");
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${key}`,
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  let body: BodyInit | undefined = init?.body as BodyInit | undefined;
-  if (init?.form) {
-    headers["Content-Type"] = "application/x-www-form-urlencoded";
-    body = new URLSearchParams(init.form);
-  }
-  const res = await fetch(`https://api.stripe.com/v1/${path}`, { ...init, headers, body });
-  const json = (await res.json()) as T & { error?: { message?: string } };
-  if (!res.ok) {
-    throw new Error(json.error?.message || `Stripe ${res.status}`);
-  }
-  return json as T;
+  return new Stripe(key);
 }
 
 export type AtlasPlan = "business_monthly";
@@ -35,6 +25,27 @@ export function defaultPriceId(plan: AtlasPlan = "business_monthly") {
   return "";
 }
 
+function activateOrgSubscription(orgId: string, status: DbSubscription["status"] = "active") {
+  const db = loadDatabase();
+  const match = db.subscriptions.some((s) => s.orgId === orgId);
+  const next: DbSubscription[] = match
+    ? db.subscriptions.map((s) =>
+        s.orgId === orgId ? { ...s, plan: "business" as const, status } : s,
+      )
+    : [
+        {
+          id: `sub_${orgId}`,
+          orgId,
+          plan: "business",
+          status,
+          renewsAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          seats: 5,
+        },
+        ...db.subscriptions,
+      ];
+  saveDatabase({ ...db, subscriptions: next });
+}
+
 export async function createCheckoutSession(input: {
   customerEmail?: string;
   organizationId?: string;
@@ -44,16 +55,8 @@ export async function createCheckoutSession(input: {
   const orgId = input.organizationId || atlasStore.defaultOrgId();
 
   if (!requireLive("stripe") || !price) {
-    const db = loadDatabase();
-    const sub = db.subscriptions[0];
-    if (sub) {
-      saveDatabase({
-        ...db,
-        subscriptions: db.subscriptions.map((s) =>
-          s.id === sub.id ? { ...s, plan: "business", status: "trialing" } : s,
-        ),
-      });
-    }
+    activateOrgSubscription(orgId, "trialing");
+    bindStripeAccount(orgId, { priceId: price || "sim_price_business" });
     await atlasStore.writeAudit({
       organizationId: orgId,
       actor: "Stripe(simulation)",
@@ -64,22 +67,20 @@ export async function createCheckoutSession(input: {
       mode: "simulation" as const,
       url: `${getAppUrl()}/app/commercial?checkout=simulated`,
       sessionId: `sim_cs_${Date.now()}`,
+      organizationId: orgId,
     };
   }
 
-  const form: Record<string, string> = {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     success_url: `${getAppUrl()}/app/commercial?checkout=success`,
     cancel_url: `${getAppUrl()}/app/commercial?checkout=cancel`,
-    "line_items[0][price]": price,
-    "line_items[0][quantity]": "1",
-    "metadata[organization_id]": orgId,
-  };
-  if (input.customerEmail) form.customer_email = input.customerEmail;
-
-  const session = await stripeRequest<{ id: string; url: string }>("checkout/sessions", {
-    method: "POST",
-    form,
+    line_items: [{ price, quantity: 1 }],
+    customer_email: input.customerEmail,
+    client_reference_id: orgId,
+    metadata: { organization_id: orgId },
+    subscription_data: { metadata: { organization_id: orgId } },
   });
 
   await atlasStore.writeAudit({
@@ -89,58 +90,92 @@ export async function createCheckoutSession(input: {
     detail: { sessionId: session.id },
   });
 
-  return { mode: "live" as const, url: session.url, sessionId: session.id };
+  return {
+    mode: "live" as const,
+    url: session.url || `${getAppUrl()}/app/commercial`,
+    sessionId: session.id,
+    organizationId: orgId,
+  };
 }
 
-export async function createBillingPortalSession(input: { customerId: string }) {
+export async function createBillingPortalSession(input: { organizationId: string; customerId?: string }) {
+  const bound = stripeAccountForOrg(input.organizationId);
+  const customerId = input.customerId || bound?.customerId || "";
   if (!requireLive("stripe")) {
     return {
       mode: "simulation" as const,
       url: `${getAppUrl()}/app/commercial?portal=simulated`,
+      organizationId: input.organizationId,
     };
   }
-  const session = await stripeRequest<{ url: string }>("billing_portal/sessions", {
-    method: "POST",
-    form: {
-      customer: input.customerId,
-      return_url: `${getAppUrl()}/app/commercial`,
-    },
+  if (!customerId) {
+    throw new Error("No Stripe customer is bound to this organization. Run Checkout first.");
+  }
+  const stripe = getStripe();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${getAppUrl()}/app/commercial`,
   });
-  return { mode: "live" as const, url: session.url };
+  return { mode: "live" as const, url: session.url, organizationId: input.organizationId };
+}
+
+function orgIdFromStripeObject(object: Record<string, unknown>, fallback: string) {
+  const metadata = object.metadata as { organization_id?: string } | undefined;
+  const clientRef = object.client_reference_id;
+  return String(metadata?.organization_id || clientRef || fallback);
 }
 
 export async function handleStripeWebhook(rawBody: string, signature: string | null) {
-  // Signature verification requires STRIPE_WEBHOOK_SECRET; without it we accept in simulation only.
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  let event: { type: string; data: { object: Record<string, unknown> } };
+
   if (secret && signature) {
-    // Minimal presence check — full HMAC verification can be added with stripe SDK.
-    // We still parse and apply events when secret is configured.
+    const stripe = getStripe();
+    const verified = stripe.webhooks.constructEvent(rawBody, signature, secret);
+    event = {
+      type: verified.type,
+      data: { object: verified.data.object as unknown as Record<string, unknown> },
+    };
   } else if (requireLive("stripe") && secret && !signature) {
     throw new Error("Missing Stripe-Signature");
+  } else {
+    event = JSON.parse(rawBody) as typeof event;
   }
 
-  const event = JSON.parse(rawBody) as {
-    type: string;
-    data: { object: Record<string, unknown> };
-  };
-
-  if (event.type === "checkout.session.completed") {
-    const orgId = String(
-      (event.data.object.metadata as { organization_id?: string } | undefined)?.organization_id ||
-        atlasStore.defaultOrgId(),
-    );
-    const db = loadDatabase();
-    saveDatabase({
-      ...db,
-      subscriptions: db.subscriptions.map((s, i) =>
-        i === 0 ? { ...s, plan: "business", status: "active" } : s,
-      ),
-    });
+  if (event.type === "checkout.session.completed" || event.type === "customer.subscription.updated") {
+    const object = event.data.object;
+    const orgId = orgIdFromStripeObject(object, atlasStore.defaultOrgId());
+    const customerId = object.customer ? String(object.customer) : undefined;
+    const subscriptionId = object.subscription
+      ? String(object.subscription)
+      : object.id && event.type === "customer.subscription.updated"
+        ? String(object.id)
+        : undefined;
+    activateOrgSubscription(orgId, "active");
+    bindStripeAccount(orgId, { customerId, subscriptionId });
     await atlasStore.writeAudit({
       organizationId: orgId,
       actor: "Stripe",
       action: "subscription.activated",
-      detail: { session: event.data.object.id },
+      detail: { session: object.id, customerId, subscriptionId },
+    });
+    emitEvent({
+      type: "payment.received",
+      organizationId: orgId,
+      actorLabel: "Stripe",
+      payload: { session: object.id },
+    });
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const object = event.data.object;
+    const orgId = orgIdFromStripeObject(object, atlasStore.defaultOrgId());
+    const db = loadDatabase();
+    saveDatabase({
+      ...db,
+      subscriptions: db.subscriptions.map((s) =>
+        s.orgId === orgId ? { ...s, status: "canceled" as const, plan: "free" as const } : s,
+      ),
     });
   }
 

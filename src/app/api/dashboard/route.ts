@@ -4,7 +4,7 @@ import { workspaceDashboard } from "@/lib/services/dashboard";
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     return apiResponse(ok(workspaceDashboard(ctx)));
   } catch (error) {
     return jsonError(error);

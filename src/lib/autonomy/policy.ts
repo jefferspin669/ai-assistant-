@@ -4,6 +4,7 @@ import { database } from "@/lib/services/access";
 import { levelFromAwayPhrase } from "@/lib/autonomy/engine";
 import { defaultPolicy, fromRow, toRow } from "@/lib/autonomy/defaults";
 import type { AutonomyPolicy } from "@/lib/autonomy/types";
+import { maxAutonomyLevelForPlan, subscriptionForOrg } from "@/lib/billing/entitlements";
 
 export { defaultPolicy };
 
@@ -23,7 +24,10 @@ export function getPolicy(organizationId: string): AutonomyPolicy {
 export function savePolicy(next: AutonomyPolicy): AutonomyPolicy {
   const db = database();
   const policies = db.autonomy_policies || [];
-  const row = toRow({ ...next, updatedAt: nowIso() });
+  const plan = subscriptionForOrg(next.organizationId)?.plan || "free";
+  const maxLevel = maxAutonomyLevelForPlan(plan);
+  const clamped = next.level > maxLevel ? { ...next, level: maxLevel } : next;
+  const row = toRow({ ...clamped, updatedAt: nowIso() });
   const exists = policies.some((item) => item.organization_id === next.organizationId);
   saveDatabase({
     ...db,

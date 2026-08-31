@@ -3,6 +3,7 @@ import type { OrgRole, SessionContext } from "@/lib/domain/types";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database } from "@/lib/services/access";
 import { hashPassword, verifyPassword } from "@/lib/secure-store";
+import { cacheSession } from "@/lib/auth/session-cache";
 
 export const SESSION_COOKIE = "atlas_session";
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -64,6 +65,17 @@ export function createSession(userId: string, organizationId: string, deviceName
     device_name: deviceName,
   };
   saveDatabase({ ...db, sessions: [row, ...db.sessions] });
+  const member = db.organization_members.find(
+    (item) => item.user_id === userId && item.organization_id === organizationId && item.status === "active",
+  );
+  void cacheSession({
+    sessionId: row.id,
+    token: value,
+    userId,
+    organizationId,
+    role: member?.role || "owner",
+    expiresAt: row.expires_at,
+  });
   return { token: value, sessionId: row.id };
 }
 

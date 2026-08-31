@@ -1,3 +1,4 @@
+import { jsonMirrorEnabled, postgresLive } from "@/lib/db/driver";
 import { hashPassword } from "@/lib/secure-store";
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
@@ -36,16 +37,26 @@ type AtlasGlobal = typeof globalThis & { __atlasServerDb?: AtlasDatabase };
 
 function getServerDb() {
   const g = globalThis as AtlasGlobal;
-  if (!g.__atlasServerDb) {
-    const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
-    if (fromDisk) {
-      g.__atlasServerDb = hydrateDatabase(fromDisk);
-    } else {
-      g.__atlasServerDb = seedDatabase();
-      writeJsonFile(DB_FILE, g.__atlasServerDb);
-    }
+  if (g.__atlasServerDb) {
+    return g.__atlasServerDb;
+  }
+  if (postgresLive()) {
+    // Real adapter: wait for ensureServerDatabase() to hydrate. Do not seed JSON.
+    g.__atlasServerDb = emptyDb();
+    return g.__atlasServerDb;
+  }
+  const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
+  if (fromDisk) {
+    g.__atlasServerDb = hydrateDatabase(fromDisk);
+  } else {
+    g.__atlasServerDb = seedDatabase();
+    writeJsonFile(DB_FILE, g.__atlasServerDb);
   }
   return g.__atlasServerDb;
+}
+
+export function applyServerDatabase(db: AtlasDatabase) {
+  setServerDb(hydrateDatabase(db));
 }
 
 function setServerDb(db: AtlasDatabase) {
@@ -466,7 +477,7 @@ export function seedDatabase(): AtlasDatabase {
     {
       id: newId("sub"),
       orgId,
-      plan: "pro",
+      plan: "business",
       status: "active",
       renewsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 28).toISOString(),
       seats: 5,
@@ -749,7 +760,16 @@ export function saveDatabase(db: AtlasDatabase) {
   const next = hydrateDatabase(db);
   if (typeof window === "undefined") {
     setServerDb(next);
-    writeJsonFile(DB_FILE, next);
+    if (jsonMirrorEnabled()) {
+      writeJsonFile(DB_FILE, next);
+    }
+    if (postgresLive()) {
+      void import("@/lib/db/postgres")
+        .then((mod) => mod.persistAtlasDatabase(next))
+        .catch((error) => {
+          console.error("[atlas:pg]", error instanceof Error ? error.message : error);
+        });
+    }
     return;
   }
   localStorage.setItem(DB_KEY, JSON.stringify(next));
@@ -781,8 +801,10 @@ export function databaseStats(db: AtlasDatabase) {
 
 export function serverPersistenceInfo() {
   return {
+    driver: postgresLive() ? "postgres" : "json",
     file: DB_FILE,
     present: typeof window === "undefined" ? fileExists(DB_FILE) : false,
+    jsonMirror: jsonMirrorEnabled(),
   };
 }
 

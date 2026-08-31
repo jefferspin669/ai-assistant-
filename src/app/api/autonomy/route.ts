@@ -52,7 +52,7 @@ function asCents(cents: unknown, dollars: unknown): number | undefined {
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const policy = getPolicy(ctx.organizationId);
     return apiResponse(
       ok({
@@ -75,7 +75,7 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     requirePermission(ctx, "atlas.autonomous");
     const body = asRecord(await readJson(req));
 

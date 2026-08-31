@@ -3,8 +3,16 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import type { ApiResult } from "@/lib/api/types";
 import { err } from "@/lib/api/types";
-import { isAtlasError } from "@/lib/domain/errors";
+import { isAtlasError, AuthenticationError } from "@/lib/domain/errors";
 import type { SessionContext } from "@/lib/domain/types";
+import { ensureServerDatabase } from "@/lib/db/ensure";
+import { readCachedSession } from "@/lib/auth/session-cache";
+import {
+  provisionAtlasUserFromSupabase,
+  supabaseAccessTokenFromRequest,
+  supabaseAuthConfigured,
+  userFromSupabaseAccessToken,
+} from "@/lib/auth/supabase-auth";
 
 export async function readJson<T extends Record<string, unknown> = Record<string, unknown>>(
   req: Request,
@@ -46,14 +54,38 @@ export function jsonError(error: unknown) {
   return apiResponse(err("Unexpected error.", 500));
 }
 
-/** Identity comes only from the session cookie — never from body or client headers. */
-export function resolveSession(req: Request, _body?: Record<string, unknown>): SessionContext {
+/** Identity comes from the session cookie, Redis session cache, or Supabase Auth — never from body userId. */
+export async function resolveSession(req: Request, _body?: Record<string, unknown>): Promise<SessionContext> {
   void _body;
-  return sessionFromToken(readCookie(req));
+  await ensureServerDatabase();
+  const cookie = readCookie(req);
+  if (cookie) {
+    const cached = await readCachedSession(cookie);
+    if (cached) {
+      return {
+        userId: cached.userId,
+        organizationId: cached.organizationId,
+        role: cached.role as SessionContext["role"],
+        sessionId: cached.sessionId,
+      };
+    }
+    return sessionFromToken(cookie);
+  }
+  if (supabaseAuthConfigured()) {
+    const access = supabaseAccessTokenFromRequest(req);
+    if (access) {
+      const user = await userFromSupabaseAccessToken(access);
+      if (user) {
+        const provisioned = await provisionAtlasUserFromSupabase(user);
+        return provisioned.ctx;
+      }
+    }
+  }
+  throw new AuthenticationError();
 }
 
 /** @deprecated Use resolveSession. */
-export function resolveUserId(req: Request, _bodyUserId?: string) {
+export async function resolveUserId(req: Request, _bodyUserId?: string) {
   void _bodyUserId;
-  return resolveSession(req).userId;
+  return (await resolveSession(req)).userId;
 }

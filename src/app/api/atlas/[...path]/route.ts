@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { atlasApi } from "@/lib/api/atlas-api";
+import { ensureServerDatabase } from "@/lib/db/ensure";
 
 /**
- * HTTP façade over the Atlas Backend API mock.
+ * HTTP façade over the Atlas Backend API.
  * Example: GET /api/atlas/meta/health
  *          POST /api/atlas/ai/chat { "message": "How is business?" }
  *
- * Note: this route runs on the server, so localStorage-backed db calls
- * re-seed an in-memory demo dataset per request. Client UI should prefer
- * `@/lib/api/atlas-api` directly for persistent browser state.
+ * When DATABASE_URL is set, this hydrates from Postgres once per instance.
+ * It does not re-seed demo data on every request.
  */
 
 type Ctx = { params: Promise<{ path: string[] }> };
@@ -18,6 +18,7 @@ function json(data: unknown, status = 200) {
 }
 
 async function handle(req: NextRequest, ctx: Ctx) {
+  await ensureServerDatabase();
   const { path } = await ctx.params;
   const segments = path || [];
   const [domain, action] = segments;

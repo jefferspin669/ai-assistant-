@@ -4,7 +4,7 @@ import { clearCookieHeader, revokeAllSessions, revokeSession } from "@/lib/auth/
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     revokeSession(ctx.sessionId);
     return apiResponse(ok({ loggedOut: true }), { "Set-Cookie": clearCookieHeader() });
   } catch (error) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     revokeAllSessions(ctx.userId);
     return apiResponse(ok({ loggedOutAll: true }), { "Set-Cookie": clearCookieHeader() });
   } catch (error) {

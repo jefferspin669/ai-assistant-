@@ -20,6 +20,20 @@ export function enqueueJob(
     run_at: null,
   };
   saveDatabase({ ...db, jobs: [job, ...db.jobs] });
+  if (typeof window === "undefined" && process.env.REDIS_URL?.trim()) {
+    void import("@/lib/queue/bullmq")
+      .then((mod) =>
+        mod.addBullJob(kind, {
+          jobId: job.id,
+          organizationId: ctx.organizationId,
+          userId: ctx.userId,
+          payload: job.payload,
+        }),
+      )
+      .catch((error) => {
+        console.error("[atlas:queue]", error instanceof Error ? error.message : error);
+      });
+  }
   return job;
 }
 
