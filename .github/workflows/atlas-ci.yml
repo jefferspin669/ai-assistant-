@@ -1,0 +1,44 @@
+# PR checks: types, tests (including autonomy safety), vulnerability scan.
+# Pages deploy stays on nextjs.yml (static export — not the live API).
+name: Atlas CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: npm audit (critical)
+        run: npm audit --omit=dev --audit-level=critical
+        continue-on-error: true
+
+  # Release gate on main: tests must pass before a host (Vercel/Fly) promote.
+  # Rollback: promote the previous host deployment, or `git revert <sha>` on main.
+  release-gate:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record release SHA
+        run: echo "Release candidate ${GITHUB_SHA}. Promote the host deployment only if this job is green. Rollback via host previous deployment or git revert."

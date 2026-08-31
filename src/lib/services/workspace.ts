@@ -14,6 +14,7 @@ import type {
 } from "@/lib/domain/types";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { DbCustomer, DbTask } from "@/lib/db/schema";
+import { emitEvent } from "@/lib/events/bus";
 import { database, requireCustomer, requireEvent, requireOrgMember, requireTask } from "@/lib/services/access";
 
 export function listCustomers(ctx: SessionContext): Customer[] {
@@ -48,6 +49,12 @@ export function createCustomer(
   };
   saveDatabase({ ...db, customers: [row, ...db.customers] });
   writeAudit(ctx, { action: "created customer", entityType: "customer", entityId: row.id });
+  emitEvent({
+    type: "customer.created",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    payload: { id: row.id, name: row.name, email: row.email, phone: row.phone, status: row.status },
+  });
   return toCustomer(row);
 }
 
@@ -176,6 +183,12 @@ export function createCustomerScopedEvent(
   };
   saveDatabase({ ...db, calendar_events: [event, ...db.calendar_events] });
   writeAudit(ctx, { action: "created appointment", entityType: "calendar_event", entityId: event.id });
+  emitEvent({
+    type: "appointment.created",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    payload: { id: event.id, title: event.title, startTime: event.start_time, customerId: input.customerId },
+  });
   return toCalendarEvent(event);
 }
 
@@ -217,6 +230,12 @@ export function createOrgEvent(
   };
   saveDatabase({ ...db, calendar_events: [event, ...db.calendar_events] });
   writeAudit(ctx, { action: "created appointment", entityType: "calendar_event", entityId: event.id });
+  emitEvent({
+    type: "appointment.created",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    payload: { id: event.id, title: event.title, startTime: event.start_time },
+  });
   return toCalendarEvent(event);
 }
 
@@ -241,13 +260,19 @@ export function moveOrgEvent(
 
 export function deleteOrgEvent(ctx: SessionContext, eventId: string): { id: string } {
   const db = database();
-  requireEvent(db, ctx, eventId);
+  const existing = requireEvent(db, ctx, eventId);
   requirePermission(ctx, "calendar.write");
   saveDatabase({
     ...db,
     calendar_events: db.calendar_events.filter((row) => row.id !== eventId),
   });
   writeAudit(ctx, { action: "deleted appointment", entityType: "calendar_event", entityId: eventId });
+  emitEvent({
+    type: "appointment.cancelled",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    payload: { id: existing.id, title: existing.title, startTime: existing.start_time },
+  });
   return { id: eventId };
 }
 

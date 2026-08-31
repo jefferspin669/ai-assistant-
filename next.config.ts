@@ -11,6 +11,7 @@ const pagesBasePath = "/ai-assistant-";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  serverExternalPackages: ["postgres", "ioredis", "bullmq", "openai", "twilio", "stripe", "resend"],
   // Expose basePath to client hard-navigation helpers (auth redirects on Pages).
   env: {
     NEXT_PUBLIC_BASE_PATH: isGitHubPages ? pagesBasePath : "",
@@ -28,6 +29,9 @@ const nextConfig: NextConfig = {
         fs: false,
         path: false,
         os: false,
+        net: false,
+        tls: false,
+        dns: false,
       };
     }
     return config;

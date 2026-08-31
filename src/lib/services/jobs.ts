@@ -2,6 +2,7 @@ import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { database } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
+import { processAutonomyQueue } from "@/lib/autonomy/worker";
 
 export function enqueueJob(
   ctx: SessionContext,
@@ -19,13 +20,30 @@ export function enqueueJob(
     run_at: null,
   };
   saveDatabase({ ...db, jobs: [job, ...db.jobs] });
+  if (typeof window === "undefined" && process.env.REDIS_URL?.trim()) {
+    void import("@/lib/queue/bullmq")
+      .then((mod) =>
+        mod.addBullJob(kind, {
+          jobId: job.id,
+          organizationId: ctx.organizationId,
+          userId: ctx.userId,
+          payload: job.payload,
+        }),
+      )
+      .catch((error) => {
+        console.error("[atlas:queue]", error instanceof Error ? error.message : error);
+      });
+  }
   return job;
 }
 
 export function processJobs(limit = 10) {
+  const autonomy = processAutonomyQueue(limit);
   const db = database();
-  const queued = db.jobs.filter((job) => job.status === "queued").slice(0, limit);
-  if (!queued.length) return [];
+  const queued = db.jobs
+    .filter((job) => job.status === "queued" && !String(job.kind).startsWith("autonomy:"))
+    .slice(0, limit);
+  if (!queued.length) return { generic: [], autonomy };
   const doneIds = new Set(queued.map((job) => job.id));
   saveDatabase({
     ...db,
@@ -45,7 +63,7 @@ export function processJobs(limit = 10) {
       ...db.notifications,
     ],
   });
-  return queued;
+  return { generic: queued, autonomy };
 }
 
 export function notify(

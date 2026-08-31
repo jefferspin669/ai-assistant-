@@ -5,7 +5,7 @@ import { listAudit } from "@/lib/services/audit";
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     requirePermission(ctx, "audit.read");
     return apiResponse(ok(listAudit(ctx.organizationId)));
   } catch (error) {

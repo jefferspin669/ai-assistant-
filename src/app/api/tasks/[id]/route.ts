@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
-    const session = resolveSession(req);
+    const session = await resolveSession(req);
     const parsed = updateTaskSchema.parse(await readJson(req));
     return apiResponse(ok(updateOrgTask(session, id, parsed)));
   } catch (error) {
@@ -19,7 +19,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 export async function DELETE(req: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
-    const session = resolveSession(req);
+    const session = await resolveSession(req);
     return apiResponse(ok(deleteOrgTask(session, id)));
   } catch (error) {
     return jsonError(error);

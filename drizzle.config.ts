@@ -1,7 +1,10 @@
-/** Drizzle Kit config placeholder. Install drizzle-kit + drizzle-orm before generating migrations. */
-export default {
+import { defineConfig } from "drizzle-kit";
+
+export default defineConfig({
   schema: "./src/lib/db/drizzle-schema.ts",
   out: "./drizzle",
-  dialect: "sqlite",
-  dbCredentials: { url: process.env.DATABASE_URL || "file:./.data/atlas.sqlite" },
-};
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL || "postgres://atlas:atlas@localhost:5432/atlas",
+  },
+});
