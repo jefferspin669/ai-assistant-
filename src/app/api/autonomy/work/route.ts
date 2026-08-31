@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     requirePermission(ctx, "atlas.autonomous");
     const body = asRecord(await readJson(req));
 

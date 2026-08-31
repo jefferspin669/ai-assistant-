@@ -4,12 +4,12 @@ Next.js 15 (App Router) + React 19 + TypeScript.
 
 ## Honest status
 
-Atlas has a large interactive product surface. Much of it is still a **sophisticated simulation**:
+Atlas has a large interactive product surface. Much of it is still a **sophisticated simulation** when credentials are unset:
 
 - Keyword Brain fallback in `src/lib/commands.ts` when no LLM key is set
-- File-backed JSON under `.data/` is still the **sync read path**
-- When `DATABASE_URL` is set, saves **dual-write** into Postgres via Drizzle
-- When `REDIS_URL` is set, jobs also go to BullMQ (`npm run worker`)
+- **Backend V1:** `DATABASE_URL` makes PostgreSQL (Drizzle) the source of truth — hydrate once, write-through, no per-request demo reseed
+- Without `DATABASE_URL`, `.data/*.json` remains the adapter so demos/tests still run
+- `REDIS_URL` → BullMQ workers + session cache; Supabase Auth when URL + anon key are set
 - Many studios mock phone/calendar/invoices unless integration env vars are set
 
 **North star:** stop adding feature pages; make one beachhead real. See `docs/NORTH_STAR.md`.
@@ -48,7 +48,7 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 ## Backend today
 
 - Route Handlers under `src/app/api/**` — Next.js stays the API (no second HTTP server)
-- Architecture DB → `.data/atlas-db.json` (reads); Postgres dual-write when `DATABASE_URL` is set
+- Architecture DB → PostgreSQL when `DATABASE_URL` is set (JSON fallback otherwise)
 - Event bus → `src/lib/events` (`appointment.cancelled`, `call.missed`, `invoice.overdue`, …)
 - Queue → file jobs, or BullMQ `atlas-jobs` when Redis is up
 - Workspace domains → `.data/workspace.json`

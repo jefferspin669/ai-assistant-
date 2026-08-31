@@ -5,7 +5,7 @@
 Atlas looks like an AI Operating System. Underneath, most “intelligence” is still:
 
 - Keyword / rule replies in `src/lib/commands.ts` (`runOwnerCommand`)
-- File-backed JSON under `.data/` (and browser `localStorage` for some client paths). Postgres dual-write exists when `DATABASE_URL` is set; reads are still JSON until APIs go async.
+- File-backed JSON under `.data/` is the fallback adapter when `DATABASE_URL` is unset. With Postgres configured, Atlas hydrates from Drizzle once per instance and write-throughs — it does not reseed demo data per request.
 - UI studios that *simulate* phone, calendar, invoices, and payroll
 
 That was the right way to explore the surface area. It is no longer the highest-leverage work.

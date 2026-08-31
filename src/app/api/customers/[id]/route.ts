@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(req: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
-    const session = resolveSession(req);
+    const session = await resolveSession(req);
     const customer = listCustomers(session).find((row) => row.id === id);
     if (!customer) throw new NotFoundError("Customer not found.");
     return apiResponse(ok(customer));
@@ -20,7 +20,7 @@ export async function GET(req: Request, ctx: Ctx) {
 export async function DELETE(req: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
-    const session = resolveSession(req);
+    const session = await resolveSession(req);
     return apiResponse(ok(deleteCustomer(session, id)));
   } catch (error) {
     return jsonError(error);

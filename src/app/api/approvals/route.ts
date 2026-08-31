@@ -5,7 +5,7 @@ import { resolveApproval } from "@/lib/domain/actions";
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     return apiResponse(ok(listApprovals(ctx)));
   } catch (error) {
     return jsonError(error);
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     const decision = body.decision === "rejected" ? "rejected" : "approved";
     return apiResponse(ok(resolveApproval(ctx, String(body.id || body.approvalId || ""), decision)));

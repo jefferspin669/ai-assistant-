@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     const title = String(body.title || body.name || "Upload");
     const content = String(body.content || body.data || "");

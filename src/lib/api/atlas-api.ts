@@ -791,7 +791,9 @@ export const metaApi = {
     const stats = databaseStats(db());
     const persistence =
       typeof window === "undefined"
-        ? "file:.data/atlas-db.json"
+        ? process.env.DATABASE_URL?.trim()
+          ? "postgres"
+          : "file:.data/atlas-db.json"
         : "localStorage:atlas-database-v5";
     return ok({
       status: "ok",

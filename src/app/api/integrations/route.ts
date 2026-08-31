@@ -4,7 +4,7 @@ import { listIntegrations, setIntegrationStatus } from "@/lib/services/integrati
 
 export async function GET(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     return apiResponse(ok(listIntegrations(ctx)));
   } catch (error) {
     return jsonError(error);
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     const status =
       body.status === "connected" ||

@@ -4,8 +4,10 @@ import { runAtlasBrain } from "@/lib/brain";
 import { applyAwayMode, appendStandingOrder } from "@/lib/autonomy/policy";
 import { isAwayPhrase, LEVEL_LABELS } from "@/lib/autonomy";
 import { newId, nowIso, loadDatabase, saveDatabase } from "@/lib/db/store";
+import { ensureServerDatabase } from "@/lib/db/ensure";
 
 export async function POST(req: Request) {
+  await ensureServerDatabase();
   const body = await readJson(req);
   const message = String(body.message || body.text || "");
   const brain = await runAtlasBrain({

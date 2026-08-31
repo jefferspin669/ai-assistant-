@@ -5,7 +5,7 @@ import { ValidationError } from "@/lib/domain/errors";
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     const eventId = String(req.headers.get("idempotency-key") || body.id || "").trim();
     if (!eventId) throw new ValidationError("Idempotency-Key is required.");

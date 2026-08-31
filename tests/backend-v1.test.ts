@@ -6,8 +6,11 @@ import { routeEvent } from "../src/lib/events/router";
 import { sendEmail } from "../src/lib/integrations/resend";
 import { openaiConfigured } from "../src/lib/integrations/openai";
 import { objectStoreConfigured } from "../src/lib/storage/object-store";
-import { supabaseAuthConfigured } from "../src/lib/auth/supabase-auth";
+import { supabaseAuthConfigured, supabaseAccessTokenFromRequest } from "../src/lib/auth/supabase-auth";
 import { handleQueuedWork } from "../src/lib/queue/handlers";
+import { databaseDriver, jsonMirrorEnabled } from "../src/lib/db/driver";
+import { ensureServerDatabase, resetEnsureCache } from "../src/lib/db/ensure";
+import { atlasApi } from "../src/lib/api/atlas-api";
 
 const saved = {
   redis: process.env.REDIS_URL,
@@ -17,7 +20,16 @@ const saved = {
 beforeEach(() => {
   delete process.env.REDIS_URL;
   delete process.env.DATABASE_URL;
+  resetEnsureCache();
   resetDatabase();
+});
+
+afterEach(() => {
+  if (saved.redis) process.env.REDIS_URL = saved.redis;
+  else delete process.env.REDIS_URL;
+  if (saved.database) process.env.DATABASE_URL = saved.database;
+  else delete process.env.DATABASE_URL;
+  resetEnsureCache();
 });
 
 afterEach(() => {
@@ -111,5 +123,28 @@ describe("SDK simulation fallbacks", () => {
     });
     expect(result.ok).toBe(true);
     expect(loadDatabase().audit_logs.some((row) => row.action.includes("worker:file-indexed"))).toBe(true);
+  });
+});
+
+describe("Backend V1 real data adapter", () => {
+  it("uses the JSON driver when DATABASE_URL is unset", async () => {
+    expect(databaseDriver()).toBe("json");
+    expect(jsonMirrorEnabled()).toBe(true);
+    const ensure = await ensureServerDatabase();
+    expect(ensure.driver).toBe("json");
+    expect(ensure.seeded).toBe(false);
+    expect(loadDatabase().organizations.length).toBeGreaterThan(0);
+  });
+
+  it("reports postgres persistence in the API façade only when DATABASE_URL is set", () => {
+    const health = atlasApi.meta.health();
+    expect(health.ok).toBe(true);
+    if (health.ok) expect(health.data.persistence).toBe("file:.data/atlas-db.json");
+  });
+
+  it("does not treat a missing Bearer token as Supabase Auth", () => {
+    const req = new Request("http://localhost/api/customers");
+    expect(supabaseAccessTokenFromRequest(req)).toBeNull();
+    expect(supabaseAuthConfigured()).toBe(false);
   });
 });

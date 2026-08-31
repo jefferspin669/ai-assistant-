@@ -164,6 +164,99 @@ export const quotes = pgTable("quotes", {
   createdAt: text("created_at").notNull(),
 });
 
+export const userCredentials = pgTable("user_credentials", {
+  userId: text("user_id").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  mfaSecret: text("mfa_secret"),
+  mfaEnabled: boolean("mfa_enabled").notNull().default(false),
+});
+
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull(),
+  userId: text("user_id").notNull(),
+  organizationId: text("organization_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  revokedAt: text("revoked_at"),
+  deviceName: text("device_name").notNull().default("web"),
+});
+
+export const calendarCategories = pgTable("calendar_categories", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  organizationId: text("organization_id").notNull(),
+  name: text("name").notNull(),
+  color: text("color").notNull(),
+  icon: text("icon").notNull(),
+});
+
+export const conversations = pgTable("conversations", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  title: text("title").notNull(),
+  preview: text("preview").notNull(),
+  messages: jsonb("messages").$type<{ role: "user" | "ai"; text: string; at: string }[]>().notNull(),
+  updatedAt: text("updated_at").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const memories = pgTable("memories", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  approved: boolean("approved").notNull().default(false),
+  createdAt: text("created_at").notNull(),
+});
+
+export const documents = pgTable("documents", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  orgId: text("org_id").notNull(),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(),
+  content: text("content").notNull(),
+  fileName: text("file_name"),
+  mimeType: text("mime_type"),
+  sizeBytes: integer("size_bytes"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const subscriptions = pgTable("subscriptions", {
+  id: text("id").primaryKey(),
+  orgId: text("org_id").notNull(),
+  plan: text("plan").notNull(),
+  status: text("status").notNull(),
+  renewsAt: text("renews_at").notNull(),
+  seats: integer("seats").notNull().default(1),
+});
+
+export const automations = pgTable("automations", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull(),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  trigger: text("trigger").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const autonomyPolicies = pgTable("autonomy_policies", {
+  organizationId: text("organization_id").primaryKey(),
+  level: integer("level").notNull().default(1),
+  killSwitch: boolean("kill_switch").notNull().default(false),
+  autoPaymentLimitCents: integer("auto_payment_limit_cents").notNull(),
+  refundLimitCents: integer("refund_limit_cents").notNull(),
+  discountCapPercent: integer("discount_cap_percent").notNull(),
+  marketingBudgetCents: integer("marketing_budget_cents").notNull(),
+  earliestScheduleHour: integer("earliest_schedule_hour").notNull(),
+  wakeOnlyEmergencies: boolean("wake_only_emergencies").notNull().default(true),
+  standingOrders: jsonb("standing_orders").$type<string[]>().notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const DRIZZLE_TABLES = [
   "organizations",
   "users",
@@ -179,4 +272,13 @@ export const DRIZZLE_TABLES = [
   "domain_events",
   "notifications",
   "quotes",
+  "user_credentials",
+  "sessions",
+  "calendar_categories",
+  "conversations",
+  "memories",
+  "documents",
+  "subscriptions",
+  "automations",
+  "autonomy_policies",
 ] as const;

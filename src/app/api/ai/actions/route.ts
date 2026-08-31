@@ -4,7 +4,7 @@ import { executeAtlasAction } from "@/lib/domain/actions";
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     const action = body.action ?? body;
     return apiResponse(ok(executeAtlasAction(action, ctx)));

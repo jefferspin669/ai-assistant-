@@ -1,10 +1,13 @@
 import { startAtlasWorker } from "../lib/queue/bullmq";
 import { pingPostgres } from "../lib/db/postgres";
 import { pingRedis } from "../lib/redis";
+import { ensureServerDatabase } from "../lib/db/ensure";
 
 async function main() {
+  const ensure = await ensureServerDatabase();
   const pg = await pingPostgres();
   const redis = await pingRedis();
+  console.log("[atlas-worker] database", ensure);
   console.log("[atlas-worker] postgres", pg);
   console.log("[atlas-worker] redis", redis);
   const worker = startAtlasWorker();

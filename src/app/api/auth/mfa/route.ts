@@ -18,7 +18,7 @@ function totp(secret: string, step = Math.floor(Date.now() / 30000)) {
 
 export async function POST(req: Request) {
   try {
-    const ctx = resolveSession(req);
+    const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
     const credential = database().user_credentials.find((row) => row.user_id === ctx.userId);
     if (!credential) throw new AuthenticationError();

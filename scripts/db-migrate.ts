@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import postgres from "postgres";
 
@@ -8,12 +8,17 @@ async function main() {
     console.log("[atlas:db] DATABASE_URL unset — skip migrate");
     process.exit(0);
   }
-  const file = resolve(process.cwd(), "drizzle/0000_init.sql");
-  const sql = readFileSync(file, "utf8");
+  const dir = resolve(process.cwd(), "drizzle");
+  const files = readdirSync(dir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
   const client = postgres(url, { max: 1 });
   try {
-    await client.unsafe(sql);
-    console.log("[atlas:db] applied drizzle/0000_init.sql");
+    for (const name of files) {
+      const sql = readFileSync(resolve(dir, name), "utf8");
+      await client.unsafe(sql);
+      console.log(`[atlas:db] applied drizzle/${name}`);
+    }
   } finally {
     await client.end();
   }
