@@ -14,7 +14,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/app", label: "Dashboard", exact: true },
       { href: "/app/appointments", label: "Atlas Calendar" },
-      { href: "/app/ask", label: "Talk to Atlas" },
+      { href: "/app/ask", label: "Atlas Assistant" },
       { href: "/app/workforce", label: "Workforce" },
       { href: "/app/marketplace", label: "Atlas Marketplace" },
       { href: "/app/files", label: "Files" },
@@ -131,7 +131,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Intelligence",
     items: [
-      { href: "/app/ask", label: "Talk to Atlas" },
+      { href: "/app/ask", label: "Atlas Assistant" },
       { href: "/app/business-engine", label: "Business Engine" },
       { href: "/app/market-intelligence", label: "Market Intelligence" },
       { href: "/app/quality", label: "Quality" },

@@ -31,10 +31,10 @@ describe("product consolidation", () => {
     expect(navItems.find((item) => item.href === "/app/chatbot")?.label).toBe("Customer Chatbot");
   });
 
-  it("pins Talk to Atlas on the primary sidebar", () => {
+  it("pins Atlas Assistant on the primary sidebar", () => {
     const chat = sidebarMain.find((item) => item.icon === "chat");
     expect(chat?.href).toBe("/app/ask");
-    expect(chat?.label).toBe("Talk to Atlas");
+    expect(chat?.label).toBe("Atlas Assistant");
   });
 
   it("puts Tax under Money instead of pinning it as a second product", () => {
@@ -45,12 +45,12 @@ describe("product consolidation", () => {
 
   it("lists Intelligence hubs in nav catalog", () => {
     const intelligence = navGroups.find((group) => group.label === "Intelligence");
-    const hrefs = intelligence?.items.map((item) => item.href) ?? [];
-    expect(hrefs).toContain("/app/ask");
-    expect(hrefs).toContain("/app/business-engine");
-    expect(hrefs).toContain("/app/market-intelligence");
-    expect(hrefs).toContain("/app/quality");
-    expect(hrefs).toContain("/app/security-center");
+    const intelligenceHrefs = intelligence?.items.map((item) => item.href) ?? [];
+    expect(intelligenceHrefs).toContain("/app/ask");
+    expect(intelligenceHrefs).toContain("/app/business-engine");
+    expect(intelligenceHrefs).toContain("/app/market-intelligence");
+    expect(intelligenceHrefs).toContain("/app/quality");
+    expect(intelligenceHrefs).toContain("/app/security-center");
   });
 
   it("exposes Security Center on Trust hub", () => {

@@ -8,8 +8,16 @@ import { CalendarHubStudio } from "@/components/CalendarHubStudio";
 import { EventsStudio } from "@/components/EventsStudio";
 import { SmartCalendarStudio } from "@/components/SmartCalendarStudio";
 
+const SCOPES = [
+  { id: "personal", label: "Personal" },
+  { id: "team", label: "Team" },
+  { id: "company", label: "Company" },
+] as const;
+
+type ScopeId = (typeof SCOPES)[number]["id"];
+
 const TABS = [
-  { id: "schedule", label: "Personal" },
+  { id: "schedule", label: "Schedule" },
   { id: "team", label: "Team" },
   { id: "company", label: "Company" },
   { id: "meetings", label: "Meetings" },
@@ -24,43 +32,65 @@ function isTab(value: string | null): value is TabId {
   return TABS.some((tab) => tab.id === value);
 }
 
+function isScope(value: string | null): value is ScopeId {
+  return SCOPES.some((scope) => scope.id === value);
+}
+
+function defaultTabForScope(scope: ScopeId): TabId {
+  if (scope === "personal") return "schedule";
+  if (scope === "team") return "team";
+  return "company";
+}
+
 function AtlasCalendarStudioInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const scopeParam = searchParams.get("scope");
   const tabParam = searchParams.get("tab");
-  const tab: TabId = isTab(tabParam) ? tabParam : "schedule";
+  const scope: ScopeId = isScope(scopeParam) ? scopeParam : "personal";
+  const tab: TabId = isTab(tabParam) ? tabParam : defaultTabForScope(scope);
 
   const scopeHint = useMemo(() => {
-    switch (tab) {
-      case "schedule":
-        return "Your appointments, reminders, and private schedule.";
+    switch (scope) {
+      case "personal":
+        return "Your appointments, deadlines, reminders, and private calendar.";
       case "team":
-        return "Team calendars — shifts, meetings, and shared milestones.";
-      case "company":
-        return "Company-wide events, closures, and all-hands.";
-      case "meetings":
-        return "Meeting intelligence, agendas, and recaps.";
-      case "deadlines":
-        return "Project deadlines and due dates across the business.";
-      case "timeoff":
-        return "PTO requests, approvals, and coverage planning.";
+        return "Department and project calendars — meetings, shifts, and milestones for your team.";
       default:
-        return "Celebrations and company events.";
+        return "Company-wide events, closures, training, and all-hands meetings.";
     }
-  }, [tab]);
+  }, [scope]);
+
+  function setScope(next: ScopeId) {
+    router.replace(`/app/appointments?scope=${next}&tab=${defaultTabForScope(next)}`, { scroll: false });
+  }
 
   function setTab(next: TabId) {
-    router.replace(`/app/appointments?tab=${next}`, { scroll: false });
+    router.replace(`/app/appointments?scope=${scope}&tab=${next}`, { scroll: false });
   }
 
   return (
     <AppShell
-      title="Calendar"
+      title="Atlas Calendar"
       subtitle="One calendar — personal, team, company, meetings, deadlines, and time off."
+      action={
+        <div className="biz-switcher" role="group" aria-label="Calendar scope">
+          {SCOPES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={scope === item.id ? "biz-tab active" : "biz-tab"}
+              onClick={() => setScope(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      }
     >
       <div className="training-studio">
         <div className="memory-card">
-          <div className="label">Calendar · {TABS.find((t) => t.id === tab)?.label}</div>
+          <div className="label">Atlas Calendar · {SCOPES.find((s) => s.id === scope)?.label}</div>
           <p>{scopeHint}</p>
         </div>
 
@@ -110,7 +140,7 @@ function AtlasCalendarStudioInner() {
 
 export function AtlasCalendarStudio() {
   return (
-    <Suspense fallback={<AppShell title="Calendar" subtitle="Loading…"><div className="panel">Loading…</div></AppShell>}>
+    <Suspense fallback={<AppShell title="Atlas Calendar" subtitle="Loading…"><div className="panel">Loading…</div></AppShell>}>
       <AtlasCalendarStudioInner />
     </Suspense>
   );
