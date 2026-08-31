@@ -6,7 +6,7 @@ export default function PhonePage() {
   return (
     <AppShell
       title="Phone & Reception"
-      subtitle="Business numbers, call routing, voicemail, transcripts, receptionist AI, and missed-call follow-up."
+      subtitle="Account Assistant — phone, routing, receptionist AI, control center, and Business Memory."
       action={
         <Link className="btn btn-outline" href="/app/chatbot">Customer chatbot</Link>
       }

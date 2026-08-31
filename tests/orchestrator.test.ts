@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../src/lib/db/store";
 import { database, testSession } from "../src/lib/services/access";
 import { patchPolicy } from "../src/lib/autonomy/policy";
+import { AUTONOMOUS_AUTO_PERMISSIONS } from "../src/lib/autonomy/permissions";
 import { listAudit } from "../src/lib/services/audit";
 import { orchestrate, tickRun, getRun, listCapabilities, planGoal, evaluateRules } from "../src/lib/orchestrator";
 import { resetOrchestratorForTests, getTrace, listRuns } from "../src/lib/orchestrator/store";
@@ -42,7 +43,10 @@ describe("Atlas orchestrator", () => {
 
   it("runs the recover-invoice plan against live org data and waits instead of skipping ahead", async () => {
     const ctx = owner();
-    patchPolicy(ctx.organizationId, { level: 2 });
+    patchPolicy(ctx.organizationId, {
+      level: 2,
+      autoPermissions: { ...AUTONOMOUS_AUTO_PERMISSIONS, customer_replies: true },
+    });
     const { run, traceId } = await orchestrate(ctx, "Get Johnson Construction's overdue invoice paid.");
     expect(run.intent).toBe("recover_invoice");
     expect(run.organizationId).toBe(ctx.organizationId);
@@ -60,7 +64,10 @@ describe("Atlas orchestrator", () => {
 
   it("resumes a waiting run from persistent state after the wait elapses", async () => {
     const ctx = owner();
-    patchPolicy(ctx.organizationId, { level: 2 });
+    patchPolicy(ctx.organizationId, {
+      level: 2,
+      autoPermissions: { ...AUTONOMOUS_AUTO_PERMISSIONS, customer_replies: true },
+    });
     const { run } = await orchestrate(ctx, "Get Johnson Construction's overdue invoice paid.");
     const waiting = run.steps.find((s) => s.kind === "wait")!;
     waiting.waitUntil = new Date(Date.now() - 1000).toISOString();

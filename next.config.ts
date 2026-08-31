@@ -95,6 +95,16 @@ const nextConfig: NextConfig = {
               destination: "/app/memory?type=customer",
               permanent: false,
             },
+            {
+              source: "/app/backend",
+              destination: "/app/admin",
+              permanent: false,
+            },
+            {
+              source: "/app/architecture",
+              destination: "/app/setup",
+              permanent: false,
+            },
           ];
         },
         async headers() {

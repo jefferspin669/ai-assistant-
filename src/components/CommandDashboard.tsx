@@ -4,7 +4,7 @@ import Link from "@/components/SiteLink";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { DashboardAskAtlas } from "@/components/DashboardAskAtlas";
-import { DashboardCustomizer, useDashboardLayout } from "@/components/DashboardCustomizer";
+import { DashboardCustomizer, DashboardWidgetGrid, useDashboardLayout } from "@/components/DashboardCustomizer";
 import {
   applyOwnerEffect,
   loadDashboardSnapshot,
@@ -25,7 +25,7 @@ function DataBadge({ source }: { source: DashboardSnapshot["kpis"][number]["sour
 
 export function CommandDashboard() {
   const { account, ownerName, ready, logout } = useAccount();
-  const { layout, setLayout } = useDashboardLayout();
+  const { layout, setLayout, editMode, setEditMode } = useDashboardLayout();
   const greeting = useMemo(() => timeGreeting(), []);
   const firstName = ownerName.split(" ")[0];
   const [snap, setSnap] = useState<DashboardSnapshot | null>(null);
@@ -50,7 +50,14 @@ export function CommandDashboard() {
 
   return (
     <div className="command-dashboard">
-      {layout ? <DashboardCustomizer layout={layout} onChange={setLayout} /> : null}
+      {layout ? (
+        <DashboardCustomizer
+          layout={layout}
+          onChange={setLayout}
+          editMode={editMode}
+          onEditModeChange={setEditMode}
+        />
+      ) : null}
       <header className="dash-top-bar">
         <div className="dash-top-bar-spacer" />
         {account ? (
@@ -87,6 +94,10 @@ export function CommandDashboard() {
       </div>
 
       {note ? <p className="auth-success">{note}</p> : null}
+
+      {layout && editMode ? (
+        <DashboardWidgetGrid layout={layout} editMode />
+      ) : null}
 
       <section className="panel">
         <h2>Atlas found</h2>

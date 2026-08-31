@@ -86,8 +86,6 @@ export const navGroups: NavGroup[] = [
       { href: "/app/data", label: "Import & export" },
       { href: "/app/recovery", label: "Undo & recovery" },
       { href: "/app/tasks", label: "Tasks" },
-      { href: "/app/architecture", label: "Architecture" },
-      { href: "/app/backend", label: "Backend" },
       { href: "/app/commercial", label: "Commercial" },
       { href: "/app/account", label: "Account Center" },
       { href: "/app/actions", label: "Atlas Actions" },

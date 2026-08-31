@@ -28,9 +28,18 @@ import { touchWorkerHeartbeat, readWorkerHeartbeat } from "../src/lib/queue/hear
 import { reconnectIntegration } from "../src/lib/services/integrations";
 import { atlasRuntimeEnv } from "../src/lib/ops/environment";
 import type { AutonomyPolicy, WorkIntent } from "../src/lib/autonomy/types";
+import { AUTONOMOUS_AUTO_PERMISSIONS, levelToControlMode } from "../src/lib/autonomy/permissions";
 
 function policy(level: AutonomyPolicy["level"], extra: Partial<AutonomyPolicy> = {}): AutonomyPolicy {
-  return { ...defaultPolicy("org_test"), level, ...extra };
+  const base = {
+    ...defaultPolicy("org_test"),
+    level,
+    controlMode: levelToControlMode(level),
+    autoPermissions:
+      level >= 3 ? { ...AUTONOMOUS_AUTO_PERMISSIONS } : defaultPolicy("org_test").autoPermissions,
+    ...extra,
+  };
+  return base;
 }
 
 describe("Atlas autonomy safety", () => {
@@ -187,7 +196,7 @@ describe("Atlas autonomy safety", () => {
       summary: "Tomorrow",
     });
     expect(submitted.decision.verdict).toBe("ask_owner");
-    expect(submitted.decision.reason).toMatch(/Level 1/);
+    expect(submitted.decision.reason).toMatch(/Manual mode/);
   });
 });
 

@@ -66,7 +66,7 @@ export const operationsHub: HubLink[] = [
 export const agentsHub: HubLink[] = [
   { href: "/app/workforce", label: "Workforce", blurb: "Employees, managers, AI workers, tasks, and messaging." },
   { href: "/app/workforce?tab=ai-workers", label: "AI workers", blurb: "Specialists Atlas routes to — alongside your human team." },
-  { href: "/app/receptionist", label: "Receptionist", blurb: "The beachhead: phones, booking, and recognition." },
+  { href: "/app/phone", label: "Phone & Reception", blurb: "Account Assistant — calls, booking, control center." },
   { href: "/app/marketplace?tab=agents", label: "Marketplace agents", blurb: "Install Sales, HR, Legal, and industry specialists." },
   { href: "/app/coach", label: "Live coach", blurb: "On-call help during a job or a sales conversation." },
   { href: "/app/voice", label: "Voice", blurb: "Talk to Atlas from the truck or the front desk." },
@@ -92,7 +92,6 @@ export const appsHub: HubLink[] = [
   { href: "/app/connections", label: "Connections", blurb: "Banks, calendars, phones — labeled CONNECTED DATA." },
   { href: "/app/files", label: "Files", blurb: "Uploads Atlas can search." },
   { href: "/app/developers", label: "API", blurb: "Build on Atlas when the core loop is real." },
-  { href: "/app/architecture", label: "Architecture", blurb: "How the prototype is wired today." },
 ];
 
 export const settingsHub: HubLink[] = [

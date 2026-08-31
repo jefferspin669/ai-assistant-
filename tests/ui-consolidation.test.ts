@@ -81,6 +81,11 @@ describe("product consolidation", () => {
     expect(hrefs).not.toContain("/app/command-language");
   });
 
+  it("drops Backend and Architecture from customer nav", () => {
+    expect(hrefs).not.toContain("/app/backend");
+    expect(hrefs).not.toContain("/app/architecture");
+  });
+
   it("parses bodies and returns apiSuccess without per-route wrappers", async () => {
     const parsed = parseBody(z.object({ name: z.string() }), { name: "Johnson Construction" });
     expect(parsed.name).toBe("Johnson Construction");
