@@ -25,7 +25,6 @@ export const sidebarMain: SidebarNavItem[] = [
 
 /** Secondary but frequent admin destinations. */
 export const sidebarAdmin: SidebarNavItem[] = [
-  { href: "/app/tax", label: "Tax", icon: "tax" },
   { href: "/app/account", label: "Account Center", icon: "account" },
 ];
 

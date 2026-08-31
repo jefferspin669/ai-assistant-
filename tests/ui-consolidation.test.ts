@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { apiSuccess, parseBody } from "../src/lib/api/http";
 import { navGroups, navItems } from "../src/lib/atlas-platform";
-import { sidebarMain } from "../src/lib/sidebar-nav";
+import { sidebarAdmin, sidebarMain } from "../src/lib/sidebar-nav";
 import { memoryHub, moneyHub, trustHub } from "../src/lib/section-hubs";
 
 describe("product consolidation", () => {
@@ -23,6 +23,12 @@ describe("product consolidation", () => {
     expect(hrefs).not.toContain("/app/app-store");
     expect(hrefs).not.toContain("/app/chat");
     expect(navItems.find((item) => item.href === "/app/chatbot")?.label).toBe("Customer Chatbot");
+  });
+
+  it("puts Tax under Money instead of pinning it as a second product", () => {
+    const money = navGroups.find((group) => group.label === "Money");
+    expect(money?.items.map((item) => item.href)).toContain("/app/tax");
+    expect(sidebarMain.concat(sidebarAdmin).map((item) => item.href)).not.toContain("/app/tax");
   });
 
   it("pins Ask Atlas on the primary sidebar", () => {
