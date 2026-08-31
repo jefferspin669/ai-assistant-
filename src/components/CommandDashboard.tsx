@@ -54,11 +54,11 @@ export function CommandDashboard() {
       <header className="dash-top-bar">
         <div className="dash-top-bar-spacer" />
         {account ? (
-          <button type="button" className="ghost-link dash-logout" onClick={() => logout()}>
+          <button type="button" className="dash-logout" onClick={() => logout()}>
             Log out
           </button>
         ) : (
-          <Link href="/login" className="ghost-link dash-logout">
+          <Link href="/login" className="btn btn-outline dash-login">
             Log in
           </Link>
         )}

@@ -89,7 +89,7 @@ The Brain is not the execution engine. `src/lib/orchestrator` plans a goal, chec
 - Integration adapters wrap Twilio / Stripe / Calendar / Resend — not a second integration engine
 - BullMQ remains `atlas-jobs` with worker **lanes** (sms, email, payment, …)
 
-Do **not** add a new `/app/*` studio. Inspect runs via the API or `/api/health` → `orchestrator`.
+Do **not** add a new `/app/*` studio. Inspect runs via the API or `/api/health` → `orchestrator`. Owners already have `/app/autonomous` and `/app/commercial`.
 
 ## Product consolidation (one place per capability)
 
