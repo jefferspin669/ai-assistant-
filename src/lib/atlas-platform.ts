@@ -159,12 +159,7 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: "Intelligence",
-    items: [
-      { href: "/app/analytics", label: "AI Dashboard" },
-      { href: "/app/business-engine", label: "Business Engine" },
-      { href: "/app/market-intelligence", label: "Market Intelligence" },
-      { href: "/app/security-center", label: "Security Center" },
-    ],
+    items: [{ href: "/app/analytics", label: "AI Dashboard" }],
   },
   {
     label: "Executive Suite",

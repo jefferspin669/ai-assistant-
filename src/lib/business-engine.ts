@@ -1,6 +1,6 @@
 /** Atlas Business Engine — company model, decisions, simulation, health, predictions. */
 
-import { intelligenceScore, predictiveAlerts } from "@/lib/atlas-platform";
+import { intelligenceScore, predictiveAlerts, explainableRecommendations } from "@/lib/atlas-platform";
 import { loadHealthScore } from "@/lib/ops-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 import { workloadByMember } from "@/lib/projects-workspace";
@@ -294,6 +294,10 @@ export function loadPredictions(): PredictionCard[] {
       dataUsed: ["Atlas predictive engine"],
     })),
   ];
+}
+
+export function loadRecommendations() {
+  return explainableRecommendations;
 }
 
 export function simulateEmployeeScenario(prompt: string): string {

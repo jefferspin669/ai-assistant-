@@ -178,6 +178,13 @@ export const MONITORED_SIGNALS: { kind: SecurityEventKind; label: string }[] = [
   { kind: "financial_change", label: "Unusual financial or account changes" },
 ];
 
+export function computeSecurityScore(events: SecurityEvent[]): number {
+  if (!events.length) return 91;
+  const open = events.filter((e) => !e.resolved);
+  const penalty = open.reduce((sum, event) => sum + event.riskScore / 12, 0);
+  return Math.max(35, Math.round(100 - penalty));
+}
+
 export const APPROVED_AUTO_ACTIONS: DefensiveAction[] = [
   "revoke_session",
   "disable_api_key",

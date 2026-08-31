@@ -43,18 +43,13 @@ describe("product consolidation", () => {
     expect(sidebarMain.concat(sidebarAdmin).map((item) => item.href)).not.toContain("/app/tax");
   });
 
-  it("consolidates Intelligence into Business Engine, Market Intelligence, and Security Center", () => {
+  it("consolidates Intelligence into sidebar hubs, not flat duplicate nav", () => {
     const intelligence = navGroups.find((group) => group.label === "Intelligence");
     const hrefs = intelligence?.items.map((item) => item.href) ?? [];
-    expect(hrefs).toContain("/app/business-engine");
-    expect(hrefs).toContain("/app/market-intelligence");
-    expect(hrefs).toContain("/app/security-center");
-    expect(hrefs).not.toContain("/app/simulator");
-    expect(hrefs).not.toContain("/app/explainable");
-    expect(hrefs).not.toContain("/app/network");
-    expect(hrefs).not.toContain("/app/score");
-    expect(hrefs).not.toContain("/app/insights");
-    expect(hrefs).not.toContain("/app/decisions");
+    expect(hrefs).toEqual(["/app/analytics"]);
+    expect(hrefs).not.toContain("/app/business-engine");
+    expect(hrefs).not.toContain("/app/market-intelligence");
+    expect(hrefs).not.toContain("/app/security-center");
     expect(navGroups.find((g) => g.label === "Executive Suite")?.items.map((i) => i.href)).not.toContain(
       "/app/crisis",
     );

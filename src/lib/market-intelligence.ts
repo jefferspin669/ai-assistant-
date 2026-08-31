@@ -184,3 +184,34 @@ export function categoryLabel(category: TimelineCategory): string {
   const pref = DEFAULT_ALERT_PREFERENCES.find((p) => p.id === category);
   return pref?.label ?? category;
 }
+
+export function loadIndustryInsights(): { industry: string; insight: string; signal: string }[] {
+  return [
+    { industry: "HVAC", signal: "Demand", insight: "Emergency call volume up 8% in Midwest — storm season pull-forward." },
+    { industry: "SMB SaaS", signal: "Pricing", insight: "Median SMB software pricing rose 4.2% YoY; discounting compressed in Q2." },
+    { industry: "Field services", signal: "Labor", insight: "Technician wages +5.1% regionally; overtime hours elevated on north routes." },
+  ];
+}
+
+export function loadMarketSignals(): CompetitorTimelineEntry[] {
+  return loadCompetitorTimeline().filter((e) => e.category === "pricing" || e.category === "hiring");
+}
+
+export function loadIntelligenceFeed(): Array<{ id: string; title: string; body: string; at: string }> {
+  const timeline = loadCompetitorTimeline();
+  const alerts = loadCompetitiveAlerts();
+  return [
+    ...alerts.map((a) => ({
+      id: a.id,
+      title: a.title,
+      body: `${a.detail} — ${a.analysis}`,
+      at: a.at,
+    })),
+    ...timeline.map((t) => ({
+      id: t.id,
+      title: `${t.competitorName}: ${categoryLabel(t.category)}`,
+      body: t.detail,
+      at: t.at,
+    })),
+  ];
+}

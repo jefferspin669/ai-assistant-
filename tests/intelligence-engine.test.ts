@@ -5,7 +5,7 @@ import {
   testDecision,
 } from "../src/lib/business-engine";
 import { buildBackendSecurityEvents } from "../src/lib/security-center-server";
-import { riskBand } from "../src/lib/security-center";
+import { computeSecurityScore, riskBand } from "../src/lib/security-center";
 
 describe("intelligence engine", () => {
   it("maps risk bands to LOW/MEDIUM/HIGH/CRITICAL thresholds", () => {
@@ -35,5 +35,22 @@ describe("intelligence engine", () => {
       ...DEFAULT_ASSUMPTIONS.map((a) => (a.id === "price" ? { ...a, enabled: true } : a)),
     ]);
     expect(sim.expected).toContain("% profit");
+  });
+
+  it("computes security score from open events", () => {
+    const score = computeSecurityScore([
+      {
+        id: "1",
+        kind: "mass_export",
+        title: "t",
+        detail: "d",
+        riskScore: 96,
+        band: "CRITICAL",
+        source: "atlas",
+        at: "",
+        resolved: false,
+      },
+    ]);
+    expect(score).toBeLessThan(100);
   });
 });
