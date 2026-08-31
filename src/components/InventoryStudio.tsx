@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "@/components/SiteLink";
+import { EmptyState } from "@/components/EmptyState";
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -17,6 +18,7 @@ import {
   type StockMovement,
 } from "@/lib/inventory-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 type Tab = "items" | "movements" | "intelligence" | "use";
 
@@ -116,6 +118,17 @@ function InventoryStudioInner() {
 
       {tab === "items" ? (
         <>
+          {items.length === 0 && !isDemoWorkspace() ? (
+            <EmptyState
+              title="Inventory isn't configured yet"
+              description="Add inventory manually, import a spreadsheet, or connect your inventory provider."
+              actions={[
+                { label: "Add item", href: "/app/inventory?tab=items", primary: true },
+                { label: "Scan purchase receipt", href: "/app/purchasing?tab=scan" },
+                { label: "Connect provider", href: "/app/connections" },
+              ]}
+            />
+          ) : null}
           <section className="panel">
             <h2>+ Add item</h2>
             <form className="form-grid" onSubmit={onAddItem}>

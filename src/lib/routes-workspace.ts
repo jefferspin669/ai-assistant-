@@ -1,5 +1,6 @@
 /** Route optimization — stops, traffic-aware ordering, vehicle capacity, employee availability. */
 
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 
 function newId(prefix: string) {
@@ -123,7 +124,8 @@ const SEED_STOPS: RouteStop[] = [
 
 export function loadRouteStops(): RouteStop[] {
   const saved = loadJson<RouteStop[]>(STOPS_KEY, []);
-  return saved.length ? saved : SEED_STOPS;
+  if (saved.length) return saved;
+  return isDemoWorkspace() ? SEED_STOPS : [];
 }
 
 export function saveRouteStops(stops: RouteStop[]) {

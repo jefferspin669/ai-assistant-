@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { computeSalesMetrics } from "../src/lib/sales-workspace";
 import { parseReceiptInventoryLines } from "../src/lib/inventory-workspace";
 import { optimizeRoute, loadRouteStops, trafficMultiplier } from "../src/lib/routes-workspace";
+import { enterPreviewWorkspace } from "../src/lib/workspace-mode";
 import { campaignSummary } from "../src/lib/marketing-workspace";
 import { reputationMode } from "../src/lib/reputation-workspace";
 import { phoneMode } from "../src/lib/phone-reception-workspace";
@@ -9,6 +10,18 @@ import { coachingInsightsForEmployee } from "../src/lib/sales-coach-workspace";
 import { navGroups } from "../src/lib/atlas-platform";
 
 describe("growth and ops restructure", () => {
+  beforeEach(() => {
+    const store: Record<string, string> = {};
+    const storage = {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => { store[key] = value; },
+      removeItem: (key: string) => { delete store[key]; },
+      clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
+    };
+    vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("window", { localStorage: storage });
+    enterPreviewWorkspace();
+  });
   it("defines Operations, Growth, Communication, People nav groups", () => {
     const labels = navGroups.map((g) => g.label);
     expect(labels).toContain("Operations");

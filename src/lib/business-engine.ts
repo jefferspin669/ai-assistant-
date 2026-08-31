@@ -2,6 +2,7 @@
 
 import { intelligenceScore, predictiveAlerts, explainableRecommendations } from "@/lib/atlas-platform";
 import { inventoryCostSummary } from "@/lib/inventory-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 import { loadHealthScore } from "@/lib/ops-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 import { workloadByMember } from "@/lib/projects-workspace";
@@ -124,6 +125,32 @@ export const DEFAULT_AUTOMATIONS: HealthAutomation[] = [
 ];
 
 export function loadCompanyModel(): CompanyModel {
+  const saved = loadJson<CompanyModel | null>(MODEL_KEY, null);
+  if (saved) return saved;
+
+  if (!isDemoWorkspace()) {
+    const members = loadTeamMembers();
+    const workload = workloadByMember();
+    const openTasks = Object.values(workload).reduce((n, w) => n + w.open, 0);
+    return {
+      revenue: "—",
+      expenses: "—",
+      cash: "—",
+      debt: "—",
+      customers: 0,
+      locations: 0,
+      employeeCount: members.length,
+      leads: 0,
+      conversionRate: 0,
+      churn: 0,
+      pipeline: "—",
+      capacity: members.length
+        ? `${openTasks} open tasks · ${members.length} employees`
+        : "No workforce data yet",
+      customNotes: "No financial model connected. Connect Stripe, banking, or enter data manually.",
+    };
+  }
+
   seedDemoTeamIfEmpty();
   const members = loadTeamMembers();
   const workload = workloadByMember();

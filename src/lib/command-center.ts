@@ -11,6 +11,7 @@ import {
   todayISO,
 } from "@/lib/user-workspace";
 import { loadCompanyModel } from "@/lib/business-engine";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 export type CommandAlert = {
   id: string;
@@ -47,6 +48,43 @@ export type AttentionSnapshot = {
 };
 
 export function loadTodayAttention(): AttentionSnapshot {
+  if (!isDemoWorkspace()) {
+    const today = todayISO();
+    const tasks = loadTeamTasks();
+    const members = loadTeamMembers();
+    const timeOff = loadTimeOff();
+    const overdue = tasks.filter((t) => isOpenTask(t.status) && t.dueDate && t.dueDate.slice(0, 10) < today);
+    const pending = pendingCount(loadConfirmations());
+    const bullets: string[] = [];
+    if (overdue.length) bullets.push(`${overdue.length} overdue task${overdue.length === 1 ? "" : "s"}`);
+    if (pending) bullets.push(`${pending} approval${pending === 1 ? "" : "s"} waiting`);
+    if (members.length === 0) bullets.push("No employees added — invite your team");
+    const alerts: CommandAlert[] = [];
+    if (overdue.length) {
+      alerts.push({
+        id: "overdue-tasks",
+        severity: "high",
+        title: `${overdue.length} overdue tasks`,
+        detail: "Project and assign work before SLAs slip.",
+        href: "/app/workforce?tab=tasks",
+      });
+    }
+    if (pending) {
+      alerts.push({
+        id: "approvals",
+        severity: "medium",
+        title: `${pending} items need your approval`,
+        detail: "Risky actions wait for owner sign-off.",
+        href: "/app/approvals",
+      });
+    }
+    const summary =
+      bullets.length > 0
+        ? bullets.join(" · ")
+        : "Connect data or add your first records — no synthetic alerts in production mode.";
+    return { summary, bullets, alerts };
+  }
+
   seedDemoTeamIfEmpty();
   const today = todayISO();
   const tasks = loadTeamTasks();
@@ -70,7 +108,7 @@ export function loadTodayAttention(): AttentionSnapshot {
   const bullets: string[] = [];
   if (overdue.length) bullets.push(`${overdue.length} overdue task${overdue.length === 1 ? "" : "s"}`);
   if (offNames.length) bullets.push(`${offNames.length} employee${offNames.length === 1 ? "" : "s"} off today`);
-  if (model.churn >= 4) bullets.push(`Customer churn at ${model.churn}% — watch retention`);
+  if (model.churn >= 4 && isDemoWorkspace()) bullets.push(`Customer churn at ${model.churn}% — watch retention`);
   if (pending) bullets.push(`${pending} approval${pending === 1 ? "" : "s"} waiting`);
   const meeting = snap.activity.find((a) => /meeting|sync|call/i.test(a.title));
   if (meeting) bullets.push(meeting.title.replace(/^Atlas /i, ""));
@@ -122,9 +160,10 @@ export function loadCommandActivity(): CommandActivity[] {
 }
 
 export function loadCommandDataSources(): DataSource[] {
+  const demo = isDemoWorkspace();
   return [
-    { id: "workforce", label: "Workforce", status: "workspace", detail: "Team, tasks, schedules" },
-    { id: "finance", label: "Finance model", status: "workspace", detail: "Revenue, cash, pipeline" },
+    { id: "workforce", label: "Workforce", status: demo ? "demo" : "workspace", detail: demo ? "Demo team" : "Your employees and tasks" },
+    { id: "finance", label: "Finance", status: demo ? "demo" : "workspace", detail: demo ? "Demo model" : "Connect Stripe or banking" },
     { id: "calendar", label: "Calendar", status: "workspace", detail: "Meetings and shifts" },
     { id: "approvals", label: "Approvals", status: "live", detail: "Pending owner decisions" },
     { id: "brain", label: "Atlas Brain", status: "live", detail: "LLM or keyword fallback" },

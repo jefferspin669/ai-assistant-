@@ -1,5 +1,7 @@
 /** Sales performance — pipeline, win rate, honest labeling when no connected revenue data. */
 
+import { isDemoWorkspace } from "@/lib/workspace-mode";
+
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -77,7 +79,8 @@ const SEED_OPPS: SalesOpportunity[] = [
 
 export function loadOpportunities(): SalesOpportunity[] {
   const saved = loadJson<SalesOpportunity[]>(OPP_KEY, []);
-  return saved.length ? saved : SEED_OPPS;
+  if (saved.length) return saved;
+  return isDemoWorkspace() ? SEED_OPPS : [];
 }
 
 export function saveOpportunities(items: SalesOpportunity[]) {
@@ -107,7 +110,7 @@ export function computeSalesMetrics(): SalesMetrics {
 
   if (!live && verified.length === 0) {
     return {
-      mode: "DEMO",
+      mode: isDemoWorkspace() ? "DEMO" : "DEMO",
       pipelineValue: null,
       closedRevenue: null,
       recurringRevenue: null,
@@ -115,7 +118,9 @@ export function computeSalesMetrics(): SalesMetrics {
       avgDealSize: null,
       leadCount: opps.filter((o) => o.stage === "lead").length,
       opportunityCount: open.length,
-      note: "No connected or manually verified revenue data. Enter deal amounts or connect payments/CRM for real numbers.",
+      note: isDemoWorkspace()
+        ? "Preview workspace — sample opportunities only."
+        : "No sales data connected yet. Connect a source or add your first sale.",
     };
   }
 

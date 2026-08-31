@@ -1,4 +1,4 @@
-/** Phone & Reception — numbers, routing, voicemail, transcripts, receptionist AI, missed-call follow-up. */
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -107,12 +107,14 @@ const SEED_CALLS: CallRecord[] = [
 
 export function loadPhoneLines(): PhoneLine[] {
   const saved = loadJson<PhoneLine[]>(LINES_KEY, []);
-  return saved.length ? saved : SEED_LINES;
+  if (saved.length) return saved;
+  return isDemoWorkspace() ? SEED_LINES : [];
 }
 
 export function loadCallRecords(): CallRecord[] {
   const saved = loadJson<CallRecord[]>(CALLS_KEY, []);
-  return saved.length ? saved : SEED_CALLS;
+  if (saved.length) return saved;
+  return isDemoWorkspace() ? SEED_CALLS : [];
 }
 
 export function phoneMode(): "LIVE" | "DEMO" {

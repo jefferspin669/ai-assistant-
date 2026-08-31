@@ -1,5 +1,6 @@
 /** Quality workspace — patterns from real workspace signals + custom business definitions. */
 
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 import { qualityFeedback, qualitySignals } from "@/lib/atlas-platform";
 import {
   isOpenTask,
@@ -84,7 +85,6 @@ export function saveQualityDefinition(name: string, description: string): Qualit
 }
 
 export function loadQualityRecords(): QualityRecord[] {
-  seedDemoTeamIfEmpty();
   const tasks = loadTeamTasks();
   const projectIssues = tasks
     .filter((t) => isOpenTask(t.status) && /issue|defect|callback|complaint/i.test(t.title))
@@ -96,6 +96,11 @@ export function loadQualityRecords(): QualityRecord[] {
       at: t.dueDate ?? "",
     }));
 
+  if (!isDemoWorkspace()) {
+    return projectIssues;
+  }
+
+  seedDemoTeamIfEmpty();
   const fromFeedback: QualityRecord[] = qualityFeedback.map((f) => ({
     id: f.id,
     source: f.channel === "Review" ? "review" : "complaint",
@@ -112,6 +117,9 @@ export function detectQualityAlerts(): QualityAlert[] {
   const records = loadQualityRecords();
   const alerts: QualityAlert[] = [];
 
+  if (!isDemoWorkspace()) {
+    return alerts;
+  }
   const lateInstall = records.filter((r) => /late|wait|installation/i.test(r.text));
   if (lateInstall.length >= 3) {
     alerts.push({

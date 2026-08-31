@@ -1,5 +1,6 @@
 /** Client-owned workspace data — starts empty and accumulates via user actions. */
 
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 import { appointments as dataAppointments, customers as dataCustomers, quotes as dataQuotes } from "./data";
 
 function newId(prefix: string) {
@@ -4359,13 +4360,14 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
 ];
 
 /**
- * Seed a small demo team (with known access codes and realistic tasks) the
- * first time the workforce features are opened, so the portal is usable
- * immediately. No-op once any team member exists.
+ * Seed a small demo team the first time the workforce features are opened in
+ * **preview mode only**. Production workspaces stay empty until real invites.
  */
 export function seedDemoTeamIfEmpty(): TeamPerson[] {
   const existing = loadTeamMembers();
   if (existing.length > 0) return existing;
+
+  if (!isDemoWorkspace()) return existing;
 
   const today = todayISO();
   const friday = todayISO(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000));

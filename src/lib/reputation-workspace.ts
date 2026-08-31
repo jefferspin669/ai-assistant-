@@ -1,4 +1,4 @@
-/** Reputation — connected review sources, inbox, sentiment, draft replies, approval workflow. */
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -91,7 +91,8 @@ export function saveReviewSources(sources: ReviewSource[]) {
 
 export function loadReviews(): ReviewItem[] {
   const saved = loadJson<ReviewItem[]>(REVIEWS_KEY, []);
-  return saved.length ? saved : SEED_REVIEWS;
+  if (saved.length) return saved;
+  return isDemoWorkspace() ? SEED_REVIEWS : [];
 }
 
 export function saveReviews(items: ReviewItem[]) {

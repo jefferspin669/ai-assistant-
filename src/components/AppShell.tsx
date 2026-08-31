@@ -25,6 +25,7 @@ import {
 import { isIntelligenceNavItemActive, intelligenceHubIsActive } from "@/lib/intelligence-nav";
 import { applyAccessibility, loadAccessibility } from "@/lib/accessibility";
 import { refreshOfflineCache } from "@/lib/offline";
+import { DemoWorkspaceBanner } from "@/components/DemoWorkspaceBanner";
 import { ensureDailyBackup } from "@/lib/recovery";
 
 function NavLink({
@@ -492,6 +493,7 @@ function AppShellInner({
               </div>
             </div>
           ) : null}
+          <DemoWorkspaceBanner />
           {children}
         </div>
       </div>

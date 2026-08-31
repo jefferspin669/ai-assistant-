@@ -1,5 +1,7 @@
 /** Inventory workspace — stock tracking, movements, intelligence, purchase integration. */
 
+import { isDemoWorkspace } from "@/lib/workspace-mode";
+
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -89,7 +91,8 @@ const SEED_ITEMS: InventoryItem[] = [
 
 export function loadInventoryItems(): InventoryItem[] {
   const saved = loadJson<InventoryItem[]>(ITEMS_KEY, []);
-  return saved.length ? saved : SEED_ITEMS;
+  if (saved.length) return saved;
+  return isDemoWorkspace() ? SEED_ITEMS : [];
 }
 
 export function saveInventoryItems(items: InventoryItem[]) {

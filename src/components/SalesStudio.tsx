@@ -2,19 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "@/components/SiteLink";
+import { DataProvenance } from "@/components/DataProvenance";
+import { EmptyState } from "@/components/EmptyState";
 import {
   addOpportunity,
   computeSalesMetrics,
   loadOpportunities,
-  setSalesLive,
   isSalesLive,
   type SalesOpportunity,
 } from "@/lib/sales-workspace";
-
-function formatMoney(n: number | null): string {
-  if (n == null) return "—";
-  return `$${n.toLocaleString()}`;
-}
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 export function SalesStudio() {
   const [metrics, setMetrics] = useState(computeSalesMetrics());
@@ -22,12 +19,10 @@ export function SalesStudio() {
   const [name, setName] = useState("");
   const [customer, setCustomer] = useState("");
   const [amount, setAmount] = useState("");
-  const [live, setLive] = useState(false);
 
   useEffect(() => {
     setOpps(loadOpportunities());
     setMetrics(computeSalesMetrics());
-    setLive(isSalesLive());
   }, []);
 
   function refresh() {
@@ -52,72 +47,67 @@ export function SalesStudio() {
     setAmount("");
   }
 
-  function toggleLive() {
-    setSalesLive(!live);
-    setLive(!live);
-    refresh();
-  }
+  const live = isSalesLive();
+  const empty = opps.length === 0 && !isDemoWorkspace();
 
   return (
     <div className="training-studio">
       <div className="memory-card">
         <div className="label">Sales · {metrics.mode}</div>
         <p>{metrics.note}</p>
-        <button className="btn btn-outline" type="button" onClick={toggleLive}>
-          {live ? "Mark as manual entry" : "Simulate connected revenue (demo)"}
-        </button>
       </div>
 
       <div className="stat-grid metrics-dense">
-        <div className="stat">
-          <span>Pipeline</span>
-          <strong>{formatMoney(metrics.pipelineValue)}</strong>
-        </div>
-        <div className="stat">
-          <span>Closed revenue</span>
-          <strong>{formatMoney(metrics.closedRevenue)}</strong>
-        </div>
-        <div className="stat">
-          <span>Win rate</span>
-          <strong>{metrics.winRate != null ? `${metrics.winRate}%` : "—"}</strong>
-        </div>
-        <div className="stat">
-          <span>Avg deal</span>
-          <strong>{formatMoney(metrics.avgDealSize)}</strong>
-        </div>
-        <div className="stat">
-          <span>Leads</span>
-          <strong>{metrics.leadCount}</strong>
-        </div>
-        <div className="stat">
-          <span>Open opps</span>
-          <strong>{metrics.opportunityCount}</strong>
-        </div>
+        <DataProvenance
+          label="Pipeline"
+          value={metrics.pipelineValue != null ? `$${metrics.pipelineValue.toLocaleString()}` : null}
+          source={live ? "Stripe + CRM" : null}
+          emptyMessage="Connect payments or add opportunities"
+        />
+        <DataProvenance
+          label="Closed revenue"
+          value={metrics.closedRevenue != null ? `$${metrics.closedRevenue.toLocaleString()}` : null}
+          source={live ? "Stripe" : null}
+          emptyMessage="No closed deals recorded"
+        />
+        <DataProvenance label="Win rate" value={metrics.winRate != null ? `${metrics.winRate}%` : null} />
+        <DataProvenance
+          label="Avg deal"
+          value={metrics.avgDealSize != null ? `$${metrics.avgDealSize.toLocaleString()}` : null}
+        />
       </div>
 
-      <section className="panel">
-        <h2>Pipeline</h2>
-        <div className="list">
-          {opps.map((o) => (
-            <div key={o.id} className="compliance-row">
-              <div>
-                <p>
-                  <strong>{o.name}</strong> · {o.stage}
-                  {o.amount != null ? ` · $${o.amount.toLocaleString()}` : " · amount not verified"}
-                </p>
-                <p className="muted-line">{o.customer} · {o.employee}</p>
+      {empty ? (
+        <EmptyState
+          title="No sales data connected yet"
+          description="Connect Stripe, your CRM, or add your first opportunity manually."
+          actions={[
+            { label: "Connect Stripe", href: "/app/commercial", primary: true },
+            { label: "Add first sale", href: "#add-opp" },
+            { label: "Open CRM", href: "/app/customers" },
+          ]}
+        />
+      ) : (
+        <section className="panel">
+          <h2>Pipeline</h2>
+          <div className="list">
+            {opps.map((o) => (
+              <div key={o.id} className="compliance-row">
+                <div>
+                  <p>
+                    <strong>{o.name}</strong> · {o.stage}
+                    {o.amount != null ? ` · $${o.amount.toLocaleString()}` : " · amount not verified"}
+                  </p>
+                  <p className="muted-line">{o.customer} · {o.employee}</p>
+                </div>
+                {!o.hasVerifiedAmount ? <span className="badge warn">No verified $</span> : null}
               </div>
-              {!o.hasVerifiedAmount ? <span className="badge warn">No verified $</span> : null}
-            </div>
-          ))}
-        </div>
-        <p className="muted-line">
-          Coach your team in <Link href="/app/sales-coach">Sales Coach</Link>. Customer context in{" "}
-          <Link href="/app/customers">CRM</Link>.
-        </p>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section className="panel">
+      <section className="panel" id="add-opp">
         <h2>+ Opportunity</h2>
         <form className="form-grid" onSubmit={onAdd}>
           <label>Name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
@@ -125,6 +115,9 @@ export function SalesStudio() {
           <label>Amount (optional)<input value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
           <button className="btn btn-dark" type="submit">Add lead</button>
         </form>
+        <p className="muted-line">
+          Coach in <Link href="/app/sales-coach">Sales Coach</Link> · context in <Link href="/app/customers">CRM</Link>
+        </p>
       </section>
     </div>
   );

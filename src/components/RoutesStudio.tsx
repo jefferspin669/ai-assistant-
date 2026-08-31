@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "@/components/SiteLink";
+import { EmptyState } from "@/components/EmptyState";
 import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -15,6 +16,7 @@ import {
   type RouteStop,
 } from "@/lib/routes-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 function RouteMap({ stops }: { stops: RouteStop[] }) {
   return (
@@ -137,6 +139,18 @@ function RoutesStudioInner() {
           <div className="label">Atlas</div>
           <p>{note}</p>
         </div>
+      ) : null}
+
+      {stops.length === 0 && !isDemoWorkspace() ? (
+        <EmptyState
+          title="No routes configured"
+          description="Add stops manually or pull jobs from CRM and projects once connected."
+          actions={[
+            { label: "Add first stop", href: "/app/routes", primary: true },
+            { label: "Open CRM", href: "/app/customers" },
+            { label: "Open projects", href: "/app/projects" },
+          ]}
+        />
       ) : null}
 
       <div className="split">
