@@ -1,4 +1,5 @@
 import { bandFor, formatUsd, kindLabel, minLevelForBand } from "@/lib/autonomy/catalog";
+import { kindAllowedByPermissions } from "@/lib/autonomy/permissions";
 import type {
   AutonomyDecision,
   AutonomyPolicy,
@@ -80,12 +81,22 @@ export function decideWork(intent: WorkIntent, policy: AutonomyPolicy): Autonomy
     };
   }
 
-  if (policy.level === 1) {
+  if (policy.controlMode === "manual" || policy.level === 1) {
     return {
       ...base,
       verdict: "ask_owner",
-      reason: "Level 1 — Assistant: Atlas recommends, and waits for your approval.",
+      reason: "Manual mode — Atlas recommends, and waits for your approval.",
       ownerPrompt: ownerCard(intent, policy, "Approve for Atlas to continue."),
+    };
+  }
+
+  if (!kindAllowedByPermissions(intent.kind, policy)) {
+    const reason = `${kindLabel(intent.kind)} is outside the categories you enabled for automatic work.`;
+    return {
+      ...base,
+      verdict: "ask_owner",
+      reason,
+      ownerPrompt: ownerCard(intent, policy, reason),
     };
   }
 

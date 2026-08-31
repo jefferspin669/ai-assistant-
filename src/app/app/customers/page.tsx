@@ -1,7 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { CrmTimelinePanel } from "@/components/CrmTimelinePanel";
 import { crmPredictions } from "@/lib/atlas-platform";
 import {
   CONTACT_METHODS,
@@ -57,6 +59,8 @@ const EMPTY: FormState = {
 };
 
 function CrmStudio() {
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") === "timeline" ? "timeline" : "profile";
   const [customers, setCustomers] = useState<CrmCustomer[]>([]);
   const [members, setMembers] = useState<TeamPerson[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -197,6 +201,20 @@ function CrmStudio() {
 
   return (
     <div className="training-studio">
+      <div className="training-tabs" role="tablist">
+        <a href="/app/customers" className={tab === "profile" ? "training-tab active" : "training-tab"}>Profiles</a>
+        <a href="/app/customers?tab=timeline" className={tab === "timeline" ? "training-tab active" : "training-tab"}>Timeline</a>
+      </div>
+
+      {tab === "timeline" ? (
+        <section className="panel">
+          <h2>Customer timeline</h2>
+          <CrmTimelinePanel customer={selected} />
+        </section>
+      ) : null}
+
+      {tab === "profile" ? (
+        <>
       <section className="panel">
         <div className="train-head">
           <div>
@@ -431,17 +449,27 @@ function CrmStudio() {
           ))}
         </div>
       </section>
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function CustomersPageInner() {
+  return (
+    <AppShell
+      title="CRM"
+      subtitle="Customers, full timeline, and relationship intelligence — calls, messages, purchases, appointments, and more."
+    >
+      <CrmStudio />
+    </AppShell>
   );
 }
 
 export default function CustomersPage() {
   return (
-    <AppShell
-      title="AI CRM"
-      subtitle="Add and edit customers — Atlas still predicts who needs attention and what to say."
-    >
-      <CrmStudio />
-    </AppShell>
+    <Suspense fallback={<AppShell title="CRM" subtitle="Loading…"><p className="muted-line">Loading…</p></AppShell>}>
+      <CustomersPageInner />
+    </Suspense>
   );
 }

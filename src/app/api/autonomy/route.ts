@@ -8,10 +8,17 @@ import {
   RESTRICTED_KINDS,
   ROUTINE_KINDS,
   applyAwayMode,
+  AUTO_PERMISSION_DEFS,
+  CONTROL_MODE_LABELS,
+  controlModeToLevel,
+  defaultPermissionsForMode,
   formatUsd,
   getPolicy,
+  mergeAutoPermissions,
   patchPolicy,
   pendingAutonomyCards,
+  type AutoPermissionKey,
+  type ControlMode,
 } from "@/lib/autonomy";
 import type { AutonomyLevel, AutonomyPolicy } from "@/lib/autonomy";
 
@@ -19,7 +26,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function publicPolicy(policy: AutonomyPolicy) {
-  const meta = LEVEL_LABELS[policy.level];
+  const meta = CONTROL_MODE_LABELS[policy.controlMode] ?? LEVEL_LABELS[policy.level];
   return {
     ...policy,
     levelName: meta.name,
@@ -27,6 +34,7 @@ function publicPolicy(policy: AutonomyPolicy) {
     autoPaymentLimit: formatUsd(policy.autoPaymentLimitCents),
     refundLimit: formatUsd(policy.refundLimitCents),
     marketingBudget: formatUsd(policy.marketingBudgetCents),
+    permissions: AUTO_PERMISSION_DEFS,
   };
 }
 
@@ -87,6 +95,23 @@ export async function PUT(req: Request) {
     const patch: Partial<Omit<AutonomyPolicy, "organizationId">> = {};
     const level = asLevel(body.level);
     if (level) patch.level = level;
+
+    if (body.controlMode === "manual" || body.controlMode === "assisted" || body.controlMode === "autonomous") {
+      const mode = body.controlMode as ControlMode;
+      patch.controlMode = mode;
+      patch.level = controlModeToLevel(mode);
+      if (body.autoPermissions == null) {
+        patch.autoPermissions = defaultPermissionsForMode(mode);
+      }
+    }
+
+    if (body.autoPermissions && typeof body.autoPermissions === "object" && !Array.isArray(body.autoPermissions)) {
+      const current = getPolicy(ctx.organizationId);
+      patch.autoPermissions = mergeAutoPermissions(
+        current.autoPermissions,
+        body.autoPermissions as Partial<Record<AutoPermissionKey, boolean>>,
+      );
+    }
     if (typeof body.killSwitch === "boolean") patch.killSwitch = body.killSwitch;
     if (typeof body.wakeOnlyEmergencies === "boolean") patch.wakeOnlyEmergencies = body.wakeOnlyEmergencies;
     const pay = asCents(body.autoPaymentLimitCents, body.autoPaymentLimitDollars);

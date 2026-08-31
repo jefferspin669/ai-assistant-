@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "@/components/SiteLink";
-import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { useLanguage } from "@/components/LanguageProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -11,16 +11,21 @@ import { SyncStatusBar } from "@/components/SyncStatusBar";
 import { accountNeedsSetup } from "@/lib/account";
 import {
   SIDEBAR_COLLAPSED_KEY,
+  SIDEBAR_INTELLIGENCE_OPEN_KEY,
   SIDEBAR_MORE_OPEN_KEY,
+  automationsNavItem,
   getSidebarMoreGroups,
   groupContainsPath,
+  intelligenceHubs,
   isNavItemActive,
   sidebarAdmin,
   sidebarMain,
   type SidebarNavItem,
 } from "@/lib/sidebar-nav";
+import { isIntelligenceNavItemActive, intelligenceHubIsActive } from "@/lib/intelligence-nav";
 import { applyAccessibility, loadAccessibility } from "@/lib/accessibility";
 import { refreshOfflineCache } from "@/lib/offline";
+import { DemoWorkspaceBanner } from "@/components/DemoWorkspaceBanner";
 import { ensureDailyBackup } from "@/lib/recovery";
 
 function NavLink({
@@ -60,7 +65,29 @@ export function AppShell({
   children: React.ReactNode;
   action?: React.ReactNode;
 }) {
+  return (
+    <Suspense fallback={<div className="app-shell"><div className="main-panel"><p className="muted-line">Loading…</p></div></div>}>
+      <AppShellInner title={title} subtitle={subtitle} action={action}>
+        {children}
+      </AppShellInner>
+    </Suspense>
+  );
+}
+
+function AppShellInner({
+  title,
+  subtitle,
+  children,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
   const { account, aiName, ownerName, ready, logout } = useAccount();
   const { language, setLanguage, languages, t, tNav, tTitle } = useLanguage();
   const needsSetup = accountNeedsSetup(account);
@@ -68,7 +95,9 @@ export function AppShell({
 
   const [collapsed, setCollapsed] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [intelligenceOpen, setIntelligenceOpen] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openIntelHubs, setOpenIntelHubs] = useState<Record<string, boolean>>({});
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +112,8 @@ export function AppShell({
     try {
       setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
       setMoreOpen(window.localStorage.getItem(SIDEBAR_MORE_OPEN_KEY) === "1");
+      const intelStored = window.localStorage.getItem(SIDEBAR_INTELLIGENCE_OPEN_KEY);
+      setIntelligenceOpen(intelStored !== "0");
     } catch {
       /* ignore */
     }
@@ -107,6 +138,13 @@ export function AppShell({
   }, [accountMenuOpen]);
 
   useEffect(() => {
+    const activeHub = intelligenceHubs.find((hub) => intelligenceHubIsActive(pathname, search, hub));
+    if (!activeHub) return;
+    setIntelligenceOpen(true);
+    setOpenIntelHubs((prev) => (prev[activeHub.id] ? prev : { ...prev, [activeHub.id]: true }));
+  }, [pathname, search]);
+
+  useEffect(() => {
     const activeIndex = moreGroups.findIndex((group) => groupContainsPath(pathname, group));
     if (activeIndex < 0) return;
     const groupKey = `${moreGroups[activeIndex].label}-${activeIndex}`;
@@ -126,6 +164,22 @@ export function AppShell({
       }
       return next;
     });
+  }
+
+  function toggleIntelligence() {
+    setIntelligenceOpen((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_INTELLIGENCE_OPEN_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  function toggleIntelHub(hubId: string) {
+    setOpenIntelHubs((prev) => ({ ...prev, [hubId]: !prev[hubId] }));
   }
 
   function toggleMore() {
@@ -184,6 +238,78 @@ export function AppShell({
             {sidebarAdmin.map((item) => (
               <NavLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} tNav={tNav} />
             ))}
+          </div>
+
+          <div className="nav-group">
+            <div className="nav-group-label">{tNav("Intelligence")}</div>
+            <button
+              type="button"
+              className={`nav-section-toggle${intelligenceOpen ? " open" : ""}`}
+              onClick={toggleIntelligence}
+              aria-expanded={intelligenceOpen}
+              title={collapsed ? tNav("Intelligence") : undefined}
+            >
+              <NavIcon id="folder" className="nav-item-icon" />
+              <span className="nav-item-label">{tNav("Intelligence")}</span>
+              <span className="nav-section-chevron" aria-hidden="true">
+                {intelligenceOpen ? "▾" : "▸"}
+              </span>
+            </button>
+            {intelligenceOpen ? (
+              <div className="nav-more-panel">
+                {intelligenceHubs.map((hub) => {
+                  const hubOpen =
+                    Boolean(openIntelHubs[hub.id]) || intelligenceHubIsActive(pathname, search, hub);
+                  return (
+                    <div className="nav-subgroup" key={hub.id}>
+                      <button
+                        type="button"
+                        className={`nav-subgroup-toggle${hubOpen ? " open" : ""}`}
+                        onClick={() => toggleIntelHub(hub.id)}
+                        aria-expanded={hubOpen}
+                        title={collapsed ? tNav(hub.label) : undefined}
+                      >
+                        <NavIcon id="folder" className="nav-item-icon" />
+                        <span className="nav-item-label">{tNav(hub.label)}</span>
+                        <span className="nav-section-chevron" aria-hidden="true">
+                          {hubOpen ? "▾" : "▸"}
+                        </span>
+                      </button>
+                      {hubOpen ? (
+                        <div className="nav-subgroup-items">
+                          {hub.items.map((item) => {
+                            const active = isIntelligenceNavItemActive(pathname, search, item);
+                            const label = tNav(item.label);
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                className={active ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
+                                title={collapsed ? label : undefined}
+                                aria-label={collapsed ? label : undefined}
+                              >
+                                <span className="nav-item-label">{label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                <Link
+                  href={automationsNavItem.href}
+                  className={
+                    isNavItemActive(pathname, automationsNavItem)
+                      ? "nav-item nav-item-sub active"
+                      : "nav-item nav-item-sub"
+                  }
+                  title={collapsed ? tNav(automationsNavItem.label) : undefined}
+                >
+                  <span className="nav-item-label">{tNav(automationsNavItem.label)}</span>
+                </Link>
+              </div>
+            ) : null}
           </div>
 
           <div className="nav-group nav-group-more">
@@ -367,6 +493,7 @@ export function AppShell({
               </div>
             </div>
           ) : null}
+          <DemoWorkspaceBanner />
           {children}
         </div>
       </div>

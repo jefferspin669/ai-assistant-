@@ -26,3 +26,13 @@ export {
   askAtlasAboutApproval,
 } from "@/lib/autonomy/submit";
 export { processAutonomyQueue } from "@/lib/autonomy/worker";
+export {
+  AUTO_PERMISSION_DEFS,
+  CONTROL_MODE_LABELS,
+  controlModeToLevel,
+  defaultPermissionsForMode,
+  levelToControlMode,
+  mergeAutoPermissions,
+  type AutoPermissionKey,
+  type ControlMode,
+} from "@/lib/autonomy/permissions";

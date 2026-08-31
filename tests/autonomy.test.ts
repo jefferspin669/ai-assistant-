@@ -5,11 +5,19 @@ import { demoVendorPayment, submitWork } from "../src/lib/autonomy/submit";
 import { patchPolicy } from "../src/lib/autonomy/policy";
 import { processAutonomyQueue } from "../src/lib/autonomy/worker";
 import type { AutonomyLevel, AutonomyPolicy, WorkIntent } from "../src/lib/autonomy/types";
+import { AUTONOMOUS_AUTO_PERMISSIONS, levelToControlMode } from "../src/lib/autonomy/permissions";
 import { resetDatabase } from "../src/lib/db/store";
 import { database, testSession } from "../src/lib/services/access";
 
 function policy(level: AutonomyLevel, extra: Partial<AutonomyPolicy> = {}): AutonomyPolicy {
-  return { ...defaultPolicy("org_test"), level, ...extra };
+  return {
+    ...defaultPolicy("org_test"),
+    level,
+    controlMode: levelToControlMode(level),
+    autoPermissions:
+      level >= 3 ? { ...AUTONOMOUS_AUTO_PERMISSIONS } : defaultPolicy("org_test").autoPermissions,
+    ...extra,
+  };
 }
 
 function reminder(): WorkIntent {
@@ -29,7 +37,7 @@ describe("Atlas autonomy engine", () => {
   it("Level 1 always asks, even for routine reminders", () => {
     const decision = decideWork(reminder(), policy(1));
     expect(decision.verdict).toBe("ask_owner");
-    expect(decision.reason).toMatch(/Level 1/);
+    expect(decision.reason).toMatch(/Manual mode/);
   });
 
   it("Level 2 executes routine work and still asks for refunds", () => {
@@ -83,6 +91,18 @@ describe("Atlas autonomy engine", () => {
     expect(isAwayPhrase("I'm going on vacation. Run the company.")).toBe(true);
     expect(levelFromAwayPhrase("I'm going on vacation. Run the company.")).toBe(4);
     expect(levelFromAwayPhrase("Going home — handle tonight")).toBe(2);
+  });
+
+  it("disabled auto permission asks even at Level 2", () => {
+    const policy = {
+      ...defaultPolicy("org_test"),
+      level: 2 as const,
+      controlMode: "assisted" as const,
+      autoPermissions: { ...defaultPolicy("org_test").autoPermissions, reminders: false },
+    };
+    const decision = decideWork(reminder(), policy);
+    expect(decision.verdict).toBe("ask_owner");
+    expect(decision.reason).toMatch(/reminder/i);
   });
 });
 

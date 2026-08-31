@@ -1,32 +1,94 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { projects } from "@/lib/atlas-platform";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  addProjectComment,
+  addProjectTask,
+  aiSuggestionsForProject,
+  assessProjectRisks,
+  createAtlasProject,
+  generateProjectPlanFromPrompt,
+  loadAtlasProjects,
+  loadProjectFolders,
+  seedProjectsIfEmpty,
+  updateAtlasProject,
+  workloadByMember,
+  type AtlasProject,
+  type ProjectTaskStatus,
+} from "@/lib/projects-workspace";
+import { loadTeamMembers, seedDemoTeamIfEmpty, type TeamPerson } from "@/lib/user-workspace";
 
-type Mode = "board" | "timeline" | "risks" | "updates";
+const STATUS_LABELS: Record<ProjectTaskStatus, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  review: "Review",
+  completed: "Complete",
+  blocked: "Blocked",
+};
 
-const modes: { id: Mode; label: string }[] = [
-  { id: "board", label: "Projects" },
-  { id: "timeline", label: "Deadlines & team" },
-  { id: "risks", label: "Risks & deps" },
-  { id: "updates", label: "Auto updates" },
-];
+type Mode = "projects" | "workload" | "plan";
 
 export function ProjectStudio() {
-  const [mode, setMode] = useState<Mode>("board");
-  const [selectedId, setSelectedId] = useState<string>(projects[0].id);
-  const [notified, setNotified] = useState<Record<string, boolean>>({});
+  const [projects, setProjects] = useState<AtlasProject[]>([]);
+  const [members, setMembers] = useState<TeamPerson[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [mode, setMode] = useState<Mode>("projects");
+  const [planPrompt, setPlanPrompt] = useState(
+    "Build me a launch plan for the new website and divide the work between my marketing and development teams.",
+  );
+  const [newName, setNewName] = useState("");
+  const [comment, setComment] = useState("");
   const [note, setNote] = useState<string | null>(null);
 
-  const selected = useMemo(
-    () => projects.find((project) => project.id === selectedId) ?? projects[0],
-    [selectedId],
-  );
+  const refresh = useCallback(() => {
+    seedDemoTeamIfEmpty();
+    seedProjectsIfEmpty();
+    setProjects(loadAtlasProjects());
+    setMembers(loadTeamMembers());
+  }, []);
 
-  function notifyTeam(projectId: string, name: string) {
-    setNotified((prev) => ({ ...prev, [projectId]: true }));
-    setNote(`Atlas updated everyone on “${name}” — team, deadline owners, and risk watchers.`);
-    setMode("updates");
+  useEffect(() => {
+    refresh();
+    const list = loadAtlasProjects();
+    setSelectedId(list[0]?.id ?? "");
+  }, [refresh]);
+
+  const selected = projects.find((p) => p.id === selectedId) ?? projects[0];
+  const workload = useMemo(() => workloadByMember(), [projects]);
+
+  function onCreateProject(e: FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    const p = createAtlasProject({ name: newName });
+    refresh();
+    setSelectedId(p.id);
+    setNewName("");
+    setNote(`Created project “${p.name}”.`);
+  }
+
+  function onGeneratePlan(e: FormEvent) {
+    e.preventDefault();
+    const p = generateProjectPlanFromPrompt(planPrompt);
+    refresh();
+    setSelectedId(p.id);
+    setMode("projects");
+    setNote(`Atlas generated “${p.name}” with ${p.tasks.length} tasks across your teams.`);
+  }
+
+  function onAddComment(e: FormEvent) {
+    e.preventDefault();
+    if (!selected || !comment.trim()) return;
+    addProjectComment(selected.id, comment.trim());
+    refresh();
+    setComment("");
+    setNote("Comment added to project history.");
+  }
+
+  function setTaskStatus(taskId: string, status: ProjectTaskStatus) {
+    if (!selected) return;
+    const tasks = selected.tasks.map((t) => (t.id === taskId ? { ...t, status } : t));
+    updateAtlasProject(selected.id, { tasks });
+    refresh();
   }
 
   return (
@@ -35,183 +97,160 @@ export function ProjectStudio() {
         <div className="stat">
           <span>Projects</span>
           <strong>{projects.length}</strong>
-          <small>Active</small>
-        </div>
-        <div className="stat">
-          <span>Avg progress</span>
-          <strong>
-            {Math.round(projects.reduce((sum, project) => sum + project.progress, 0) / projects.length)}%
-          </strong>
-          <small>Across portfolio</small>
+          <small>Active portfolio</small>
         </div>
         <div className="stat">
           <span>At risk</span>
-          <strong>{projects.filter((project) => project.risk !== "Low").length}</strong>
-          <small>Need attention</small>
+          <strong>{projects.filter((p) => assessProjectRisks(p).length > 0).length}</strong>
+          <small>AI deadline warnings</small>
         </div>
         <div className="stat">
-          <span>Auto updates</span>
-          <strong>{Object.keys(notified).length}</strong>
-          <small>Sent this session</small>
+          <span>Open tasks</span>
+          <strong>{projects.reduce((n, p) => n + p.tasks.filter((t) => t.status !== "completed").length, 0)}</strong>
+          <small>Across projects</small>
+        </div>
+        <div className="stat">
+          <span>Team load</span>
+          <strong>{Object.keys(workload).length}</strong>
+          <small>Members with work</small>
         </div>
       </div>
 
-      <div className="training-tabs" role="tablist" aria-label="Project manager modes">
-        {modes.map((item) => (
+      <div className="training-tabs" role="tablist">
+        {[
+          { id: "projects" as Mode, label: "Projects" },
+          { id: "workload" as Mode, label: "Workload" },
+          { id: "plan" as Mode, label: "AI plan" },
+        ].map((tab) => (
           <button
-            key={item.id}
+            key={tab.id}
             type="button"
-            role="tab"
-            aria-selected={mode === item.id}
-            className={mode === item.id ? "training-tab active" : "training-tab"}
-            onClick={() => setMode(item.id)}
+            className={mode === tab.id ? "training-tab active" : "training-tab"}
+            onClick={() => setMode(tab.id)}
           >
-            {item.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {mode === "board" ? (
+      {note ? (
+        <div className="memory-card">
+          <div className="label">Atlas</div>
+          <p>{note}</p>
+        </div>
+      ) : null}
+
+      {mode === "plan" ? (
+        <section className="panel">
+          <h2>AI project plan</h2>
+          <p className="panel-lead">Describe the goal — Atlas divides work, deadlines, and milestones across teams.</p>
+          <form className="command-form" onSubmit={onGeneratePlan}>
+            <input value={planPrompt} onChange={(e) => setPlanPrompt(e.target.value)} />
+            <button className="btn btn-dark" type="submit">Generate plan</button>
+          </form>
+        </section>
+      ) : null}
+
+      {mode === "workload" ? (
+        <section className="panel">
+          <h2>Team workload</h2>
+          <div className="list">
+            {members.map((m) => {
+              const w = workload[m.id];
+              return (
+                <div className="list-row" key={m.id}>
+                  <div>
+                    <strong>{m.name}</strong>
+                    <small className="muted-line">{m.role}</small>
+                  </div>
+                  <span>{w?.open ?? 0} open · {w?.projects?.join(", ") || "No projects"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {mode === "projects" ? (
         <div className="split">
           <section className="panel">
-            <h2>Projects</h2>
-            <p className="panel-lead">
-              Atlas knows projects, deadlines, teams, budgets, progress, risks, and dependencies.
-            </p>
-            <div className="list">
+            <h2>Projects & folders</h2>
+            <form className="field-row" onSubmit={onCreateProject}>
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New project name" />
+              <button className="btn btn-dark" type="submit">Add project</button>
+            </form>
+            <div className="list" style={{ marginTop: "0.75rem" }}>
               {projects.map((project) => (
                 <button
                   key={project.id}
                   type="button"
-                  className={selectedId === project.id ? "compliance-row active" : "compliance-row"}
+                  className={selected?.id === project.id ? "compliance-row active" : "compliance-row"}
                   onClick={() => setSelectedId(project.id)}
                 >
-                  <span className={`badge${project.risk === "Low" ? " ok" : " warn"}`}>
-                    {project.progress}%
-                  </span>
+                  <span className="badge">{project.progress}%</span>
                   <div>
-                    <p>
-                      <strong>{project.name}</strong>
-                    </p>
-                    <small className="muted-line">
-                      Due {project.deadline} · {project.budget}
-                    </small>
-                    <div className="train-track" aria-hidden>
-                      <div className="train-fill" style={{ width: `${project.progress}%` }} />
-                    </div>
+                    <p><strong>{project.name}</strong></p>
+                    <small className="muted-line">Due {project.dueDate || "—"} · {project.status}</small>
                   </div>
                 </button>
               ))}
             </div>
           </section>
-          <section className="panel">
-            <h2>{selected.name}</h2>
-            <div className="list">
-              <div className="list-row">
-                <span className="badge ok">{selected.progress}%</span>
-                <p>
-                  Progress · spent {selected.spent} of {selected.budget}
-                </p>
-              </div>
-              <div className="list-row">
-                <span className={`badge${selected.risk === "Low" ? " ok" : " warn"}`}>Risk</span>
-                <p>{selected.risk}</p>
-              </div>
-              <div className="list-row">
-                <span className="badge">Next</span>
-                <p>{selected.next}</p>
-              </div>
-            </div>
-            <div className="train-actions">
-              <button
-                className="btn btn-dark"
-                type="button"
-                onClick={() => notifyTeam(selected.id, selected.name)}
-              >
-                {notified[selected.id] ? "Update sent" : "Keep everyone updated"}
-              </button>
-              <button className="btn btn-outline" type="button" onClick={() => setMode("timeline")}>
-                View team & deadline
-              </button>
-            </div>
-            {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
-          </section>
-        </div>
-      ) : null}
 
-      {mode === "timeline" ? (
-        <section className="panel">
-          <h2>Deadlines & teams · {selected.name}</h2>
-          <div className="split" style={{ marginTop: "0.35rem" }}>
-            <div className="list">
-              <div className="list-row">
-                <span className="badge warn">{selected.deadline}</span>
-                <p>Project deadline</p>
-              </div>
-              <div className="list-row">
-                <span className="badge">Budget</span>
-                <p>
-                  {selected.spent} spent · {selected.budget}
-                </p>
-              </div>
-            </div>
-            <div className="list">
-              {selected.team.map((member) => (
-                <div className="list-row" key={member}>
-                  <span className="badge ok">Team</span>
-                  <p>{member}</p>
+          {selected ? (
+            <section className="panel">
+              <h2>{selected.name}</h2>
+              <p className="panel-lead">{selected.description || "No description yet."}</p>
+              {assessProjectRisks(selected).length ? (
+                <div className="memory-card">
+                  <div className="label">Deadline risk</div>
+                  <ul className="plain-list">
+                    {assessProjectRisks(selected).map((w) => <li key={w}>{w}</li>)}
+                  </ul>
                 </div>
+              ) : null}
+              {aiSuggestionsForProject(selected).map((s) => (
+                <p key={s} className="muted-line">💡 {s}</p>
               ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
 
-      {mode === "risks" ? (
-        <section className="panel">
-          <h2>Risks & dependencies</h2>
-          <div className="list">
-            {projects.map((project) => (
-              <div className="list-row" key={project.id}>
-                <span className={`badge${project.risk === "Low" ? " ok" : " warn"}`}>
-                  {project.risk}
-                </span>
-                <div>
-                  <p>
-                    <strong>{project.name}</strong>
-                  </p>
-                  <small className="muted-line">
-                    Depends on: {project.dependencies.join(" · ")}
-                  </small>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+              <h3>Milestones</h3>
+              <ul className="plain-list">
+                {selected.milestones.map((m) => (
+                  <li key={m.id}>{m.title} · {m.dueDate}{m.completed ? " ✓" : ""}</li>
+                ))}
+              </ul>
 
-      {mode === "updates" ? (
-        <section className="panel">
-          <h2>Automatic updates</h2>
-          <p className="panel-lead">Atlas keeps everyone updated when progress, risk, or deadlines move.</p>
-          <div className="list">
-            {selected.updates.map((update) => (
-              <div className="list-row" key={update}>
-                <span className="badge ok">Sent</span>
-                <p>{update}</p>
+              <h3>Tasks</h3>
+              <div className="list">
+                {selected.tasks.map((task) => (
+                  <div className="list-row" key={task.id}>
+                    <div>
+                      <strong>{task.title}</strong>
+                      <small className="muted-line">{STATUS_LABELS[task.status]} · {task.priority} · due {task.dueDate || "—"}</small>
+                    </div>
+                    <select value={task.status} onChange={(e) => setTaskStatus(task.id, e.target.value as ProjectTaskStatus)}>
+                      {Object.entries(STATUS_LABELS).map(([id, label]) => (
+                        <option key={id} value={id}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
               </div>
-            ))}
-            {notified[selected.id] ? (
-              <div className="list-row">
-                <span className="badge warn">Just now</span>
-                <p>
-                  Atlas updated everyone on “{selected.name}” — {selected.team.join(", ")}.
-                </p>
-              </div>
-            ) : null}
-          </div>
-          {note ? <p className="muted-line" style={{ marginTop: "0.85rem" }}>{note}</p> : null}
-        </section>
+
+              <h3>Activity</h3>
+              <ul className="plain-list">
+                {selected.activity.slice(0, 6).map((a) => (
+                  <li key={a.id}><small>{a.text}</small></li>
+                ))}
+              </ul>
+
+              <form className="command-form" onSubmit={onAddComment}>
+                <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add project comment…" />
+                <button className="btn btn-outline" type="submit">Comment</button>
+              </form>
+            </section>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

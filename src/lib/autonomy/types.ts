@@ -41,9 +41,13 @@ export type WorkIntent = {
   payload?: Record<string, unknown>;
 };
 
+import type { AutoPermissionKey, ControlMode } from "@/lib/autonomy/permissions";
+
 export type AutonomyPolicy = {
   organizationId: string;
   level: AutonomyLevel;
+  controlMode: ControlMode;
+  autoPermissions: Record<AutoPermissionKey, boolean>;
   killSwitch: boolean;
   autoPaymentLimitCents: number;
   refundLimitCents: number;

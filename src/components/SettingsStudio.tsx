@@ -99,7 +99,7 @@ export function SettingsStudio() {
   function onSaveProfile(e: FormEvent) {
     e.preventDefault();
     if (!user) {
-      setFlash("No users row yet — open Architecture and re-seed the database.");
+      setFlash("No users row yet — open Admin and re-seed the database.");
       return;
     }
     const result = atlasApi.users.update(user.id, {
@@ -258,7 +258,7 @@ export function SettingsStudio() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!org) {
-                setFlash("No organizations row yet — open Architecture and re-seed the database.");
+                setFlash("No organizations row yet — open Admin and re-seed the database.");
                 return;
               }
               const result = atlasApi.businesses.update(org.id, {
@@ -532,10 +532,10 @@ export function SettingsStudio() {
         </section>
 
         <section className="panel">
-          <h2>Architecture</h2>
-          <p className="panel-lead">Inspect Frontend · Backend API · Database wiring.</p>
-          <Link className="btn btn-dark" href="/app/architecture">
-            Open architecture map
+          <h2>Workspace setup</h2>
+          <p className="panel-lead">Industry, integrations, and how Atlas should greet you.</p>
+          <Link className="btn btn-dark" href="/app/setup">
+            Open setup
           </Link>
         </section>
       </div>

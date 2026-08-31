@@ -297,6 +297,8 @@ export type DbEmailVerification = {
 export type DbAutonomyPolicy = {
   organization_id: string;
   level: 1 | 2 | 3 | 4;
+  control_mode?: "manual" | "assisted" | "autonomous";
+  auto_permissions?: Record<string, boolean>;
   kill_switch: boolean;
   auto_payment_limit_cents: number;
   refund_limit_cents: number;

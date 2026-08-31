@@ -1,5 +1,6 @@
 /** Client-owned workspace data — starts empty and accumulates via user actions. */
 
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 import { appointments as dataAppointments, customers as dataCustomers, quotes as dataQuotes } from "./data";
 
 function newId(prefix: string) {
@@ -354,6 +355,10 @@ export type TeamPerson = {
   name: string;
   role: string;
   email: string;
+  phone?: string;
+  managerId?: string;
+  permissions?: string[];
+  jobTitle?: string;
   status: string;
   rating: string;
   jobsThisWeek: number;
@@ -489,18 +494,27 @@ export function createTeamMember(input: {
   name: string;
   role?: string;
   email?: string;
+  phone?: string;
+  department?: string;
+  managerId?: string;
+  permissions?: string[];
+  jobTitle?: string;
 }): TeamPerson {
   const name = input.name.trim() || "New teammate";
   return {
     id: newId("member"),
     name,
-    role: input.role?.trim() || "Team member",
+    role: input.role?.trim() || input.jobTitle?.trim() || "Team member",
+    jobTitle: input.jobTitle?.trim() || input.role?.trim() || "Team member",
     email: input.email?.trim().toLowerCase() || `${name.toLowerCase().replace(/\s+/g, ".")}@business.local`,
+    phone: input.phone?.trim() || "",
+    managerId: input.managerId,
+    permissions: input.permissions ?? ["tasks", "calendar", "messages"],
     status: "Available",
     rating: "—",
     jobsThisWeek: 0,
     accessCode: makeAccessCode(),
-    department: "Operations",
+    department: input.department?.trim() || "Operations",
     shiftStart: "8:00 AM",
     shiftEnd: "4:30 PM",
     createdAt: nowIso(),
@@ -1668,6 +1682,58 @@ export function resolveDue(phrase: string): { label: string; date: string } {
 function titleCase(s: string): string {
   const t = s.trim().replace(/\s+/g, " ");
   return t ? t[0].toUpperCase() + t.slice(1) : t;
+}
+
+/** Parse commands like “Assign Mike the website redesign and make it due Friday.” */
+export function parseNaturalAssignCommand(text: string, members: TeamPerson[]): TaskSuggestion | null {
+  const trimmed = text.trim();
+  const assignMatch = trimmed.match(
+    /^(?:assign|give)\s+([a-z]+)\s+(?:the\s+)?(.+?)(?:\s+and\s+make\s+it\s+due\s+(.+))?$/i,
+  );
+  if (!assignMatch) return null;
+  const member = members.find((m) => m.name.toLowerCase().startsWith(assignMatch[1].toLowerCase()));
+  if (!member) return null;
+  const duePhrase = assignMatch[3] || trimmed;
+  const due = resolveDue(duePhrase);
+  let title = assignMatch[2].trim();
+  title = title.replace(/\s+and\s+make\s+it\s+due\s+.+$/i, "").trim();
+  return {
+    id: newId("sug"),
+    title: titleCase(title),
+    assigneeId: member.id,
+    assigneeName: member.name,
+    dueLabel: due.label,
+    dueDate: due.date,
+    source: trimmed,
+  };
+}
+
+/** Turn meeting action items into Workforce tasks. */
+export function createTeamTasksFromMeeting(
+  meeting: { id: string; title: string; tasks: { owner: string; task: string; due: string }[] },
+): number {
+  const members = loadTeamMembers();
+  let created = 0;
+  const existing = loadTeamTasks();
+  const newTasks = [...existing];
+  for (const item of meeting.tasks) {
+    const first = item.owner.trim().split(/\s+/)[0].toLowerCase();
+    const member = members.find((m) => m.name.toLowerCase().startsWith(first));
+    if (!member) continue;
+    const suggestion: TaskSuggestion = {
+      id: `meet-${meeting.id}-${item.task}`,
+      title: item.task,
+      assigneeId: member.id,
+      assigneeName: member.name,
+      dueLabel: item.due,
+      dueDate: "",
+      source: `From meeting: ${meeting.title}`,
+    };
+    newTasks.unshift(createTaskFromSuggestion(suggestion, member.id, "Meeting Intelligence"));
+    created += 1;
+  }
+  saveTeamTasks(newTasks);
+  return created;
 }
 
 /** Scan meeting notes / an email for commitments and propose tasks. */
@@ -3543,15 +3609,18 @@ export function seedCalendarsIfEmpty(): void {
 
 /* ─── PTO / time-off requests + staffing ───────────────────────────────── */
 
-export type TimeOffType = "Vacation" | "Sick" | "Personal";
+export type TimeOffType = "PTO" | "Vacation" | "Sick" | "Personal" | "Unpaid";
 export type TimeOffStatus = "pending" | "approved" | "rejected";
+export type DayPortion = "full" | "partial";
 export type TimeOffRequest = {
   id: string;
   memberId: string;
   startDate: string;
   endDate: string;
   type: TimeOffType;
+  portion: DayPortion;
   note: string;
+  managerNote?: string;
   status: TimeOffStatus;
   createdAt: string;
   decidedAt?: string;
@@ -3579,6 +3648,7 @@ export function createTimeOffRequest(input: {
   startDate: string;
   endDate: string;
   type: TimeOffType;
+  portion?: DayPortion;
   note?: string;
 }): TimeOffRequest {
   const req: TimeOffRequest = {
@@ -3587,6 +3657,7 @@ export function createTimeOffRequest(input: {
     startDate: input.startDate,
     endDate: input.endDate || input.startDate,
     type: input.type,
+    portion: input.portion ?? "full",
     note: (input.note || "").trim(),
     status: "pending",
     createdAt: nowIso(),
@@ -3594,8 +3665,17 @@ export function createTimeOffRequest(input: {
   saveTimeOff([req, ...loadTimeOff()]);
   return req;
 }
-export function decideTimeOff(id: string, status: TimeOffStatus): TimeOffRequest[] {
-  const next = loadTimeOff().map((r) => (r.id === id ? { ...r, status, decidedAt: nowIso() } : r));
+export function decideTimeOff(id: string, status: TimeOffStatus, managerNote?: string): TimeOffRequest[] {
+  const next = loadTimeOff().map((r) =>
+    r.id === id ? { ...r, status, managerNote: managerNote ?? r.managerNote, decidedAt: nowIso() } : r,
+  );
+  saveTimeOff(next);
+  return next;
+}
+export function requestTimeOffChange(id: string, managerNote: string): TimeOffRequest[] {
+  const next = loadTimeOff().map((r) =>
+    r.id === id ? { ...r, status: "pending" as TimeOffStatus, managerNote, decidedAt: undefined } : r,
+  );
   saveTimeOff(next);
   return next;
 }
@@ -3625,6 +3705,26 @@ export function staffingImpact(
   const available = Math.max(0, deptMembers.length - off.size);
   const recommended = recommendedStaff(department, deptMembers.length);
   return { department, deptSize: deptMembers.length, available, recommended, short: available < recommended };
+}
+
+export type CoverageCandidate = { id: string; name: string; reason: string };
+
+/** Suggest employees who could cover during a time-off window. */
+export function findCoverageForTimeOff(
+  members: TeamPerson[],
+  requests: TimeOffRequest[],
+  req: TimeOffRequest,
+  now = Date.now(),
+): { understaffed: boolean; message: string; candidates: CoverageCandidate[] } {
+  const member = members.find((m) => m.id === req.memberId);
+  if (!member) return { understaffed: false, message: "Employee not found.", candidates: [] };
+  const plan = coveragePlan(member, now);
+  const impact = staffingImpact(members, requests, req);
+  const candidates = plan.items[0]?.suggestions ?? [];
+  const message = impact.short
+    ? `${impact.department} may be understaffed (${impact.available}/${impact.recommended} available).`
+  : `Coverage looks acceptable for ${member.name}.`;
+  return { understaffed: impact.short, message, candidates };
 }
 
 /* ─── Departments / team pages ─────────────────────────────────────────── */
@@ -4260,13 +4360,14 @@ const DEMO_EMPLOYEES: DemoEmployee[] = [
 ];
 
 /**
- * Seed a small demo team (with known access codes and realistic tasks) the
- * first time the workforce features are opened, so the portal is usable
- * immediately. No-op once any team member exists.
+ * Seed a small demo team the first time the workforce features are opened in
+ * **preview mode only**. Production workspaces stay empty until real invites.
  */
 export function seedDemoTeamIfEmpty(): TeamPerson[] {
   const existing = loadTeamMembers();
   if (existing.length > 0) return existing;
+
+  if (!isDemoWorkspace()) return existing;
 
   const today = todayISO();
   const friday = todayISO(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000));
@@ -4442,6 +4543,7 @@ export function seedDemoTeamIfEmpty(): TeamPerson[] {
           startDate: "2026-08-21",
           endDate: "2026-08-23",
           type: "Vacation",
+          portion: "full",
           note: "Family trip",
           status: "pending",
           createdAt: nowIso(),

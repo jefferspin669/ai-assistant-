@@ -4385,6 +4385,82 @@ button.linkish:hover {
   color: var(--ink-soft);
 }
 
+.dash-customizer-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.dash-customizer-editing {
+  border: 2px dashed color-mix(in srgb, var(--accent, #1d4e4a) 35%, var(--line));
+}
+
+.dash-edit-toolbar {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dash-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.dash-preset-card {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--foam);
+  cursor: pointer;
+}
+
+.dash-preset-card.active {
+  border-color: color-mix(in srgb, var(--accent, #1d4e4a) 55%, var(--line));
+  background: color-mix(in srgb, var(--foam) 80%, var(--accent, #1d4e4a) 20%);
+}
+
+.dash-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.dash-widget-card {
+  min-width: 0;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+}
+
+.dash-widget-card.size-sm {
+  grid-column: span 3;
+}
+
+.dash-widget-card.size-md {
+  grid-column: span 6;
+}
+
+.dash-widget-card.size-lg {
+  grid-column: span 12;
+}
+
+.dash-widget-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .dash-widget-card.size-sm,
+  .dash-widget-card.size-md {
+    grid-column: span 12;
+  }
+}
+
 .dash-customizer-head {
   display: flex;
   justify-content: space-between;
@@ -5937,6 +6013,32 @@ a.stat.dash-kpi {
 .badge.stance-automate {
   background: #d7efe4;
   color: #1c6b4a;
+}
+
+.dash-ask-compact {
+  margin-top: 0.25rem;
+}
+
+.command-center-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.command-center-rail .panel {
+  margin-bottom: 0.75rem;
+}
+
+.command-center-rail h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 960px) {
+  .command-center-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dash-ask {

@@ -53,6 +53,60 @@ const nextConfig: NextConfig = {
             },
           ],
         },
+        async redirects() {
+          return [
+            {
+              source: "/app/coverage",
+              destination: "/app/time-off?tab=coverage",
+              permanent: false,
+            },
+            {
+              source: "/app/communications",
+              destination: "/app/messages",
+              permanent: false,
+            },
+            {
+              source: "/app/quotes",
+              destination: "/app/sales",
+              permanent: false,
+            },
+            {
+              source: "/app/receptionist",
+              destination: "/app/phone",
+              permanent: false,
+            },
+            {
+              source: "/app/timeline",
+              destination: "/app/customers?tab=timeline",
+              permanent: false,
+            },
+            {
+              source: "/app/calendar-hub",
+              destination: "/app/appointments?tab=team",
+              permanent: false,
+            },
+            {
+              source: "/app/ceo-memory",
+              destination: "/app/memory?type=leadership",
+              permanent: false,
+            },
+            {
+              source: "/app/customer-twin",
+              destination: "/app/memory?type=customer",
+              permanent: false,
+            },
+            {
+              source: "/app/backend",
+              destination: "/app/admin",
+              permanent: false,
+            },
+            {
+              source: "/app/architecture",
+              destination: "/app/setup",
+              permanent: false,
+            },
+          ];
+        },
         async headers() {
           return [
             {

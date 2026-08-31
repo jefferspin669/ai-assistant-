@@ -1,11 +1,20 @@
 import { nowIso } from "@/lib/db/store";
 import type { DbAutonomyPolicy } from "@/lib/db/schema";
 import type { AutonomyLevel, AutonomyPolicy } from "@/lib/autonomy/types";
+import {
+  DEFAULT_AUTO_PERMISSIONS,
+  levelToControlMode,
+  mergeAutoPermissions,
+  type AutoPermissionKey,
+  type ControlMode,
+} from "@/lib/autonomy/permissions";
 
 export function defaultPolicy(organizationId: string, stamp = nowIso()): AutonomyPolicy {
   return {
     organizationId,
     level: 1,
+    controlMode: "manual",
+    autoPermissions: { ...DEFAULT_AUTO_PERMISSIONS },
     killSwitch: false,
     autoPaymentLimitCents: 500_000,
     refundLimitCents: 10_000,
@@ -26,6 +35,8 @@ export function toRow(policy: AutonomyPolicy): DbAutonomyPolicy {
   return {
     organization_id: policy.organizationId,
     level: policy.level,
+    control_mode: policy.controlMode,
+    auto_permissions: policy.autoPermissions,
     kill_switch: policy.killSwitch,
     auto_payment_limit_cents: policy.autoPaymentLimitCents,
     refund_limit_cents: policy.refundLimitCents,
@@ -38,11 +49,26 @@ export function toRow(policy: AutonomyPolicy): DbAutonomyPolicy {
   };
 }
 
+function parseAutoPermissions(raw: unknown): Record<AutoPermissionKey, boolean> {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return mergeAutoPermissions(undefined, raw as Partial<Record<AutoPermissionKey, boolean>>);
+  }
+  return { ...DEFAULT_AUTO_PERMISSIONS };
+}
+
+function parseControlMode(raw: unknown, level: AutonomyLevel): ControlMode {
+  if (raw === "manual" || raw === "assisted" || raw === "autonomous") return raw;
+  return levelToControlMode(level);
+}
+
 export function fromRow(row: DbAutonomyPolicy): AutonomyPolicy {
   const level = ([1, 2, 3, 4].includes(row.level) ? row.level : 1) as AutonomyLevel;
+  const controlMode = parseControlMode(row.control_mode, level);
   return {
     organizationId: row.organization_id,
     level,
+    controlMode,
+    autoPermissions: parseAutoPermissions(row.auto_permissions),
     killSwitch: Boolean(row.kill_switch),
     autoPaymentLimitCents: row.auto_payment_limit_cents,
     refundLimitCents: row.refund_limit_cents,

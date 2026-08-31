@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "@/components/SiteLink";
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { AtlasChatPanel } from "@/components/AtlasChatPanel";
+import { CommandCenterRail } from "@/components/CommandCenterRail";
 import { PersonalLifePanel } from "@/components/PersonalLifePanel";
 import { TalkToAtlasStudio } from "@/components/TalkToAtlasStudio";
 import { useAccount } from "@/components/AccountProvider";
@@ -60,6 +62,8 @@ function AtlasAssistantStudioInner() {
     router.replace(`/app/ask?tab=${tab}&role=${next}`, { scroll: false });
   }
 
+  const showCommandCenter = role === "ceo" && tab === "chat";
+
   return (
     <AppShell
       title="Atlas Assistant"
@@ -103,10 +107,26 @@ function AtlasAssistantStudioInner() {
           ))}
         </div>
 
-        {tab === "chat" ? <AtlasChatPanel /> : null}
+        {showCommandCenter ? (
+          <div className="command-center-layout">
+            <div className="command-center-main">
+              <AtlasChatPanel commandCenter />
+            </div>
+            <CommandCenterRail />
+          </div>
+        ) : null}
+        {!showCommandCenter && tab === "chat" ? <AtlasChatPanel /> : null}
         {tab === "voice" ? <TalkToAtlasStudio /> : null}
         {tab === "personal" ? <PersonalLifePanel /> : null}
       </div>
+      {showCommandCenter ? (
+        <p className="muted-line" style={{ marginTop: "1rem" }}>
+          Records behind answers: <Link href="/app/workforce">Workforce</Link> ·{" "}
+          <Link href="/app/business-engine">Business Engine</Link> ·{" "}
+          <Link href="/app/approvals">Approvals</Link> ·{" "}
+          <Link href="/app/workflows">Automations</Link>
+        </p>
+      ) : null}
     </AppShell>
   );
 }

@@ -5,7 +5,7 @@ export default function DocumentsPage() {
   return (
     <AppShell
       title="AI Document Builder"
-      subtitle="Creates contracts, quotes, invoices, letters, reports, policies, forms, and proposals."
+      subtitle="Describe what you need — Atlas drafts from your customer and business data, then edit and export."
       action={<button className="btn btn-dark">New document</button>}
     >
       <DocumentStudio />

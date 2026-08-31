@@ -12,15 +12,14 @@ export const moneyHub: HubLink[] = [
 ];
 
 export const memoryHub: HubLink[] = [
-  { href: "/app/memory", label: "Business Memory", blurb: "What Atlas should remember about this company." },
-  { href: "/app/ceo-memory", label: "CEO Memory", blurb: "Why you made a decision — with the notes attached." },
-  { href: "/app/customer-twin", label: "Customer Memory", blurb: "Preferences, history, and how each customer likes to work." },
+  { href: "/app/memory", label: "Business Memory", blurb: "One engine — company, leadership, employee, customer, operational." },
   { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
   { href: "/app/executive-timeline", label: "Timeline", blurb: "The story of the business across months, not chats." },
   { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
 ];
 
 export const trustHub: HubLink[] = [
+  { href: "/app/security-center", label: "Security Center", blurb: "Live defensive monitoring, risk scores, and incident response." },
   { href: "/app/security", label: "Security", blurb: "Threats, devices, 2FA, and vault health." },
   { href: "/app/risk", label: "Risk", blurb: "Cash, burnout, and compliance warnings before they get expensive." },
   { href: "/app/compliance", label: "Compliance", blurb: "Licenses, insurance, and retention rules." },
@@ -30,29 +29,44 @@ export const trustHub: HubLink[] = [
 ];
 
 export const salesHub: HubLink[] = [
-  { href: "/app/quotes", label: "Quotes", blurb: "Draft, send, and approve estimates." },
-  { href: "/app/sales-coach", label: "Sales coach", blurb: "Talk tracks and follow-ups for open deals." },
-  { href: "/app/marketing", label: "Marketing", blurb: "Campaigns, ads, and what actually brought work in." },
-  { href: "/app/reviews", label: "Reputation", blurb: "Review requests after finished jobs." },
+  { href: "/app/marketing", label: "Marketing", blurb: "Campaigns, audiences, and attributed revenue." },
+  { href: "/app/sales", label: "Sales", blurb: "Pipeline and verified revenue metrics." },
+  { href: "/app/sales-coach", label: "Sales Coach", blurb: "Employee coaching from real activity signals." },
+  { href: "/app/customers", label: "CRM", blurb: "Customers and full relationship timeline." },
+  { href: "/app/reviews", label: "Reputation", blurb: "Reviews inbox and reply approvals." },
   { href: "/app/portal", label: "Customer portal", blurb: "Let customers book, pay, and see job status." },
 ];
 
+export const growthHub: HubLink[] = [
+  { href: "/app/marketing", label: "Marketing", blurb: "Campaigns across email, SMS, and social." },
+  { href: "/app/sales", label: "Sales", blurb: "Leads, pipeline, and honest revenue labeling." },
+  { href: "/app/customers", label: "CRM", blurb: "Profiles plus unified customer timeline." },
+  { href: "/app/reviews", label: "Reputation", blurb: "Connected review sources and replies." },
+];
+
+export const communicationHub: HubLink[] = [
+  { href: "/app/messages", label: "Messages", blurb: "Direct, teams, projects, announcements." },
+  { href: "/app/phone", label: "Phone & Reception", blurb: "Calls, routing, receptionist AI, transcripts." },
+  { href: "/app/chatbot", label: "Customer chatbot", blurb: "Website widget for customers." },
+];
+
+export const peopleHub: HubLink[] = [
+  { href: "/app/workforce", label: "Workforce", blurb: "Employees, scheduling, and locations." },
+  { href: "/app/time-off", label: "Time Off", blurb: "Requests, approvals, coverage." },
+  { href: "/app/projects", label: "Projects", blurb: "Jobs, tasks, and delivery." },
+];
+
 export const operationsHub: HubLink[] = [
-  { href: "/app/scheduling", label: "Scheduling", blurb: "Fill the day, assign techs, protect drive time." },
-  { href: "/app/receptionist", label: "Receptionist", blurb: "Answer the call, recognize the customer, book the job." },
-  { href: "/app/missed-calls", label: "Missed calls", blurb: "Recover leads that never reached a person." },
-  { href: "/app/routes", label: "Routes", blurb: "Order jobs so the truck wastes less time." },
-  { href: "/app/inventory", label: "Inventory", blurb: "Parts on trucks and in the shop." },
-  { href: "/app/risk", label: "Risk Center", blurb: "Warn before cash, burnout, or compliance gets expensive." },
-  { href: "/app/quality", label: "Quality", blurb: "Callbacks, warranties, and job photos." },
-  { href: "/app/compliance", label: "Compliance", blurb: "Licenses, insurance, and retention rules." },
-  { href: "/app/training", label: "Training", blurb: "Atlas Academy for the crew." },
+  { href: "/app/appointments", label: "Calendar", blurb: "Personal, team, meetings, deadlines, time off." },
+  { href: "/app/routes", label: "Route Optimization", blurb: "Map, stops, traffic-aware routing." },
+  { href: "/app/inventory", label: "Inventory", blurb: "Stock tracking and usage." },
+  { href: "/app/purchasing", label: "Purchases", blurb: "Receipts, card match, approvals." },
 ];
 
 export const agentsHub: HubLink[] = [
   { href: "/app/workforce", label: "Workforce", blurb: "Employees, managers, AI workers, tasks, and messaging." },
   { href: "/app/workforce?tab=ai-workers", label: "AI workers", blurb: "Specialists Atlas routes to — alongside your human team." },
-  { href: "/app/receptionist", label: "Receptionist", blurb: "The beachhead: phones, booking, and recognition." },
+  { href: "/app/phone", label: "Phone & Reception", blurb: "Account Assistant — calls, booking, control center." },
   { href: "/app/marketplace?tab=agents", label: "Marketplace agents", blurb: "Install Sales, HR, Legal, and industry specialists." },
   { href: "/app/coach", label: "Live coach", blurb: "On-call help during a job or a sales conversation." },
   { href: "/app/voice", label: "Voice", blurb: "Talk to Atlas from the truck or the front desk." },
@@ -63,13 +77,11 @@ export const automationsHub: HubLink[] = [
   { href: "/app/workflows", label: "Workflows", blurb: "If this happens, Atlas does that." },
   { href: "/app/actions", label: "Atlas Actions", blurb: "End-to-end jobs: create, send, remind, update books." },
   { href: "/app/autonomous", label: "Autonomy rules", blurb: "Observe, suggest, approve, or automate — per action." },
-  { href: "/app/command-language", label: "Command language", blurb: "Plain English compiled into a guarded automation." },
 ];
 
 export const knowledgeHub: HubLink[] = [
   { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
-  { href: "/app/memory", label: "Atlas Memory", blurb: "Business, CEO, customer, and timeline memory in one system." },
-  { href: "/app/ceo-memory", label: "CEO Memory", blurb: "Why you made a decision — with the notes attached." },
+  { href: "/app/memory", label: "Business Memory", blurb: "One permission-aware memory engine for the company." },
   { href: "/app/documents", label: "Documents", blurb: "Contracts, manuals, and files." },
   { href: "/app/dna", label: "Business DNA", blurb: "Voice, discounts, escalation, and pricing philosophy." },
   { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
@@ -80,7 +92,6 @@ export const appsHub: HubLink[] = [
   { href: "/app/connections", label: "Connections", blurb: "Banks, calendars, phones — labeled CONNECTED DATA." },
   { href: "/app/files", label: "Files", blurb: "Uploads Atlas can search." },
   { href: "/app/developers", label: "API", blurb: "Build on Atlas when the core loop is real." },
-  { href: "/app/architecture", label: "Architecture", blurb: "How the prototype is wired today." },
 ];
 
 export const settingsHub: HubLink[] = [

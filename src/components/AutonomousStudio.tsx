@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { autonomousLoops } from "@/lib/atlas-platform";
-import { LEVEL_LABELS, type AutonomyLevel } from "@/lib/autonomy/types";
+import type { AutonomyLevel } from "@/lib/autonomy/types";
+import type { AutoPermissionKey, ControlMode } from "@/lib/autonomy/permissions";
 
 type PolicyView = {
   organizationId: string;
   level: AutonomyLevel;
+  controlMode: ControlMode;
+  autoPermissions: Record<AutoPermissionKey, boolean>;
   levelName: string;
   headline: string;
   killSwitch: boolean;
@@ -20,6 +22,7 @@ type PolicyView = {
   autoPaymentLimit: string;
   refundLimit: string;
   marketingBudget: string;
+  permissions?: PermissionDef[];
 };
 
 type PendingCard = {
@@ -34,11 +37,44 @@ type PendingCard = {
   createdAt: string;
 };
 
+type PermissionDef = {
+  key: AutoPermissionKey;
+  label: string;
+  description: string;
+};
+
+type AuditRow = {
+  id: string;
+  action: string;
+  summary: string;
+  at: string;
+  actor: string;
+};
+
 type AutonomyPayload = {
   policy: PolicyView;
   pending: PendingCard[];
   slogan: string;
+  permissions?: PermissionDef[];
 };
+
+const MODES: { id: ControlMode; title: string; detail: string }[] = [
+  {
+    id: "manual",
+    title: "Manual",
+    detail: "Atlas suggests actions. You approve everything.",
+  },
+  {
+    id: "assisted",
+    title: "Assisted",
+    detail: "Routine work runs automatically. Higher-impact actions ask first.",
+  },
+  {
+    id: "autonomous",
+    title: "Autonomous",
+    detail: "Atlas executes approved categories within limits you set.",
+  },
+];
 
 async function readOk<T>(res: Response): Promise<T> {
   const json = (await res.json()) as { ok?: boolean; data?: T; error?: string };
@@ -52,21 +88,17 @@ function dollars(cents: number) {
 
 export function AutonomousStudio() {
   const [payload, setPayload] = useState<AutonomyPayload | null>(null);
+  const [audit, setAudit] = useState<AuditRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [atlasReply, setAtlasReply] = useState<string | null>(null);
   const [payLimit, setPayLimit] = useState("5000");
   const [refundLimit, setRefundLimit] = useState("100");
   const [discountCap, setDiscountCap] = useState("10");
   const [marketing, setMarketing] = useState("1500");
-  const [activeLoop, setActiveLoop] = useState<string>(autonomousLoops[0].id);
 
   const policy = payload?.policy;
   const pending = payload?.pending || [];
-  const loop = useMemo(
-    () => autonomousLoops.find((item) => item.id === activeLoop) ?? autonomousLoops[0],
-    [activeLoop],
-  );
+  const permissionDefs = policy?.permissions ?? payload?.permissions ?? [];
 
   const refresh = useCallback(async () => {
     await fetch("/api/session");
@@ -76,6 +108,33 @@ export function AutonomousStudio() {
     setRefundLimit(dollars(data.policy.refundLimitCents));
     setDiscountCap(String(data.policy.discountCapPercent));
     setMarketing(dollars(data.policy.marketingBudgetCents));
+    try {
+      const auditRes = await fetch("/api/audit");
+      const auditJson = (await auditRes.json()) as {
+        ok?: boolean;
+        data?: Array<{
+          id: string;
+          action: string;
+          entity_type?: string;
+          entity_id?: string | null;
+          created_at: string;
+          actor_label: string;
+        }>;
+      };
+      if (auditJson.ok && Array.isArray(auditJson.data)) {
+        setAudit(
+          auditJson.data.slice(0, 12).map((row) => ({
+            id: row.id,
+            action: row.action.replace(/_/g, " "),
+            summary: row.entity_type ? `${row.entity_type}${row.entity_id ? ` · ${row.entity_id}` : ""}` : "",
+            at: row.created_at,
+            actor: row.actor_label,
+          })),
+        );
+      }
+    } catch {
+      setAudit([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -100,6 +159,7 @@ export function AutonomousStudio() {
         policy: data.policy,
         pending: data.pending,
       }));
+      setNote("Autonomy settings saved.");
     } catch (error) {
       setNote(error instanceof Error ? error.message : "Update failed");
     } finally {
@@ -114,31 +174,6 @@ export function AutonomousStudio() {
       discountCapPercent: Number(discountCap),
       marketingBudgetDollars: Number(marketing),
     });
-  }
-
-  async function postWork(body: Record<string, unknown>) {
-    setBusy(true);
-    setNote(null);
-    try {
-      const json = await fetch("/api/autonomy/work", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).then((res) => res.json());
-      if (json.data?.asked?.reply) setAtlasReply(String(json.data.asked.reply));
-      if (json.data?.decision) {
-        setNote(
-          json.data.decision.verdict === "execute"
-            ? `Atlas will handle: ${json.data.decision.title}. ${json.data.decision.reason}`
-            : json.data.decision.ownerPrompt || json.data.decision.reason,
-        );
-      }
-      await refresh();
-    } catch (error) {
-      setNote(error instanceof Error ? error.message : "Work failed");
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function decide(id: string, decision: "approved" | "rejected") {
@@ -156,46 +191,45 @@ export function AutonomousStudio() {
     }
   }
 
-  async function tickQueue() {
-    setBusy(true);
-    try {
-      const json = await fetch("/api/autonomy/tick", { method: "POST" }).then((res) => res.json());
-      setNote(`Queue tick: ${JSON.stringify(json.data?.processed || json)}`);
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
+  const paused = Boolean(policy?.killSwitch);
+  const modeCards = useMemo(
+    () =>
+      MODES.map((mode) => ({
+        ...mode,
+        active: policy?.controlMode === mode.id,
+      })),
+    [policy?.controlMode],
+  );
 
   return (
     <div className="training-studio">
       <section className="panel employee-hero-card">
         <div>
-          <p className="briefing-kicker">Permission engine</p>
-          <h2>{payload?.slogan || "Atlas runs the routine company. Humans handle the exceptions."}</h2>
+          <p className="briefing-kicker">Autonomous control system</p>
+          <h2>How independently can Atlas work?</h2>
           <p style={{ color: "rgba(244,248,247,0.8)" }}>
             {policy
-              ? `Level ${policy.level} — ${policy.levelName}. ${policy.headline}`
+              ? `${policy.levelName} — ${policy.headline}`
               : "Loading autonomy policy…"}
           </p>
         </div>
         <div className="cta-row">
           <button
-            className={`btn ${policy?.killSwitch ? "btn-outline" : "btn-primary"}`}
+            className={`btn ${paused ? "btn-primary" : "btn-outline"}`}
             type="button"
             disabled={busy || !policy}
             onClick={() => void putPolicy({ killSwitch: !policy?.killSwitch })}
           >
-            {policy?.killSwitch ? "Kill switch · ON" : "Kill switch · off"}
+            {paused ? "Pause autonomous actions · ON" : "Pause autonomous actions"}
           </button>
         </div>
       </section>
 
       <div className="stat-grid metrics-dense">
         <div className="stat">
-          <span>Level</span>
-          <strong>{policy ? `${policy.level} · ${policy.levelName}` : "…"}</strong>
-          <small>{policy?.killSwitch ? "Paused" : "Live policy"}</small>
+          <span>Control mode</span>
+          <strong>{policy?.levelName || "…"}</strong>
+          <small>{paused ? "Paused — nothing runs automatically" : "Active policy"}</small>
         </div>
         <div className="stat">
           <span>Auto-pay limit</span>
@@ -208,100 +242,122 @@ export function AutonomousStudio() {
           <small>Exceptions in the queue</small>
         </div>
         <div className="stat">
-          <span>Refunds / discounts</span>
-          <strong>
-            {policy ? `${policy.refundLimit} · ${policy.discountCapPercent}%` : "…"}
-          </strong>
-          <small>Level 3 rules</small>
+          <span>Approval threshold</span>
+          <strong>{policy?.refundLimit || "…"}</strong>
+          <small>Refunds / discounts above this ask first</small>
         </div>
       </div>
 
       <section className="panel">
-        <h2>Autonomy level</h2>
-        <p className="panel-lead">
-          1 recommends. 2 handles routine. 3 decides inside your rules. 4 runs the company and only
-          pings you for exceptions.
-        </p>
-        <div className="cta-row" style={{ flexWrap: "wrap" }}>
-          {([1, 2, 3, 4] as AutonomyLevel[]).map((level) => (
+        <h2>Control mode</h2>
+        <p className="panel-lead">Pick how much authority Atlas has before it must ask.</p>
+        <div className="dash-preset-grid">
+          {modeCards.map((mode) => (
             <button
-              key={level}
-              className={`btn ${policy?.level === level ? "btn-dark" : "btn-outline"}`}
+              key={mode.id}
               type="button"
+              className={`dash-preset-card ${mode.active ? "active" : ""}`}
               disabled={busy}
-              onClick={() => void putPolicy({ level, killSwitch: false })}
+              onClick={() => void putPolicy({ controlMode: mode.id, killSwitch: false })}
             >
-              L{level} {LEVEL_LABELS[level].name}
+              <strong>{mode.title}</strong>
+              <span className="muted-line">{mode.detail}</span>
             </button>
           ))}
         </div>
-        <div className="train-actions" style={{ marginTop: "0.8rem" }}>
-          <button
-            className="btn btn-dark"
-            type="button"
-            disabled={busy}
-            onClick={() => void putPolicy({ awayMessage: "I'm going on vacation. Run the company." })}
-          >
-            I&apos;m going on vacation. Run the company.
-          </button>
-          <button className="btn btn-outline" type="button" disabled={busy} onClick={() => void tickQueue()}>
-            Run background tick
-          </button>
-        </div>
+      </section>
+
+      <section className="panel">
+        <h2>What can Atlas do automatically?</h2>
+        <p className="panel-lead">
+          Enable categories of work Atlas may run without asking. Anything outside these permissions
+          waits for you.
+        </p>
+        <ul className="manage-list">
+          {permissionDefs.map((perm) => {
+            const enabled = policy?.autoPermissions?.[perm.key] ?? false;
+            return (
+              <li key={perm.key}>
+                <div>
+                  <strong>{perm.label}</strong>
+                  <small>{perm.description}</small>
+                </div>
+                <button
+                  type="button"
+                  className={`biz-chip ${enabled ? "active" : ""}`}
+                  disabled={busy || !policy || policy.controlMode === "manual"}
+                  onClick={() =>
+                    void putPolicy({
+                      autoPermissions: { [perm.key]: !enabled },
+                    })
+                  }
+                >
+                  {enabled ? "Enabled" : "Ask first"}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {policy?.controlMode === "manual" ? (
+          <p className="muted-line" style={{ marginTop: "0.75rem" }}>
+            Manual mode keeps all categories on ask-first. Switch to Assisted or Autonomous to enable
+            automatic categories.
+          </p>
+        ) : null}
       </section>
 
       <div className="split">
         <section className="panel">
-          <h2>Rules the owner sets</h2>
-          <p className="panel-lead">Discounts, refunds, fill-ins, and marketing stay inside these caps.</p>
+          <h2>Spending limits & thresholds</h2>
+          <p className="panel-lead">Caps Atlas must respect before escalating to you.</p>
           <div className="train-form">
-            <input
-              value={payLimit}
-              onChange={(e) => setPayLimit(e.target.value)}
-              inputMode="decimal"
-              aria-label="Auto-pay limit dollars"
-              placeholder="Auto-pay $"
-            />
-            <input
-              value={refundLimit}
-              onChange={(e) => setRefundLimit(e.target.value)}
-              inputMode="decimal"
-              aria-label="Refund limit dollars"
-              placeholder="Refunds $"
-            />
-            <input
-              value={discountCap}
-              onChange={(e) => setDiscountCap(e.target.value)}
-              inputMode="decimal"
-              aria-label="Discount cap percent"
-              placeholder="Discount %"
-            />
-            <input
-              value={marketing}
-              onChange={(e) => setMarketing(e.target.value)}
-              inputMode="decimal"
-              aria-label="Marketing budget dollars"
-              placeholder="Marketing $"
-            />
+            <label>
+              Auto-pay limit ($)
+              <input
+                value={payLimit}
+                onChange={(e) => setPayLimit(e.target.value)}
+                inputMode="decimal"
+                aria-label="Auto-pay limit dollars"
+              />
+            </label>
+            <label>
+              Approval threshold — refunds ($)
+              <input
+                value={refundLimit}
+                onChange={(e) => setRefundLimit(e.target.value)}
+                inputMode="decimal"
+                aria-label="Refund limit dollars"
+              />
+            </label>
+            <label>
+              Discount cap (%)
+              <input
+                value={discountCap}
+                onChange={(e) => setDiscountCap(e.target.value)}
+                inputMode="decimal"
+                aria-label="Discount cap percent"
+              />
+            </label>
+            <label>
+              Marketing budget ($)
+              <input
+                value={marketing}
+                onChange={(e) => setMarketing(e.target.value)}
+                inputMode="decimal"
+                aria-label="Marketing budget dollars"
+              />
+            </label>
           </div>
           <div className="train-actions">
             <button className="btn btn-dark" type="button" disabled={busy} onClick={() => void saveLimits()}>
               Save limits
-            </button>
-            <button
-              className="btn btn-outline"
-              type="button"
-              disabled={busy}
-              onClick={() => void postWork({ demo: "vendor_payment" })}
-            >
-              Simulate $18,420 vendor payment
             </button>
           </div>
           {policy?.standingOrders?.length ? (
             <div className="list" style={{ marginTop: "0.9rem" }}>
               {policy.standingOrders.map((order) => (
                 <div className="list-row" key={order}>
-                  <span className="badge">Order</span>
+                  <span className="badge">Standing order</span>
                   <p>{order}</p>
                 </div>
               ))}
@@ -311,7 +367,7 @@ export function AutonomousStudio() {
 
         <section className="panel">
           <h2>Atlas needs you</h2>
-          <p className="panel-lead">Restricted work never gets a blank check — even on Autopilot.</p>
+          <p className="panel-lead">Restricted work never gets a blank check — even on Autonomous.</p>
           {pending.length === 0 ? (
             <p className="muted-line">No exceptions right now. Atlas is within authority.</p>
           ) : (
@@ -325,77 +381,52 @@ export function AutonomousStudio() {
                     {card.ownerPrompt || `${card.title}\n${card.summary}`}
                   </pre>
                   <div className="cta-row">
-                    <button className="btn btn-dark" type="button" disabled={busy} onClick={() => void decide(card.id, "approved")}>
+                    <button
+                      className="btn btn-dark"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void decide(card.id, "approved")}
+                    >
                       Approve
-                    </button>
-                    <button className="btn btn-outline" type="button" disabled={busy} onClick={() => void decide(card.id, "rejected")}>
-                      Reject
                     </button>
                     <button
                       className="btn btn-outline"
                       type="button"
                       disabled={busy}
-                      onClick={() => void postWork({ askApprovalId: card.id })}
+                      onClick={() => void decide(card.id, "rejected")}
                     >
-                      Ask Atlas
+                      Reject
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          {atlasReply ? <p className="muted-line" style={{ marginTop: "0.6rem" }}>{atlasReply}</p> : null}
           {note ? <p className="muted-line" style={{ marginTop: "0.6rem" }}>{note}</p> : null}
         </section>
       </div>
 
-      <div className="split">
-        <section className="panel">
-          <h2>Level 2 — routine work Atlas can run</h2>
-          <p className="panel-lead">Scheduling, confirmations, reminders, follow-ups, receptionist, texts, leads, tasks, invoices, reviews.</p>
-          <div className="list">
-            {autonomousLoops.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="list-row"
-                onClick={() => setActiveLoop(item.id)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  background: activeLoop === item.id ? "var(--paper)" : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  borderRadius: 12,
-                  padding: "0.65rem 0.5rem",
-                }}
-              >
-                <span className={`badge ${policy && !policy.killSwitch && policy.level >= 2 ? "ok" : ""}`}>
-                  {policy && !policy.killSwitch && policy.level >= 2 ? "In authority" : "Needs you at L1"}
+      <section className="panel">
+        <h2>Audit history</h2>
+        <p className="panel-lead">Recent autonomy and approval events for this workspace.</p>
+        {audit.length === 0 ? (
+          <p className="muted-line">No audit entries yet. Sensitive actions will appear here.</p>
+        ) : (
+          <ol className="activity-timeline">
+            {audit.map((row) => (
+              <li key={row.id} className="activity-item activity-neutral">
+                <span className="activity-time">
+                  {row.at ? new Date(row.at).toLocaleString() : "—"}
                 </span>
-                <div>
-                  <p>
-                    <strong>{item.title}</strong>
-                  </p>
-                  <small className="muted-line">{item.trigger}</small>
-                </div>
-              </button>
+                <span>
+                  <strong>{row.actor}</strong> {row.action}
+                  {row.summary ? ` — ${row.summary}` : ""}
+                </span>
+              </li>
             ))}
-          </div>
-        </section>
-        <section className="panel">
-          <h2>{loop.title}</h2>
-          <p className="panel-lead">{loop.trigger}</p>
-          <div className="list">
-            {loop.steps.map((step) => (
-              <div className="list-row" key={step}>
-                <span className="badge">Step</span>
-                <p>{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+          </ol>
+        )}
+      </section>
     </div>
   );
 }

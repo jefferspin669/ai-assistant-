@@ -1,19 +1,12 @@
 "use client";
 
+import Link from "@/components/SiteLink";
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { CalendarHubStudio } from "@/components/CalendarHubStudio";
 import { EventsStudio } from "@/components/EventsStudio";
 import { SmartCalendarStudio } from "@/components/SmartCalendarStudio";
-
-const TABS = [
-  { id: "schedule", label: "Schedule" },
-  { id: "team", label: "Team & Company" },
-  { id: "events", label: "Celebrations" },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
 
 const SCOPES = [
   { id: "personal", label: "Personal" },
@@ -22,6 +15,18 @@ const SCOPES = [
 ] as const;
 
 type ScopeId = (typeof SCOPES)[number]["id"];
+
+const TABS = [
+  { id: "schedule", label: "Schedule" },
+  { id: "team", label: "Team" },
+  { id: "company", label: "Company" },
+  { id: "meetings", label: "Meetings" },
+  { id: "deadlines", label: "Deadlines" },
+  { id: "timeoff", label: "Time off" },
+  { id: "events", label: "Celebrations" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 function isTab(value: string | null): value is TabId {
   return TABS.some((tab) => tab.id === value);
@@ -33,7 +38,8 @@ function isScope(value: string | null): value is ScopeId {
 
 function defaultTabForScope(scope: ScopeId): TabId {
   if (scope === "personal") return "schedule";
-  return "team";
+  if (scope === "team") return "team";
+  return "company";
 }
 
 function AtlasCalendarStudioInner() {
@@ -47,7 +53,7 @@ function AtlasCalendarStudioInner() {
   const scopeHint = useMemo(() => {
     switch (scope) {
       case "personal":
-        return "Your appointments, deadlines, reminders, and private CEO calendar.";
+        return "Your appointments, deadlines, reminders, and private calendar.";
       case "team":
         return "Department and project calendars — meetings, shifts, and milestones for your team.";
       default:
@@ -66,7 +72,7 @@ function AtlasCalendarStudioInner() {
   return (
     <AppShell
       title="Atlas Calendar"
-      subtitle="Scheduling + Events AI — find open times, resolve conflicts, and suggest schedules."
+      subtitle="One calendar — personal, team, company, meetings, deadlines, and time off."
       action={
         <div className="biz-switcher" role="group" aria-label="Calendar scope">
           {SCOPES.map((item) => (
@@ -104,7 +110,28 @@ function AtlasCalendarStudioInner() {
         </div>
 
         {tab === "schedule" ? <SmartCalendarStudio embedded /> : null}
-        {tab === "team" ? <CalendarHubStudio /> : null}
+        {tab === "team" || tab === "company" ? <CalendarHubStudio /> : null}
+        {tab === "meetings" ? (
+          <section className="panel">
+            <h2>Meetings</h2>
+            <p className="panel-lead">Zoom, Teams, and in-person meetings with agendas and recaps.</p>
+            <Link className="btn btn-dark" href="/app/meetings">Open Meeting Intelligence</Link>
+          </section>
+        ) : null}
+        {tab === "deadlines" ? (
+          <section className="panel">
+            <h2>Deadlines</h2>
+            <p className="panel-lead">Due dates from projects, quotes, and tasks roll up here when connected.</p>
+            <Link className="btn btn-dark" href="/app/projects">View projects</Link>
+          </section>
+        ) : null}
+        {tab === "timeoff" ? (
+          <section className="panel">
+            <h2>Time off</h2>
+            <p className="panel-lead">Employee requests, manager approvals, and coverage.</p>
+            <Link className="btn btn-dark" href="/app/time-off">Open Time Off</Link>
+          </section>
+        ) : null}
         {tab === "events" ? <EventsStudio /> : null}
       </div>
     </AppShell>

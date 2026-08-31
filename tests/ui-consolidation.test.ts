@@ -43,15 +43,20 @@ describe("product consolidation", () => {
     expect(sidebarMain.concat(sidebarAdmin).map((item) => item.href)).not.toContain("/app/tax");
   });
 
-  it("exposes Money / Memory / Trust hubs without a second store", () => {
-    expect(moneyHub.map((item) => item.href)).toEqual([
-      "/app/finance",
-      "/app/payments",
-      "/app/tax",
-      "/app/accountant",
-    ]);
-    expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(true);
+  it("lists Intelligence hubs in nav catalog", () => {
+    const intelligence = navGroups.find((group) => group.label === "Intelligence");
+    const intelligenceHrefs = intelligence?.items.map((item) => item.href) ?? [];
+    expect(intelligenceHrefs).toContain("/app/ask");
+    expect(intelligenceHrefs).toContain("/app/business-engine");
+    expect(intelligenceHrefs).toContain("/app/market-intelligence");
+    expect(intelligenceHrefs).toContain("/app/quality");
+    expect(intelligenceHrefs).toContain("/app/security-center");
+  });
+
+  it("exposes Security Center on Trust hub", () => {
+    expect(trustHub.map((item) => item.href)).toContain("/app/security-center");
     expect(trustHub.map((item) => item.label)).toEqual([
+      "Security Center",
       "Security",
       "Risk",
       "Compliance",
@@ -59,6 +64,26 @@ describe("product consolidation", () => {
       "Privacy",
       "Audit Log",
     ]);
+  });
+
+  it("exposes Money / Memory hubs without a second store", () => {
+    expect(moneyHub.map((item) => item.href)).toEqual([
+      "/app/finance",
+      "/app/payments",
+      "/app/tax",
+      "/app/accountant",
+    ]);
+    expect(memoryHub.some((item) => item.href === "/app/memory")).toBe(true);
+    expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(false);
+  });
+
+  it("drops Command Language from nav", () => {
+    expect(hrefs).not.toContain("/app/command-language");
+  });
+
+  it("drops Backend and Architecture from customer nav", () => {
+    expect(hrefs).not.toContain("/app/backend");
+    expect(hrefs).not.toContain("/app/architecture");
   });
 
   it("parses bodies and returns apiSuccess without per-route wrappers", async () => {
