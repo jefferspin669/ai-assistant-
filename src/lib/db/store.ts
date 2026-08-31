@@ -392,18 +392,32 @@ export function seedDatabase(): AtlasDatabase {
     updatedAt: task.updatedAt,
   }));
 
-  const transactions: DbTransaction[] = loadTaxTransactions().map((row) => ({
-    id: row.id,
-    orgId,
-    userId,
-    kind: row.kind,
-    label: row.label,
-    amount: row.amount,
-    category: row.category,
-    date: row.date,
-    receiptName: row.receiptName,
-    createdAt: row.createdAt,
-  }));
+  const transactions: DbTransaction[] = [
+    ...loadTaxTransactions().map((row) => ({
+      id: row.id,
+      orgId,
+      userId,
+      kind: row.kind,
+      label: row.label,
+      amount: row.amount,
+      category: row.category,
+      date: row.date,
+      receiptName: row.receiptName,
+      createdAt: row.createdAt,
+    })),
+    {
+      id: newId("txn"),
+      orgId,
+      userId,
+      kind: "income" as const,
+      label: "Invoice · Johnson Construction (overdue)",
+      amount: 4280,
+      category: "invoice",
+      date: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
+      receiptName: null,
+      createdAt: stamp,
+    },
+  ];
 
   const estimate = computeTaxEstimate(
     transactions.map((t) => ({
@@ -508,9 +522,9 @@ export function seedDatabase(): AtlasDatabase {
     {
       id: newId("cust"),
       organization_id: orgId,
-      name: "Elena Brooks",
-      email: "elena@email.com",
-      phone: "(555) 301-7788",
+      name: "Johnson Construction",
+      email: "ap@johnsonconstruction.example",
+      phone: "(555) 441-2200",
       status: "active",
       created_at: stamp,
       provenance: "DEMO",

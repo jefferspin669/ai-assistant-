@@ -15,7 +15,8 @@ export type AtlasEventType =
   | "approval.granted"
   | "file.uploaded"
   | "call.missed"
-  | "brain.completed";
+  | "brain.completed"
+  | "email.received";
 
 export type AtlasEvent = {
   id: string;

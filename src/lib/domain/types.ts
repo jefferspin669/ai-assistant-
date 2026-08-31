@@ -1,4 +1,7 @@
-/** Public domain types. Components and API clients use these — not DB column names. */
+/** Public domain types. Components and API clients use these — not DB column names.
+ * Canonical chain: Drizzle (`lib/db/drizzle-schema.ts`) → domain types here → Zod (`lib/domain/schemas.ts`).
+ * Do not add CustomerRecord / DbCustomer / ApiCustomer aliases that drift from this layer.
+ */
 
 export type DataProvenance = "LIVE" | "CONNECTED DATA" | "DEMO";
 

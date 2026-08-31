@@ -4,8 +4,8 @@ import { ExecutiveDashboardStudio } from "@/components/ExecutiveDashboardStudio"
 export default function ExecutiveDashboardPage() {
   return (
     <AppShell
-      title="Executive Dashboard"
-      subtitle="Your morning home screen — schedule, tasks, emails, bills, cash flow, metrics, weather, and AI recommendations."
+      title="Executive"
+      subtitle="Strategic reports and forecasting — not the live operations board. For today’s status use Dashboard; for live Atlas work use Mission Control."
     >
       <ExecutiveDashboardStudio />
     </AppShell>

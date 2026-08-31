@@ -1,19 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AppStoreStudio } from "@/components/AppStoreStudio";
 import { marketplaceShareTypes, marketplaceShares } from "@/lib/atlas-platform";
 
-type Mode = "browse" | "installed" | "publish";
+const TABS = [
+  { id: "discover", label: "Discover" },
+  { id: "installed", label: "Installed" },
+  { id: "agents", label: "Agents" },
+  { id: "automations", label: "Automations" },
+  { id: "integrations", label: "Integrations" },
+  { id: "templates", label: "Templates" },
+  { id: "developer", label: "Developer" },
+] as const;
 
-const modes: { id: Mode; label: string }[] = [
-  { id: "browse", label: "Browse & install" },
-  { id: "installed", label: "Your library" },
-  { id: "publish", label: "Publish as developer" },
-];
+type TabId = (typeof TABS)[number]["id"];
 
-export function MarketplaceStudio() {
-  const [mode, setMode] = useState<Mode>("browse");
-  const [typeFilter, setTypeFilter] = useState<(typeof marketplaceShareTypes)[number]>("All");
+const TAB_TYPE: Partial<Record<TabId, (typeof marketplaceShareTypes)[number]>> = {
+  agents: "Industry agents",
+  automations: "Automations",
+  integrations: "Integrations",
+  templates: "Templates",
+};
+
+function isTab(value: string | null): value is TabId {
+  return TABS.some((tab) => tab.id === value);
+}
+
+function MarketplaceStudioInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tabParam = searchParams.get("tab");
+  const tab: TabId = isTab(tabParam) ? tabParam : "discover";
   const [selectedId, setSelectedId] = useState<string>(marketplaceShares[0].id);
   const [owned, setOwned] = useState<Record<string, boolean>>({
     "missed-call": true,
@@ -25,6 +44,7 @@ export function MarketplaceStudio() {
   const [publishName, setPublishName] = useState("");
   const [publishType, setPublishType] = useState("Industry agents");
 
+  const typeFilter = TAB_TYPE[tab] ?? "All";
   const filtered = useMemo(
     () =>
       typeFilter === "All"
@@ -32,9 +52,12 @@ export function MarketplaceStudio() {
         : marketplaceShares.filter((item) => item.type === typeFilter),
     [typeFilter],
   );
-
   const selected = marketplaceShares.find((item) => item.id === selectedId) ?? marketplaceShares[0];
   const installedItems = marketplaceShares.filter((item) => owned[item.id]);
+
+  function setTab(next: TabId) {
+    router.replace(`/app/marketplace?tab=${next}`, { scroll: false });
+  }
 
   function toggleOwn(id: string, name: string) {
     setOwned((prev) => {
@@ -43,6 +66,15 @@ export function MarketplaceStudio() {
       return { ...prev, [id]: next };
     });
   }
+
+  function onPublish(e: FormEvent) {
+    e.preventDefault();
+    if (!publishName.trim()) return;
+    setNote(`Submitted “${publishName.trim()}” (${publishType}) for marketplace review.`);
+    setPublishName("");
+  }
+
+  const browse = tab === "discover" || tab === "agents" || tab === "automations" || tab === "integrations" || tab === "templates";
 
   return (
     <div className="training-studio">
@@ -64,46 +96,34 @@ export function MarketplaceStudio() {
         </div>
         <div className="stat">
           <span>Model</span>
-          <strong>Create · install</strong>
-          <small>Only what you need</small>
+          <strong>Discover · install</strong>
+          <small>One marketplace</small>
         </div>
       </div>
 
-      <div className="training-tabs" role="tablist" aria-label="Marketplace modes">
-        {modes.map((item) => (
+      <div className="training-tabs" role="tablist" aria-label="Atlas Marketplace">
+        {TABS.map((item) => (
           <button
             key={item.id}
             type="button"
             role="tab"
-            aria-selected={mode === item.id}
-            className={mode === item.id ? "training-tab active" : "training-tab"}
-            onClick={() => setMode(item.id)}
+            aria-selected={tab === item.id}
+            className={tab === item.id ? "training-tab active" : "training-tab"}
+            onClick={() => setTab(item.id)}
           >
             {item.label}
           </button>
         ))}
       </div>
 
-      {mode === "browse" ? (
+      {browse ? (
         <>
-          <div className="quality-filter-row">
-            {marketplaceShareTypes.map((type) => (
-              <button
-                key={type}
-                type="button"
-                className={typeFilter === type ? "training-tab active" : "training-tab"}
-                onClick={() => setTypeFilter(type)}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
           <div className="split">
             <section className="panel">
-              <h2>AI Marketplace</h2>
+              <h2>{tab === "discover" ? "Discover" : TABS.find((item) => item.id === tab)?.label}</h2>
               <p className="panel-lead">
-                Developers publish industry agents, dashboards, automations, reports, integrations,
-                and templates. Businesses install what they need.
+                Developers publish industry agents, automations, integrations, and templates. Businesses install what they
+                need.
               </p>
               <div className="list">
                 {filtered.map((item) => (
@@ -143,16 +163,8 @@ export function MarketplaceStudio() {
                 </div>
               </div>
               <div className="train-actions">
-                <button
-                  className="btn btn-dark"
-                  type="button"
-                  onClick={() => toggleOwn(selected.id, selected.name)}
-                >
-                  {owned[selected.id]
-                    ? "Uninstall"
-                    : selected.price === "Free"
-                      ? "Install"
-                      : "Buy & install"}
+                <button className="btn btn-dark" type="button" onClick={() => toggleOwn(selected.id, selected.name)}>
+                  {owned[selected.id] ? "Uninstall" : selected.price === "Free" ? "Install" : "Buy & install"}
                 </button>
               </div>
               {note ? (
@@ -165,12 +177,12 @@ export function MarketplaceStudio() {
         </>
       ) : null}
 
-      {mode === "installed" ? (
+      {tab === "installed" ? (
         <section className="panel">
           <h2>Installed on this business</h2>
-          <p className="panel-lead">Only the pieces you chose — agents, dashboards, automations, and more.</p>
+          <p className="panel-lead">Agents, automations, and modules you chose — not a second store.</p>
           {installedItems.length === 0 ? (
-            <p className="muted-line">Nothing installed yet. Browse the marketplace to add packs.</p>
+            <p className="muted-line">Nothing installed yet. Open Discover to add packs.</p>
           ) : (
             <div className="list" style={{ marginTop: "0.85rem" }}>
               {installedItems.map((item) => (
@@ -182,11 +194,7 @@ export function MarketplaceStudio() {
                     </p>
                     <small className="muted-line">{item.blurb}</small>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => toggleOwn(item.id, item.name)}
-                  >
+                  <button type="button" className="btn btn-outline" onClick={() => toggleOwn(item.id, item.name)}>
                     Remove
                   </button>
                 </div>
@@ -201,52 +209,54 @@ export function MarketplaceStudio() {
         </section>
       ) : null}
 
-      {mode === "publish" ? (
-        <section className="panel">
-          <h2>Publish as a developer</h2>
-          <p className="panel-lead">
-            Ship industry agents, dashboards, automations, reports, integrations, or templates for
-            businesses to install.
-          </p>
-          <form
-            className="hub-pto-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!publishName.trim()) return;
-              setNote(`Submitted “${publishName.trim()}” (${publishType}) for marketplace review.`);
-              setPublishName("");
-            }}
-          >
-            <label>
-              Listing name
-              <input
-                value={publishName}
-                onChange={(e) => setPublishName(e.target.value)}
-                placeholder="HVAC overnight receptionist"
-                required
-              />
-            </label>
-            <label>
-              Type
-              <select value={publishType} onChange={(e) => setPublishType(e.target.value)}>
-                {marketplaceShareTypes
-                  .filter((type) => type !== "All")
-                  .map((type) => (
-                    <option key={type}>{type}</option>
-                  ))}
-              </select>
-            </label>
-            <button className="btn btn-dark" type="submit">
-              Submit for review
-            </button>
-          </form>
-          {note ? (
-            <p className="muted-line" style={{ marginTop: "0.85rem" }}>
-              {note}
+      {tab === "developer" ? (
+        <>
+          <section className="panel">
+            <h2>Publish as a developer</h2>
+            <p className="panel-lead">
+              Ship industry agents, dashboards, automations, reports, integrations, or templates for businesses to install.
             </p>
-          ) : null}
-        </section>
+            <form className="hub-pto-form" onSubmit={onPublish}>
+              <label>
+                Listing name
+                <input
+                  value={publishName}
+                  onChange={(e) => setPublishName(e.target.value)}
+                  placeholder="HVAC overnight receptionist"
+                  required
+                />
+              </label>
+              <label>
+                Type
+                <select value={publishType} onChange={(e) => setPublishType(e.target.value)}>
+                  {marketplaceShareTypes
+                    .filter((type) => type !== "All")
+                    .map((type) => (
+                      <option key={type}>{type}</option>
+                    ))}
+                </select>
+              </label>
+              <button className="btn btn-dark" type="submit">
+                Submit for review
+              </button>
+            </form>
+            {note ? (
+              <p className="muted-line" style={{ marginTop: "0.85rem" }}>
+                {note}
+              </p>
+            ) : null}
+          </section>
+          <AppStoreStudio />
+        </>
       ) : null}
     </div>
+  );
+}
+
+export function MarketplaceStudio() {
+  return (
+    <Suspense fallback={<p className="muted-line">Loading marketplace…</p>}>
+      <MarketplaceStudioInner />
+    </Suspense>
   );
 }

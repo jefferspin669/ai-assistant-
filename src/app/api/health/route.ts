@@ -14,6 +14,7 @@ import { readWorkerHeartbeat } from "@/lib/queue/heartbeat";
 import { listDeadLetters } from "@/lib/queue/dead-letter";
 import { publicEnvReport } from "@/lib/secrets/redact";
 import { atlasRuntimeEnv } from "@/lib/ops/environment";
+import { orchestratorStats } from "@/lib/orchestrator/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ export async function GET() {
       deadLetters: listDeadLetters().length,
       secrets,
       environment: atlasRuntimeEnv(),
+      orchestrator: orchestratorStats(),
       auth: supabaseAuthConfigured() ? "supabase+atlas_session" : "atlas_session",
       businessStore: atlasStore.mode(),
       workspaceFile: fileExists("workspace.json") ? "file:.data/workspace.json" : "memory-seeding",

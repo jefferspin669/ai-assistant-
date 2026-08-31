@@ -70,14 +70,11 @@ npm run dev
 - Executive Memory: `/app/ceo-memory`
 - AI Risk Center: `/app/risk`
 - AI Marketplace: `/app/marketplace`
-- Global Business Memory: `/app/global-memory`
-- Explainable AI: `/app/explainable`
-- Business Command Language: `/app/command-language`
-- AI Trust & Governance: `/app/governance`
-- Customer Digital Twin: `/app/customer-twin`
+- Atlas Memory: `/app/memory`
+- Trust & Governance: `/app/governance`
 - Atlas Mission: `/app/mission`
 - Tax Center: `/app/tax`
-- App Store / API: `/app/app-store`, `/app/developers`
+- API: `/app/developers`
 
 ## Runtime security
 

@@ -31,7 +31,10 @@ export default function ChatbotPage() {
   }
 
   return (
-    <AppShell title="AI Chatbot" subtitle="Website chat that answers FAQs — or captures the lead.">
+      <AppShell
+        title="Customer Chatbot"
+        subtitle="Website chat for visitors — answers FAQs or captures the lead. This is not Ask Atlas."
+      >
       <div className="split">
         <section className="panel">
           <h2>Website widget</h2>

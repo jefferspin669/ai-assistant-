@@ -26,7 +26,7 @@ import {
   taxSmartAlerts,
 } from "@/lib/atlas-platform";
 
-type Mode =
+export type TaxStudioMode =
   | "estimate"
   | "income"
   | "expenses"
@@ -43,6 +43,8 @@ type Mode =
   | "tiers"
   | "pro"
   | "safety";
+
+type Mode = TaxStudioMode;
 
 type ExpenseOverride = "Approved" | "Rejected" | "Needs Review" | "Categorized";
 type TripClass = "Business" | "Personal" | "Needs Review";
@@ -97,8 +99,11 @@ function statusTone(status: string) {
   return "";
 }
 
-export function TaxCenterStudio() {
-  const [mode, setMode] = useState<Mode>("estimate");
+export function TaxCenterStudio({ allowedModes }: { allowedModes?: TaxStudioMode[] } = {}) {
+  const visibleModes = allowedModes?.length
+    ? modes.filter((item) => allowedModes.includes(item.id))
+    : modes;
+  const [mode, setMode] = useState<Mode>(visibleModes[0]?.id ?? "estimate");
   const [incomeLens, setIncomeLens] = useState<(typeof incomeFilters)[number]>("All");
   const [incomeGroup, setIncomeGroup] = useState<string>("All");
   const [selectedIncomeId, setSelectedIncomeId] = useState<string>(taxIncomeEntries[0].id);
@@ -327,7 +332,7 @@ export function TaxCenterStudio() {
       </div>
 
       <div className="training-tabs" role="tablist" aria-label="Tax Center modes">
-        {modes.map((item) => (
+        {visibleModes.map((item) => (
           <button
             key={item.id}
             type="button"
