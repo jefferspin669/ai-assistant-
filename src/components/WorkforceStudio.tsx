@@ -8,11 +8,13 @@ import { TaskAssignmentStudio } from "@/components/TaskAssignmentStudio";
 import { digitalEmployeeRoster } from "@/lib/atlas-platform";
 import {
   createTaskFromSuggestion,
+  createTeamMember,
   detectTaskSuggestions,
   isOpenTask,
   loadTeamMembers,
   loadTeamTasks,
   resolveDue,
+  saveTeamMembers,
   saveTeamTasks,
   seedDemoTeamIfEmpty,
   todayISO,
@@ -72,6 +74,15 @@ function WorkforceStudioInner() {
   );
   const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addTitle, setAddTitle] = useState("");
+  const [addDept, setAddDept] = useState("Operations");
+  const [addManagerId, setAddManagerId] = useState("");
+  const [addRole, setAddRole] = useState("Employee");
+  const [addPerms, setAddPerms] = useState("tasks, calendar, messages");
   const today = todayISO();
 
   const refresh = useCallback(() => {
@@ -128,6 +139,30 @@ function WorkforceStudioInner() {
     );
   }
 
+  function onAddMember(e: FormEvent) {
+    e.preventDefault();
+    if (!addName.trim()) return;
+    const member = createTeamMember({
+      name: addName,
+      email: addEmail,
+      phone: addPhone,
+      jobTitle: addTitle,
+      role: addRole,
+      department: addDept,
+      managerId: addManagerId || undefined,
+      permissions: addPerms.split(",").map((p) => p.trim()).filter(Boolean),
+    });
+    saveTeamMembers([member, ...loadTeamMembers()]);
+    refresh();
+    setShowAddMember(false);
+    setAddName("");
+    setAddEmail("");
+    setAddPhone("");
+    setNote(
+      `${member.name} added to the company workspace. Atlas will recognize them in commands like “Give ${member.name.split(" ")[0]}…”`,
+    );
+  }
+
   return (
     <AppShell
       title="Workforce"
@@ -175,6 +210,31 @@ function WorkforceStudioInner() {
         </div>
 
         {tab === "team" ? (
+          <>
+            {showAddMember ? (
+              <section className="panel">
+                <h2>+ Add team member</h2>
+                <form className="form-grid" onSubmit={onAddMember}>
+                  <label>Name<input value={addName} onChange={(e) => setAddName(e.target.value)} required /></label>
+                  <label>Email<input type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} /></label>
+                  <label>Phone<input value={addPhone} onChange={(e) => setAddPhone(e.target.value)} /></label>
+                  <label>Job title<input value={addTitle} onChange={(e) => setAddTitle(e.target.value)} placeholder="Sales Manager" /></label>
+                  <label>Department<input value={addDept} onChange={(e) => setAddDept(e.target.value)} /></label>
+                  <label>Manager<select value={addManagerId} onChange={(e) => setAddManagerId(e.target.value)}>
+                    <option value="">None</option>
+                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select></label>
+                  <label>Role<input value={addRole} onChange={(e) => setAddRole(e.target.value)} /></label>
+                  <label>Permissions<input value={addPerms} onChange={(e) => setAddPerms(e.target.value)} placeholder="tasks, calendar, messages" /></label>
+                  <button className="btn btn-dark" type="submit">Save employee</button>
+                  <button className="btn btn-outline" type="button" onClick={() => setShowAddMember(false)}>Cancel</button>
+                </form>
+              </section>
+            ) : (
+              <div className="cta-row">
+                <button className="btn btn-dark" type="button" onClick={() => setShowAddMember(true)}>+ Add team member</button>
+              </div>
+            )}
           <div className="module-grid">
             {!ready ? <p className="muted-line">Loading team…</p> : null}
             {members.map((person) => {
@@ -201,9 +261,11 @@ function WorkforceStudioInner() {
                     >
                       Assign work
                     </button>
-                    <Link className="btn btn-dark" href={`/app/appointments?scope=team&tab=team`}>
-                      View schedule
+                    <Link className="btn btn-outline" href={`/app/team/${person.id}`}>View tasks</Link>
+                    <Link className="btn btn-outline" href={`/app/appointments?scope=team&tab=team`}>
+                      View calendar
                     </Link>
+                    <Link className="btn btn-dark" href="/app/projects">View projects</Link>
                   </div>
                   <p className="account-hint" style={{ marginTop: "0.5rem" }}>
                     Status flow: To Do → In Progress → Review → Complete
@@ -220,6 +282,7 @@ function WorkforceStudioInner() {
               <p>See who&apos;s online and what they&apos;re working on.</p>
             </Link>
           </div>
+          </>
         ) : null}
 
         {tab === "tasks" ? <TaskAssignmentStudio /> : null}

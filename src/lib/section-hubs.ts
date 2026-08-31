@@ -63,7 +63,6 @@ export const automationsHub: HubLink[] = [
   { href: "/app/workflows", label: "Workflows", blurb: "If this happens, Atlas does that." },
   { href: "/app/actions", label: "Atlas Actions", blurb: "End-to-end jobs: create, send, remind, update books." },
   { href: "/app/autonomous", label: "Autonomy rules", blurb: "Observe, suggest, approve, or automate — per action." },
-  { href: "/app/command-language", label: "Command language", blurb: "Plain English compiled into a guarded automation." },
 ];
 
 export const knowledgeHub: HubLink[] = [

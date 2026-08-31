@@ -354,6 +354,10 @@ export type TeamPerson = {
   name: string;
   role: string;
   email: string;
+  phone?: string;
+  managerId?: string;
+  permissions?: string[];
+  jobTitle?: string;
   status: string;
   rating: string;
   jobsThisWeek: number;
@@ -489,18 +493,27 @@ export function createTeamMember(input: {
   name: string;
   role?: string;
   email?: string;
+  phone?: string;
+  department?: string;
+  managerId?: string;
+  permissions?: string[];
+  jobTitle?: string;
 }): TeamPerson {
   const name = input.name.trim() || "New teammate";
   return {
     id: newId("member"),
     name,
-    role: input.role?.trim() || "Team member",
+    role: input.role?.trim() || input.jobTitle?.trim() || "Team member",
+    jobTitle: input.jobTitle?.trim() || input.role?.trim() || "Team member",
     email: input.email?.trim().toLowerCase() || `${name.toLowerCase().replace(/\s+/g, ".")}@business.local`,
+    phone: input.phone?.trim() || "",
+    managerId: input.managerId,
+    permissions: input.permissions ?? ["tasks", "calendar", "messages"],
     status: "Available",
     rating: "—",
     jobsThisWeek: 0,
     accessCode: makeAccessCode(),
-    department: "Operations",
+    department: input.department?.trim() || "Operations",
     shiftStart: "8:00 AM",
     shiftEnd: "4:30 PM",
     createdAt: nowIso(),
@@ -1668,6 +1681,58 @@ export function resolveDue(phrase: string): { label: string; date: string } {
 function titleCase(s: string): string {
   const t = s.trim().replace(/\s+/g, " ");
   return t ? t[0].toUpperCase() + t.slice(1) : t;
+}
+
+/** Parse commands like “Assign Mike the website redesign and make it due Friday.” */
+export function parseNaturalAssignCommand(text: string, members: TeamPerson[]): TaskSuggestion | null {
+  const trimmed = text.trim();
+  const assignMatch = trimmed.match(
+    /^(?:assign|give)\s+([a-z]+)\s+(?:the\s+)?(.+?)(?:\s+and\s+make\s+it\s+due\s+(.+))?$/i,
+  );
+  if (!assignMatch) return null;
+  const member = members.find((m) => m.name.toLowerCase().startsWith(assignMatch[1].toLowerCase()));
+  if (!member) return null;
+  const duePhrase = assignMatch[3] || trimmed;
+  const due = resolveDue(duePhrase);
+  let title = assignMatch[2].trim();
+  title = title.replace(/\s+and\s+make\s+it\s+due\s+.+$/i, "").trim();
+  return {
+    id: newId("sug"),
+    title: titleCase(title),
+    assigneeId: member.id,
+    assigneeName: member.name,
+    dueLabel: due.label,
+    dueDate: due.date,
+    source: trimmed,
+  };
+}
+
+/** Turn meeting action items into Workforce tasks. */
+export function createTeamTasksFromMeeting(
+  meeting: { id: string; title: string; tasks: { owner: string; task: string; due: string }[] },
+): number {
+  const members = loadTeamMembers();
+  let created = 0;
+  const existing = loadTeamTasks();
+  const newTasks = [...existing];
+  for (const item of meeting.tasks) {
+    const first = item.owner.trim().split(/\s+/)[0].toLowerCase();
+    const member = members.find((m) => m.name.toLowerCase().startsWith(first));
+    if (!member) continue;
+    const suggestion: TaskSuggestion = {
+      id: `meet-${meeting.id}-${item.task}`,
+      title: item.task,
+      assigneeId: member.id,
+      assigneeName: member.name,
+      dueLabel: item.due,
+      dueDate: "",
+      source: `From meeting: ${meeting.title}`,
+    };
+    newTasks.unshift(createTaskFromSuggestion(suggestion, member.id, "Meeting Intelligence"));
+    created += 1;
+  }
+  saveTeamTasks(newTasks);
+  return created;
 }
 
 /** Scan meeting notes / an email for commitments and propose tasks. */

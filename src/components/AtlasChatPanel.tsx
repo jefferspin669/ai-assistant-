@@ -4,6 +4,14 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
 import { commandSuggestions } from "@/lib/data";
 import { runOwnerCommand, type CommandResult } from "@/lib/commands";
+import {
+  createTaskFromSuggestion,
+  loadTeamMembers,
+  loadTeamTasks,
+  parseNaturalAssignCommand,
+  saveTeamTasks,
+  seedDemoTeamIfEmpty,
+} from "@/lib/user-workspace";
 import { FeedbackToolbar } from "@/components/FeedbackToolbar";
 import { requestConfirmation, resolveConfirmation } from "@/lib/confirmations";
 import { applyOwnerEffect } from "@/lib/dashboard";
@@ -106,6 +114,30 @@ export function AtlasChatPanel({ compact = false }: AtlasChatPanelProps) {
   async function askBrain(spoken: string) {
     const trimmed = spoken.trim();
     if (!trimmed || busy) return;
+
+    const assignSuggestion = (() => {
+      seedDemoTeamIfEmpty();
+      const members = loadTeamMembers();
+      return parseNaturalAssignCommand(trimmed, members);
+    })();
+    if (assignSuggestion) {
+      setBusy(true);
+      setMessages((prev) => [...prev, { kind: "user", text: trimmed }]);
+      const task = createTaskFromSuggestion(assignSuggestion, loadTeamMembers()[0]?.id ?? "", "Atlas Assistant");
+      saveTeamTasks([task, ...loadTeamTasks()]);
+      applyResult(
+        {
+          agent: "ceo",
+          agentLabel: "Atlas Assistant",
+          reply: `Done — I assigned “${task.title}” to ${assignSuggestion.assigneeName}${task.dueDate ? ` (due ${task.dueDate})` : ""}. They’ll get a notification and it’s on their dashboard.`,
+          needsConfirm: false,
+        },
+        trimmed,
+      );
+      setBusy(false);
+      return;
+    }
+
     setBusy(true);
     setMessages((prev) => [...prev, { kind: "user", text: trimmed }]);
     try {

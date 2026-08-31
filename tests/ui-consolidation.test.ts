@@ -61,6 +61,10 @@ describe("product consolidation", () => {
     ]);
   });
 
+  it("drops Command Language from nav", () => {
+    expect(hrefs).not.toContain("/app/command-language");
+  });
+
   it("parses bodies and returns apiSuccess without per-route wrappers", async () => {
     const parsed = parseBody(z.object({ name: z.string() }), { name: "Johnson Construction" });
     expect(parsed.name).toBe("Johnson Construction");

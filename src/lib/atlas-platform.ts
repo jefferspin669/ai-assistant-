@@ -194,7 +194,6 @@ export const navGroups: NavGroup[] = [
       { href: "/app/vision", label: "Atlas Vision" },
       { href: "/app/meetings", label: "Meeting Intelligence" },
       { href: "/app/projects", label: "Project Manager" },
-      { href: "/app/command-language", label: "Command Language" },
       { href: "/app/workflows", label: "Automation Builder" },
       { href: "/app/coach", label: "Live AI Coach" },
     ],

@@ -67,8 +67,8 @@ export function TeamMemberClient() {
       title="Team member"
       subtitle={member ? `${member.name} · ${member.role}` : "Member page"}
       action={
-        <Link className="btn btn-outline" href="/app/team">
-          Back to hub
+        <Link className="btn btn-outline" href="/app/workforce">
+          Back to Workforce
         </Link>
       }
     >
@@ -77,8 +77,8 @@ export function TeamMemberClient() {
         <section className="panel">
           <h2>Member not found</h2>
           <p className="panel-lead">This teammate may have been removed.</p>
-          <Link className="btn btn-dark" href="/app/team">
-            Return to Employee Hub
+          <Link className="btn btn-dark" href="/app/workforce">
+            Return to Workforce
           </Link>
         </section>
       ) : null}

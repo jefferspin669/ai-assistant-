@@ -13,7 +13,7 @@ export default function HomePage() {
         </a>
         <div className="site-nav-links">
           <a href="#mission">Mission</a>
-          <a href="#command-language">Command Language</a>
+          <a href="/app/ask">Atlas Assistant</a>
           <a href="#governance">Trust</a>
           <a href={sitePath("/login")}>Sign in</a>
           <a className="btn btn-primary" href={sitePath("/signup")}>
@@ -425,8 +425,8 @@ export default function HomePage() {
               </div>
             </div>
             <div style={{ marginTop: "1.25rem" }}>
-              <Link className="btn btn-dark" href="/app/command-language">
-                Open Command Language
+              <Link className="btn btn-primary" href="/app/ask">
+                Talk to Atlas Assistant
               </Link>
             </div>
           </div>

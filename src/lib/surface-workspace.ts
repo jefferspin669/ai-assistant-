@@ -38,6 +38,16 @@ export type UserMeeting = {
   platform: string;
   joinUrl: string;
   attendees: string[];
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  agenda: string[];
+  relatedProjectId?: string;
+  relatedProjectName?: string;
+  documents: string[];
+  calendarAdded: boolean;
+  reminderRules: { id: string; label: string; minutesBefore: number; enabled: boolean }[];
   recorded: string;
   summary: string;
   notes: string[];
@@ -52,7 +62,38 @@ export type UserMeeting = {
 const MEETINGS_KEY = "atlas-user-meetings-v1";
 
 export function loadMeetings(): UserMeeting[] {
-  return loadJson(MEETINGS_KEY, []);
+  const raw = loadJson<Partial<UserMeeting>[]>(MEETINGS_KEY, []);
+  return raw.map((m) => ({
+    id: m.id ?? newId("meet"),
+    title: m.title ?? "Meeting",
+    platform: m.platform ?? "Zoom",
+    joinUrl: m.joinUrl ?? "https://zoom.us/j/atlas-demo",
+    attendees: m.attendees ?? ["You"],
+    date: m.date ?? nowIso().slice(0, 10),
+    startTime: m.startTime ?? "10:00",
+    endTime: m.endTime ?? "11:00",
+    location: m.location ?? "Video call",
+    agenda: m.agenda ?? [],
+    relatedProjectId: m.relatedProjectId,
+    relatedProjectName: m.relatedProjectName,
+    documents: m.documents ?? [],
+    calendarAdded: m.calendarAdded ?? false,
+    reminderRules: m.reminderRules ?? [
+      { id: "1d", label: "1 day before", minutesBefore: 24 * 60, enabled: true },
+      { id: "1h", label: "1 hour before", minutesBefore: 60, enabled: true },
+      { id: "15m", label: "15 minutes before", minutesBefore: 15, enabled: true },
+      { id: "now", label: "Meeting starting now", minutesBefore: 0, enabled: true },
+    ],
+    recorded: m.recorded ?? "Not started",
+    summary: m.summary ?? "",
+    notes: m.notes ?? [],
+    decisions: m.decisions ?? [],
+    tasks: m.tasks ?? [],
+    deadlines: m.deadlines ?? [],
+    recapSent: m.recapSent ?? false,
+    status: m.status ?? "scheduled",
+    createdAt: m.createdAt ?? nowIso(),
+  }));
 }
 
 export function saveMeetings(meetings: UserMeeting[]) {
@@ -64,6 +105,13 @@ export function createMeeting(input: {
   platform?: string;
   attendees?: string;
   joinUrl?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  agenda?: string;
+  relatedProjectId?: string;
+  relatedProjectName?: string;
 }): UserMeeting {
   const title = input.title.trim() || "New meeting";
   const platform = input.platform?.trim() || "Zoom";
@@ -71,12 +119,31 @@ export function createMeeting(input: {
     .split(",")
     .map((a) => a.trim())
     .filter(Boolean);
+  const today = new Date();
+  const date =
+    input.date ||
+    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   return {
     id: newId("meet"),
     title,
     platform,
-    joinUrl: input.joinUrl?.trim() || `${platform.toLowerCase().replace(/\s+/g, "")}.app/j/atlas-${Date.now().toString(36)}`,
+    joinUrl: input.joinUrl?.trim() || `https://${platform.toLowerCase().replace(/\s+/g, "")}.app/j/atlas-${Date.now().toString(36)}`,
     attendees: attendees.length ? attendees : ["You"],
+    date,
+    startTime: input.startTime || "10:00",
+    endTime: input.endTime || "11:00",
+    location: input.location?.trim() || "Video call",
+    agenda: input.agenda ? input.agenda.split("\n").map((l) => l.trim()).filter(Boolean) : [],
+    relatedProjectId: input.relatedProjectId,
+    relatedProjectName: input.relatedProjectName,
+    documents: [],
+    calendarAdded: false,
+    reminderRules: [
+      { id: "1d", label: "1 day before", minutesBefore: 24 * 60, enabled: true },
+      { id: "1h", label: "1 hour before", minutesBefore: 60, enabled: true },
+      { id: "15m", label: "15 minutes before", minutesBefore: 15, enabled: true },
+      { id: "now", label: "Meeting starting now", minutesBefore: 0, enabled: true },
+    ],
     recorded: "Not started",
     summary: "Meeting created. Start it to capture notes, decisions, tasks, and deadlines.",
     notes: [],
@@ -119,7 +186,7 @@ export function startMeetingCapture(meeting: UserMeeting): UserMeeting {
 }
 
 export function endMeetingCapture(meeting: UserMeeting): UserMeeting {
-  return {
+  const ended: UserMeeting = {
     ...meeting,
     status: "ended",
     recorded: `Ended · ${Math.max(8, meeting.attendees.length * 6)} min`,
@@ -127,7 +194,24 @@ export function endMeetingCapture(meeting: UserMeeting): UserMeeting {
       meeting.summary.includes("capturing")
         ? `Wrapped ${meeting.title}. Atlas generated notes, decisions, tasks, and deadlines for ${meeting.attendees.join(", ")}.`
         : meeting.summary,
+    decisions:
+      meeting.decisions.length > 0
+        ? meeting.decisions
+        : ["Launch moved to September 18.", "Marketing budget approved."],
+    tasks:
+      meeting.tasks.length > 0
+        ? meeting.tasks
+        : [
+            { owner: "Marcus", task: "Finish landing page", due: "Fri" },
+            { owner: "Sarah", task: "Prepare campaign", due: "Thu" },
+            { owner: "David", task: "Review pricing", due: "Mon" },
+          ],
   };
+  return ended;
+}
+
+export function addMeetingToCalendar(meeting: UserMeeting): UserMeeting {
+  return { ...meeting, calendarAdded: true };
 }
 
 /* ─── Vision uploads ───────────────────────────────────────────────────── */
