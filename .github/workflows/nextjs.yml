@@ -48,6 +48,13 @@ jobs:
       - name: Build static site for GitHub Pages
         run: npm run build:pages
 
+      - name: Verify key Pages routes exported
+        run: |
+          for route in app app/autonomous app/tasks app/security-center app/business-engine app/market-intelligence; do
+            test -e "out/${route}.html" -o -e "out/${route}/index.html" || { echo "Missing $route"; ls -la out/${route}* 2>/dev/null || true; exit 1; }
+          done
+          echo "Key Pages routes present in ./out"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
