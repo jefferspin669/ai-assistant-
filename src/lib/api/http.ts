@@ -7,6 +7,7 @@ import { isAtlasError, AuthenticationError } from "@/lib/domain/errors";
 import type { Permission, SessionContext } from "@/lib/domain/types";
 import { requirePermission } from "@/lib/auth/permissions";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { flushDatabaseWrites } from "@/lib/db/store";
 import { readCachedSession } from "@/lib/auth/session-cache";
 import {
   provisionAtlasUserFromSupabase,
@@ -123,7 +124,9 @@ export function withAuth(handler: ApiHandler) {
         req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS"
           ? {}
           : await readJson(req);
-      return await handler({ req, workspace, body });
+      const response = await handler({ req, workspace, body });
+      await flushDatabaseWrites();
+      return response;
     } catch (error) {
       return jsonError(error);
     }

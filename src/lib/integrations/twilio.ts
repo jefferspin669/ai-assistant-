@@ -3,6 +3,9 @@ import { requireLive } from "@/lib/integrations/config";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { writeJsonFile, readJsonFile } from "@/lib/db/file-persist";
 import { emitEvent } from "@/lib/events/bus";
+import { requireOrganizationId } from "@/lib/auth/tenant";
+import { isProduction } from "@/lib/ops/environment";
+import { ValidationError } from "@/lib/domain/errors";
 
 export type MissedCallRecord = {
   id: string;
@@ -29,14 +32,15 @@ export async function sendSms(input: {
   to: string;
   body: string;
   organizationId?: string;
-}): Promise<{ ok: boolean; sid?: string; mode: "live" | "simulation"; error?: string }> {
+}): Promise<{ ok: boolean; sid?: string; mode: "live" | "simulation" | "unavailable"; error?: string }> {
+  const organizationId = requireOrganizationId(input.organizationId);
   const from = process.env.TWILIO_PHONE_NUMBER?.trim() || "";
   if (requireLive("twilio") && from) {
     try {
       const client = twilio(process.env.TWILIO_ACCOUNT_SID!.trim(), process.env.TWILIO_AUTH_TOKEN!.trim());
       const message = await client.messages.create({ to: input.to, from, body: input.body });
       await atlasStore.writeAudit({
-        organizationId: input.organizationId || atlasStore.defaultOrgId(),
+        organizationId,
         actor: "Twilio",
         action: "sms.sent",
         detail: { to: input.to, sid: message.sid },
@@ -51,8 +55,16 @@ export async function sendSms(input: {
     }
   }
 
+  if (isProduction()) {
+    return {
+      ok: false,
+      mode: "unavailable",
+      error: "Twilio is not configured — refusing to simulate SMS in production.",
+    };
+  }
+
   await atlasStore.writeAudit({
-    organizationId: input.organizationId || atlasStore.defaultOrgId(),
+    organizationId,
     actor: "Twilio(simulation)",
     action: "sms.simulated",
     detail: { to: input.to, body: input.body },
@@ -101,7 +113,9 @@ export async function handleMissedCall(input: {
   from: string;
   to: string;
   callSid?: string;
+  organizationId?: string;
 }): Promise<MissedCallRecord> {
+  const organizationId = requireOrganizationId(input.organizationId);
   const store = loadMissed();
   const record: MissedCallRecord = {
     id: input.callSid || `missed_${Date.now()}`,
@@ -114,7 +128,11 @@ export async function handleMissedCall(input: {
   const sms = await sendSms({
     to: input.from,
     body: `Hi — this is Atlas for ${process.env.ATLAS_BUSINESS_NAME || "our team"}. Sorry we missed your call. Reply with your name and what you need (e.g. "Jordan — AC not cooling") and I’ll get you on the schedule.`,
+    organizationId,
   });
+  if (!sms.ok && isProduction()) {
+    throw new ValidationError(sms.error || "Failed to send missed-call SMS.");
+  }
   if (sms.ok) {
     record.status = "sms_sent";
     record.smsSid = sms.sid;
@@ -124,14 +142,14 @@ export async function handleMissedCall(input: {
   saveMissed(store);
 
   await atlasStore.upsertCustomer({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     fullName: `Caller ${input.from}`,
     phone: input.from,
     notes: "Missed-call recovery lead",
   });
 
   await atlasStore.writeAudit({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     actor: "Receptionist",
     action: "missed_call.recovered",
     detail: { from: input.from, smsSid: sms.sid, mode: sms.mode },
@@ -139,13 +157,13 @@ export async function handleMissedCall(input: {
 
   emitEvent({
     type: "call.missed",
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     actorLabel: "Receptionist",
     payload: { from: input.from, to: input.to, callSid: input.callSid, phone: input.from, handled: true },
   });
   emitEvent({
     type: "lead.created",
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     actorLabel: "Receptionist",
     payload: { from: input.from, phone: input.from, source: "missed-call" },
   });
@@ -156,7 +174,9 @@ export async function handleMissedCall(input: {
 export async function handleInboundSms(input: {
   from: string;
   body: string;
+  organizationId?: string;
 }): Promise<{ reply: string; booked?: boolean }> {
+  const organizationId = requireOrganizationId(input.organizationId);
   const store = loadMissed();
   const open = store.calls.find((c) => c.from === input.from && c.status !== "booked");
   const text = input.body.trim();
@@ -175,7 +195,7 @@ export async function handleInboundSms(input: {
     starts.setHours(9, 0, 0, 0);
     const ends = new Date(starts.getTime() + 90 * 60 * 1000);
     await atlasStore.createAppointment({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId,
       title: `Service visit · ${open?.leadName || input.from}`,
       startsAt: starts.toISOString(),
       endsAt: ends.toISOString(),
@@ -184,13 +204,13 @@ export async function handleInboundSms(input: {
     if (open) open.status = "booked";
     saveMissed(store);
     const reply = `Booked a hold for tomorrow at 9:00 AM. Reply YES to confirm or suggest another time. — Atlas`;
-    await sendSms({ to: input.from, body: reply });
+    await sendSms({ to: input.from, body: reply, organizationId });
     return { reply, booked: true };
   }
 
   saveMissed(store);
   const reply = `Thanks${open?.leadName ? `, ${open.leadName}` : ""}. I logged that. Reply BOOK tomorrow or tell me a better day/time. — Atlas`;
-  await sendSms({ to: input.from, body: reply });
+  await sendSms({ to: input.from, body: reply, organizationId });
   return { reply, booked: false };
 }
 

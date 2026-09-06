@@ -46,6 +46,12 @@ export class RateLimitError extends AtlasError {
   }
 }
 
+export class PersistenceError extends AtlasError {
+  constructor(message = "Database write failed.") {
+    super(message, 503, "PERSISTENCE");
+  }
+}
+
 export function isAtlasError(error: unknown): error is AtlasError {
   return error instanceof AtlasError;
 }

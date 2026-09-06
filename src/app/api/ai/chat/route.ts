@@ -3,20 +3,39 @@ import { ok } from "@/lib/api/types";
 import { runAtlasBrain } from "@/lib/brain";
 import { applyAwayMode, appendStandingOrder } from "@/lib/autonomy/policy";
 import { isAwayPhrase, LEVEL_LABELS } from "@/lib/autonomy";
-import { newId, nowIso, loadDatabase, saveDatabase } from "@/lib/db/store";
+import { newId, nowIso, loadDatabase, saveDatabase, flushDatabaseWrites } from "@/lib/db/store";
 import { ensureServerDatabase } from "@/lib/db/ensure";
-import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
+import { clientKey, rateLimitAsync } from "@/lib/auth/rate-limit";
 import { looksLikeOrchestratorGoal, orchestrate } from "@/lib/orchestrator";
+import { isProduction } from "@/lib/ops/environment";
+import { AuthenticationError } from "@/lib/domain/errors";
 
 export async function POST(req: Request) {
   try {
-    rateLimit(`chat:${clientKey(req)}`, 40, 60_000);
+    await rateLimitAsync(`chat:${clientKey(req)}`, 40, 60_000);
   } catch (error) {
     return jsonError(error);
   }
   await ensureServerDatabase();
   const body = await readJson(req);
   const message = String(body.message || body.text || "");
+
+  let orgId: string | undefined;
+  let userId: string | undefined;
+  try {
+    const ctx = await resolveSession(req);
+    orgId = ctx.organizationId;
+    userId = ctx.userId;
+  } catch {
+    if (isProduction()) {
+      return jsonError(new AuthenticationError("Sign in required to chat with Atlas."));
+    }
+    // Dev-only anonymous chat against the seeded demo tenant.
+    const data = loadDatabase();
+    orgId = data.organizations[0]?.id;
+    userId = data.users[0]?.id;
+  }
+
   const brain = await runAtlasBrain({
     message,
     businessName: body.businessName ? String(body.businessName) : undefined,
@@ -37,15 +56,6 @@ export async function POST(req: Request) {
 
   const data = loadDatabase();
   const stamp = nowIso();
-  let orgId = data.organizations[0]?.id;
-  let userId = data.users[0]?.id || "user_demo";
-  try {
-    const ctx = await resolveSession(req);
-    orgId = ctx.organizationId;
-    userId = ctx.userId;
-  } catch {
-    /* demo chat still works without a cookie */
-  }
   let awayPolicy = null;
   if (orgId) {
     for (const call of brain.toolCalls || []) {
@@ -63,7 +73,7 @@ export async function POST(req: Request) {
   const goalText =
     (brain.toolCalls || []).find((call) => call.name === "run_business_goal")?.arguments.goal ||
     (looksLikeOrchestratorGoal(message) ? message : "");
-  if (orgId && typeof goalText === "string" && goalText.trim()) {
+  if (orgId && userId && typeof goalText === "string" && goalText.trim()) {
     const member = data.organization_members.find(
       (row) => row.organization_id === orgId && row.user_id === userId && row.status === "active",
     );
@@ -83,7 +93,7 @@ export async function POST(req: Request) {
   if (!conversation) {
     conversation = {
       id: newId("chat"),
-      userId,
+      userId: userId || "anonymous",
       title: message.slice(0, 48) || "Atlas chat",
       preview: brain.reply.slice(0, 80),
       messages: [],
@@ -106,6 +116,7 @@ export async function POST(req: Request) {
     ? latest.conversations.map((c) => (c.id === conversation.id ? conversation : c))
     : [conversation, ...latest.conversations];
   saveDatabase({ ...latest, conversations });
+  await flushDatabaseWrites();
 
   return apiResponse(
     ok({

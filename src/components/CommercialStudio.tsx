@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SiteLink } from "@/components/SiteLink";
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import type { IntegrationMode } from "@/lib/integrations/config";
 
 type IntegrationStatus = {
   id: string;
   label: string;
   configured: boolean;
-  mode: "live" | "simulation";
+  mode: IntegrationMode;
   detail: string;
 };
 
@@ -141,13 +143,13 @@ export function CommercialStudio() {
         <section className="panel">
           <h2>Commercial stack</h2>
           <p className="panel-lead">
-            Live when credentials exist; simulation otherwise. This is the beachhead — not another
-            mock studio.
+            Every system is labeled Live, Partially connected, Simulation, or Unavailable.
+            Production refuses quiet simulation for Twilio/SMS.
           </p>
           <div className="list">
             {(status?.integrations || []).map((item) => (
               <div className="list-row" key={item.id}>
-                <span className={`badge${item.mode === "live" ? " ok" : " warn"}`}>{item.mode}</span>
+                <ConnectionStatusBadge mode={item.mode} />
                 <div>
                   <p>
                     <strong>{item.label}</strong>

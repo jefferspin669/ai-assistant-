@@ -17,43 +17,88 @@ function nextPath(account: PublicAccount | null | undefined) {
   }
 }
 
+type ServerLoginResult = {
+  ok?: boolean;
+  success?: boolean;
+  error?: string;
+  data?: {
+    mfaRequired?: boolean;
+    challengeId?: string | null;
+    full_name?: string;
+    userId?: string;
+  };
+};
+
+/**
+ * Owner login goes through /api/auth/login so the atlas_session cookie matches
+ * protected APIs. AccountProvider remains for profile/UI state after success.
+ */
 export default function LoginPage() {
-  const { login, verify2fa, loginOAuth, loginPasskey, account, ready } = useAccount();
+  const { loginOAuth, loginPasskey, account, ready, refresh } = useAccount();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (ready && account) hardNavigate(nextPath(account));
   }, [ready, account]);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    const result = login(email, password);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = (await res.json()) as ServerLoginResult;
+      if (!res.ok || json.ok === false || json.success === false) {
+        setError(json.error || "Email or password doesn’t match.");
+        return;
+      }
+      if (json.data?.mfaRequired) {
+        setChallengeId(json.data.challengeId || "mfa");
+        return;
+      }
+      refresh();
+      hardNavigate("/app");
+    } catch {
+      setError("Could not reach Atlas. Try again.");
+    } finally {
+      setBusy(false);
     }
-    if ("requires2fa" in result && result.requires2fa) {
-      setChallengeId(result.challengeId);
-      return;
-    }
-    hardNavigate(nextPath("account" in result ? result.account : null));
   }
 
-  function onVerify(e: FormEvent) {
+  async function onVerify(e: FormEvent) {
     e.preventDefault();
     if (!challengeId) return;
     setError("");
-    const result = verify2fa(challengeId, code);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/mfa", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const json = (await res.json()) as ServerLoginResult;
+      if (!res.ok || json.ok === false || json.success === false) {
+        setError(json.error || "Invalid MFA code.");
+        return;
+      }
+      refresh();
+      hardNavigate("/app");
+    } catch {
+      setError("Could not verify MFA. Try again.");
+    } finally {
+      setBusy(false);
     }
-    hardNavigate("/app");
   }
 
   function onOAuth(provider: OAuthProvider) {
@@ -90,8 +135,8 @@ export default function LoginPage() {
           <h1>{challengeId ? "Two-factor check" : "Welcome back"}</h1>
           <p>
             {challengeId
-              ? "Enter your authenticator or recovery code to finish signing in."
-              : "Email/password, passkey, or Google / Apple / Microsoft."}
+              ? "Enter your authenticator code to finish signing in."
+              : "Server session login — email/password issues an atlas_session cookie for APIs."}
           </p>
         </div>
 
@@ -110,8 +155,8 @@ export default function LoginPage() {
                 />
               </label>
               {error ? <p className="auth-error">{error}</p> : null}
-              <button className="btn btn-dark" type="submit">
-                Verify and continue
+              <button className="btn btn-dark" type="submit" disabled={busy}>
+                {busy ? "Verifying…" : "Verify and continue"}
               </button>
             </form>
           ) : (
@@ -124,15 +169,10 @@ export default function LoginPage() {
                     className="btn btn-outline"
                     onClick={() => onOAuth(provider)}
                   >
-                    {provider[0].toUpperCase() + provider.slice(1)}
+                    {provider}
                   </button>
                 ))}
               </div>
-
-              <div className="auth-divider">
-                <span>or email</span>
-              </div>
-
               <form className="form-grid" onSubmit={onSubmit}>
                 <label>
                   Email
@@ -140,7 +180,6 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@business.com"
                     autoComplete="email"
                     required
                   />
@@ -156,23 +195,13 @@ export default function LoginPage() {
                   />
                 </label>
                 {error ? <p className="auth-error">{error}</p> : null}
-                <div className="auth-actions">
-                  <button className="btn btn-dark" type="submit">
-                    Sign in
-                  </button>
-                  <button className="btn btn-outline" type="button" onClick={onPasskey}>
-                    Sign in with passkey
-                  </button>
-                  <p>
-                    <a href={sitePath("/forgot-password")}>Forgot password?</a>
-                    {" · "}
-                    <a href={sitePath("/signup")}>Create account</a>
-                  </p>
-                  <p>
-                    Employee? <a href={sitePath("/employee/login")}>Sign in to your work page</a>
-                  </p>
-                </div>
+                <button className="btn btn-dark" type="submit" disabled={busy}>
+                  {busy ? "Signing in…" : "Sign in"}
+                </button>
               </form>
+              <button className="btn btn-outline" type="button" onClick={onPasskey}>
+                Use passkey
+              </button>
             </>
           )}
         </div>

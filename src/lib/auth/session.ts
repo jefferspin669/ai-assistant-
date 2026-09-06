@@ -8,6 +8,7 @@ import {
   verifyPassword,
 } from "@/lib/auth/password";
 import { cacheSession } from "@/lib/auth/session-cache";
+import { isProduction } from "@/lib/ops/environment";
 
 export const SESSION_COOKIE = "atlas_session";
 export const MFA_COOKIE = "atlas_mfa";
@@ -17,19 +18,55 @@ const LOCK_AFTER = 5;
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
 
 export function cookieHeader(token: string) {
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_MS / 1000)}`;
+  const secure =
+    isProduction() ||
+    process.env.COOKIE_SECURE === "1" ||
+    process.env.COOKIE_SECURE === "true";
+  const parts = [
+    `${SESSION_COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${Math.floor(SESSION_MS / 1000)}`,
+  ];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
 }
 
 export function mfaCookieHeader(token: string) {
-  return `${MFA_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(MFA_CHALLENGE_MS / 1000)}`;
+  const secure =
+    isProduction() ||
+    process.env.COOKIE_SECURE === "1" ||
+    process.env.COOKIE_SECURE === "true";
+  const parts = [
+    `${MFA_COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${Math.floor(MFA_CHALLENGE_MS / 1000)}`,
+  ];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
 }
 
 export function clearCookieHeader() {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  const secure =
+    isProduction() ||
+    process.env.COOKIE_SECURE === "1" ||
+    process.env.COOKIE_SECURE === "true";
+  const parts = [`${SESSION_COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
 }
 
 export function clearMfaCookieHeader() {
-  return `${MFA_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  const secure =
+    isProduction() ||
+    process.env.COOKIE_SECURE === "1" ||
+    process.env.COOKIE_SECURE === "true";
+  const parts = [`${MFA_COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (secure) parts.push("Secure");
+  return parts.join("; ");
 }
 
 export function readCookie(req: Request, name = SESSION_COOKIE): string | null {
@@ -299,6 +336,9 @@ export function completeMfaLogin(challengeToken: string) {
 }
 
 export function mintDevSession(): { token: string; ctx: SessionContext } {
+  if (isProduction()) {
+    throw new AuthenticationError("Dev session minting is disabled in production.");
+  }
   const db = database();
   const user = db.users[0];
   const org = db.organizations[0];

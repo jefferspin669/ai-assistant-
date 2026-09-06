@@ -782,15 +782,46 @@ export function saveDatabase(db: AtlasDatabase) {
       writeJsonFile(DB_FILE, next);
     }
     if (postgresLive()) {
-      void import("@/lib/db/postgres")
-        .then((mod) => mod.persistAtlasDatabase(next))
-        .catch((error) => {
-          console.error("[atlas:pg]", error instanceof Error ? error.message : error);
-        });
+      enqueuePostgresPersist(next);
     }
     return;
   }
   localStorage.setItem(DB_KEY, JSON.stringify(next));
+}
+
+/** Await queued Postgres snapshot writes. Throws PersistenceError on failure. */
+export async function flushDatabaseWrites() {
+  if (typeof window !== "undefined") return;
+  await persistChain;
+  if (lastPersistError) {
+    const err = lastPersistError;
+    lastPersistError = null;
+    const { PersistenceError } = await import("@/lib/domain/errors");
+    throw new PersistenceError(err.message);
+  }
+}
+
+/** Memory + JSON immediately; Postgres is awaited before returning. */
+export async function saveDatabaseAsync(db: AtlasDatabase) {
+  saveDatabase(db);
+  await flushDatabaseWrites();
+}
+
+let persistChain: Promise<void> = Promise.resolve();
+let lastPersistError: Error | null = null;
+
+function enqueuePostgresPersist(next: AtlasDatabase) {
+  persistChain = persistChain
+    .catch(() => undefined)
+    .then(async () => {
+      const mod = await import("@/lib/db/postgres");
+      await mod.persistAtlasDatabase(next);
+      lastPersistError = null;
+    })
+    .catch((error) => {
+      lastPersistError = error instanceof Error ? error : new Error(String(error));
+      console.error("[atlas:pg]", lastPersistError.message);
+    });
 }
 
 export function resetDatabase() {
