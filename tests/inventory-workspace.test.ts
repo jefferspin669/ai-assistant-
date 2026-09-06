@@ -6,7 +6,7 @@ import {
   parseReceiptInventoryLines,
   inventoryIntelligence,
   loadInventoryItems,
-  useInventory,
+  recordInventoryUse,
   loadStockMovements,
 } from "../src/lib/inventory-workspace";
 
@@ -80,7 +80,7 @@ describe("inventory workspace", () => {
   it("decrements stock when employee uses inventory", () => {
     const paper = loadInventoryItems().find((i) => i.name === "Printer Paper");
     expect(paper).toBeTruthy();
-    useInventory(paper!.id, 3, "emp-1", "Marcus Lee", "Office Renovation");
+    recordInventoryUse(paper!.id, 3, "emp-1", "Marcus Lee", "Office Renovation");
     const updated = loadInventoryItems().find((i) => i.id === paper!.id);
     expect(updated?.quantity).toBe(11);
     const move = loadStockMovements().find((m) => m.project === "Office Renovation");

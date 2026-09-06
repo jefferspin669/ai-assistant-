@@ -13,7 +13,7 @@ import {
   stockIn,
   stockOut,
   transferInventory,
-  useInventory,
+  recordInventoryUse,
   type InventoryItem,
   type StockMovement,
 } from "@/lib/inventory-workspace";
@@ -94,7 +94,7 @@ function InventoryStudioInner() {
     const member = loadTeamMembers().find((m) => m.id === useEmployeeId);
     if (!member) return;
     const qty = Number(useQty) || 0;
-    useInventory(selected.id, qty, member.id, member.name, useProject);
+    recordInventoryUse(selected.id, qty, member.id, member.name, useProject);
     refresh();
     setNote(`${member.name} used ${qty} ${selected.unit} — ${new Date().toLocaleTimeString()}.`);
   }
