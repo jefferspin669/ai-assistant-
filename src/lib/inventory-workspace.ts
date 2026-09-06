@@ -157,7 +157,8 @@ export function stockOut(itemId: string, quantity: number, note?: string) {
   });
 }
 
-export function useInventory(
+/** Record an employee consuming stock (not a React hook). */
+export function recordInventoryUse(
   itemId: string,
   quantity: number,
   employeeId: string,
