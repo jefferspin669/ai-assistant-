@@ -2,11 +2,17 @@ import { AuthenticationError } from "@/lib/domain/errors";
 import type { OrgRole, SessionContext } from "@/lib/domain/types";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database } from "@/lib/services/access";
-import { hashPassword, verifyPassword } from "@/lib/secure-store";
+import {
+  hashPassword,
+  needsPasswordRehash,
+  verifyPassword,
+} from "@/lib/auth/password";
 import { cacheSession } from "@/lib/auth/session-cache";
 
 export const SESSION_COOKIE = "atlas_session";
+export const MFA_COOKIE = "atlas_mfa";
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const MFA_CHALLENGE_MS = 5 * 60 * 1000;
 const LOCK_AFTER = 5;
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
 
@@ -14,8 +20,16 @@ export function cookieHeader(token: string) {
   return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_MS / 1000)}`;
 }
 
+export function mfaCookieHeader(token: string) {
+  return `${MFA_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(MFA_CHALLENGE_MS / 1000)}`;
+}
+
 export function clearCookieHeader() {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
+
+export function clearMfaCookieHeader() {
+  return `${MFA_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
 export function readCookie(req: Request, name = SESSION_COOKIE): string | null {
@@ -100,6 +114,48 @@ export function sessionFromToken(raw: string | null): SessionContext {
   };
 }
 
+export function createMfaChallenge(userId: string, organizationId: string) {
+  const db = database();
+  const token = randomToken();
+  const row = {
+    id: newId("mfa"),
+    token,
+    user_id: userId,
+    organization_id: organizationId,
+    created_at: nowIso(),
+    expires_at: new Date(Date.now() + MFA_CHALLENGE_MS).toISOString(),
+    consumed_at: null as string | null,
+  };
+  saveDatabase({
+    ...db,
+    mfa_challenges: [row, ...db.mfa_challenges].slice(0, 200),
+  });
+  return row;
+}
+
+export function mfaChallengeFromToken(raw: string | null) {
+  if (!raw) throw new AuthenticationError("MFA challenge required.");
+  const db = database();
+  const row = db.mfa_challenges.find((item) => item.token === raw && !item.consumed_at);
+  if (!row) throw new AuthenticationError("MFA challenge invalid.");
+  if (+new Date(row.expires_at) < Date.now()) {
+    throw new AuthenticationError("MFA challenge expired. Sign in again.");
+  }
+  return row;
+}
+
+export function consumeMfaChallenge(token: string) {
+  const db = database();
+  const row = mfaChallengeFromToken(token);
+  saveDatabase({
+    ...db,
+    mfa_challenges: db.mfa_challenges.map((item) =>
+      item.token === token ? { ...item, consumed_at: nowIso() } : item,
+    ),
+  });
+  return row;
+}
+
 export function revokeSession(sessionId: string) {
   const db = database();
   saveDatabase({
@@ -160,6 +216,20 @@ export function consumePasswordReset(resetToken: string, password: string) {
   return row.user_id;
 }
 
+function upgradePasswordHashIfNeeded(userId: string, password: string, stored: string) {
+  if (!needsPasswordRehash(stored)) return;
+  const db = database();
+  saveDatabase({
+    ...db,
+    user_credentials: db.user_credentials.map((item) =>
+      item.user_id === userId ? { ...item, password_hash: hashPassword(password) } : item,
+    ),
+  });
+}
+
+/**
+ * Password check only. When MFA is enabled, returns a challenge — never a full session.
+ */
 export function authenticate(emailRaw: string, password: string, ip: string) {
   const email = emailRaw.trim().toLowerCase();
   if (isLocked(email)) {
@@ -175,17 +245,56 @@ export function authenticate(emailRaw: string, password: string, ip: string) {
     throw new AuthenticationError("Email or password doesn’t match.");
   }
   recordLoginAttempt(email, true, ip);
+  upgradePasswordHashIfNeeded(user.id, password, credential.password_hash);
+
   const member = db.organization_members.find(
     (row) => row.user_id === user.id && row.status === "active",
   );
   if (!member) throw new AuthenticationError("No active organization membership.");
+
+  if (credential.mfa_enabled) {
+    const challenge = createMfaChallenge(user.id, member.organization_id);
+    return {
+      user,
+      organizationId: member.organization_id,
+      role: member.role as OrgRole,
+      mfaRequired: true as const,
+      challengeToken: challenge.token,
+      challengeId: challenge.id,
+      token: null as string | null,
+      sessionId: null as string | null,
+    };
+  }
+
   const session = createSession(user.id, member.organization_id);
   return {
     user,
     organizationId: member.organization_id,
     role: member.role as OrgRole,
+    mfaRequired: false as const,
+    challengeToken: null as string | null,
+    challengeId: null as string | null,
     ...session,
-    mfaRequired: Boolean(credential.mfa_enabled),
+  };
+}
+
+export function completeMfaLogin(challengeToken: string) {
+  const challenge = consumeMfaChallenge(challengeToken);
+  const session = createSession(challenge.user_id, challenge.organization_id);
+  const db = database();
+  const user = db.users.find((row) => row.id === challenge.user_id);
+  const member = db.organization_members.find(
+    (row) =>
+      row.user_id === challenge.user_id &&
+      row.organization_id === challenge.organization_id &&
+      row.status === "active",
+  );
+  if (!user || !member) throw new AuthenticationError("No active organization membership.");
+  return {
+    user,
+    organizationId: member.organization_id,
+    role: member.role as OrgRole,
+    ...session,
   };
 }
 
@@ -253,4 +362,3 @@ export function enableMfa(userId: string, secret: string) {
     ),
   });
 }
-

@@ -152,6 +152,10 @@ export type Permission =
   | "calendar.write"
   | "payments.read"
   | "payments.refund"
+  | "actions.sms"
+  | "actions.invoice"
+  | "workspace.read"
+  | "workspace.write"
   | "employees.manage"
   | "atlas.autonomous"
   | "audit.read";

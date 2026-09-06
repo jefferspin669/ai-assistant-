@@ -256,8 +256,8 @@ export function CommercialStudio() {
         <section className="panel">
           <h2>Real actions + Stripe</h2>
           <p className="panel-lead">
-            SMS/invoice require <code>approved: true</code> after owner OK. Checkout opens Atlas
-            Business.
+            SMS/invoice stage a server approval first. Client <code>approved</code> flags are
+            ignored — use Approvals, then resend with <code>confirmationId</code>.
           </p>
           <div className="train-form">
             <input
@@ -282,7 +282,6 @@ export function CommercialStudio() {
                   amount: Number(invoiceAmount),
                   customerPhone: phone,
                   memo: "Service visit",
-                  approved: false,
                 })
               }
             >
@@ -298,11 +297,11 @@ export function CommercialStudio() {
                   amount: Number(invoiceAmount),
                   customerPhone: phone,
                   memo: "Service visit",
-                  approved: true,
+                  confirmationId: note.match(/appr-[a-z0-9-]+/i)?.[0],
                 })
               }
             >
-              Send invoice + SMS
+              Send invoice (with confirmationId)
             </button>
             <button
               className="btn btn-outline"
@@ -312,11 +311,10 @@ export function CommercialStudio() {
                 void postJson("/api/actions/send-sms", {
                   to: phone,
                   body: "Atlas here — your visit is confirmed for tomorrow 9am.",
-                  approved: true,
                 })
               }
             >
-              Send SMS
+              Stage SMS
             </button>
             <button
               className="btn btn-dark"

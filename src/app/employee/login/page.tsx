@@ -2,52 +2,83 @@
 
 import Link from "@/components/SiteLink";
 import { FormEvent, useEffect, useState } from "react";
-import {
-  authenticateEmployee,
-  employeeAccessCode,
-  loadSignedInEmployee,
-  loadTeamMembers,
-  saveEmployeeSession,
-  seedDemoTeamIfEmpty,
-  type TeamPerson,
-} from "@/lib/user-workspace";
 import { hardNavigate, sitePath } from "@/lib/hard-nav";
+
+type DemoAccount = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  accessCode?: string;
+};
 
 export default function EmployeeLoginPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [members, setMembers] = useState<TeamPerson[]>([]);
-  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [demos, setDemos] = useState<DemoAccount[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
-    // Make sure there is at least a demo roster so the portal is usable.
-    seedDemoTeamIfEmpty();
-    if (loadSignedInEmployee()) {
-      hardNavigate("/employee");
-      return;
-    }
-    setMembers(loadTeamMembers());
-    setReady(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const me = await fetch("/api/employee/me", { credentials: "include" });
+        if (me.ok) {
+          hardNavigate("/employee");
+          return;
+        }
+      } catch {
+        /* not signed in */
+      }
+      try {
+        const res = await fetch("/api/employee/auth/login", { credentials: "include" });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          data?: { demos?: DemoAccount[]; demoMode?: boolean };
+        };
+        if (!cancelled && json.ok && json.data?.demoMode) {
+          setDemoMode(true);
+          setDemos(json.data.demos || []);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    const member = authenticateEmployee(email, code);
-    if (!member) {
-      setError("We couldn't match that email and code. Check with your manager.");
-      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/employee/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, accessCode: code }),
+      });
+      const json = (await res.json()) as { ok?: boolean; success?: boolean; error?: string };
+      if (!res.ok || json.ok === false || json.success === false) {
+        setError(json.error || "We couldn't match that email and code. Check with your manager.");
+        return;
+      }
+      hardNavigate("/employee");
+    } catch {
+      setError("Could not reach Atlas. Try again.");
+    } finally {
+      setBusy(false);
     }
-    saveEmployeeSession(member.id);
-    // The employee clocks in from their Time clock — that's the single source
-    // of clocked-in/online state, so we don't force presence here.
-    hardNavigate("/employee");
   }
 
-  function fillDemo(member: TeamPerson) {
+  function fillDemo(member: DemoAccount) {
     setEmail(member.email);
-    setCode(employeeAccessCode(member));
+    setCode((member.accessCode || "").toUpperCase());
     setError("");
   }
 
@@ -86,20 +117,20 @@ export default function EmployeeLoginPage() {
               />
             </label>
             {error ? <p className="auth-error">{error}</p> : null}
-            <button className="btn btn-dark" type="submit">
-              Sign in to my page
+            <button className="btn btn-dark" type="submit" disabled={busy}>
+              {busy ? "Signing in…" : "Sign in to my page"}
             </button>
           </form>
 
-          {ready && members.length > 0 ? (
+          {demoMode && demos.length > 0 ? (
             <>
               <div className="auth-divider">
                 <span>demo accounts</span>
               </div>
               <div className="list">
-                {members.map((member) => (
+                {demos.map((member) => (
                   <div className="list-row" key={member.id}>
-                    <span className="badge">{employeeAccessCode(member)}</span>
+                    <span className="badge">{member.accessCode}</span>
                     <p>
                       <strong>{member.name}</strong>
                       <span className="muted-line">{member.email}</span>
