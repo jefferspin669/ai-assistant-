@@ -2,6 +2,8 @@ import { getAppUrl, requireLive } from "@/lib/integrations/config";
 import { writeJsonFile, readJsonFile } from "@/lib/db/file-persist";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { decryptSecret, encryptSecret } from "@/lib/secrets/vault";
+import { requireOrganizationId } from "@/lib/auth/tenant";
+import { isProduction } from "@/lib/ops/environment";
 
 export type CalendarProvider = "google" | "microsoft";
 
@@ -207,7 +209,9 @@ export async function createExternalEvent(input: {
   startsAt: string;
   endsAt: string;
   description?: string;
+  organizationId?: string;
 }) {
+  const organizationId = requireOrganizationId(input.organizationId);
   const store = loadTokens();
   const provider =
     input.provider ||
@@ -215,8 +219,11 @@ export async function createExternalEvent(input: {
     (store.tokens.find((t) => t.provider === "microsoft")?.provider as CalendarProvider | undefined);
 
   if (!provider) {
+    if (isProduction()) {
+      throw new Error("No calendar connected — refusing to simulate a booking in production.");
+    }
     const local = await atlasStore.createAppointment({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId,
       title: input.title,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
@@ -246,7 +253,7 @@ export async function createExternalEvent(input: {
       throw new Error(`Google Calendar error: ${JSON.stringify(json).slice(0, 200)}`);
     }
     await atlasStore.createAppointment({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId,
       title: input.title,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
@@ -273,7 +280,7 @@ export async function createExternalEvent(input: {
     throw new Error(`Microsoft Calendar error: ${JSON.stringify(json).slice(0, 200)}`);
   }
   await atlasStore.createAppointment({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     title: input.title,
     startsAt: input.startsAt,
     endsAt: input.endsAt,

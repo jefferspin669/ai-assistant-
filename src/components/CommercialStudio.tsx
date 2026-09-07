@@ -44,13 +44,20 @@ export function CommercialStudio() {
   const [invoiceName, setInvoiceName] = useState("Jamie Cole");
   const [invoiceAmount, setInvoiceAmount] = useState("1250");
 
+  const twilioMode =
+    status?.integrations.find((i) => i.id === "twilio")?.mode || ("simulation" as IntegrationMode);
+
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/integrations/status");
+    try {
+      await fetch("/api/session", { credentials: "include" });
+    } catch {
+      /* session mint is best-effort in development */
+    }
+    const res = await fetch("/api/integrations/status", { credentials: "include" });
     const json = (await res.json()) as { ok: boolean; data?: StatusPayload };
     if (json.ok && json.data) setStatus(json.data);
     try {
-      await fetch("/api/session");
-      const auto = (await fetch("/api/autonomy").then((r) => r.json())) as {
+      const auto = (await fetch("/api/autonomy", { credentials: "include" }).then((r) => r.json())) as {
         ok?: boolean;
         data?: {
           policy?: {
@@ -88,6 +95,7 @@ export function CommercialStudio() {
     try {
       const res = await fetch(url, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -173,7 +181,12 @@ export function CommercialStudio() {
           <h2>Receptionist · missed-call recovery</h2>
           <p className="panel-lead">
             Twilio webhooks: <code>/api/webhooks/twilio/voice</code>,{" "}
-            <code>/api/webhooks/twilio/sms</code>. Demo without Twilio below.
+            <code>/api/webhooks/twilio/sms</code>. Requires a signed-in owner session.
+            {twilioMode === "live"
+              ? " Twilio is Live — recovery sends a real SMS."
+              : twilioMode === "unavailable"
+                ? " Unavailable in this environment."
+                : " Development only: may log a simulated SMS when Twilio credentials are unset."}
           </p>
           <div className="train-form">
             <input
@@ -185,10 +198,10 @@ export function CommercialStudio() {
             <button
               className="btn btn-dark"
               type="button"
-              disabled={busy}
+              disabled={busy || twilioMode === "unavailable"}
               onClick={() => void postJson("/api/receptionist/missed-call", { from: phone })}
             >
-              Simulate missed call
+              {twilioMode === "live" ? "Trigger missed-call recovery" : "Dev: trigger recovery (simulation)"}
             </button>
           </div>
           <div className="list" style={{ marginTop: "0.9rem" }}>

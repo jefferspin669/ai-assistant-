@@ -52,6 +52,44 @@ export function stageActionApproval(
   return row;
 }
 
+/** Stage a Brain-proposed risky action for human approval (tenant-scoped). */
+export function stageBrainActionApproval(
+  ctx: SessionContext,
+  proposal: {
+    kind: string;
+    title: string;
+    summary: string;
+    details?: string[];
+    impact?: string;
+    confirmPrompt?: string;
+    doneLabel?: string;
+  },
+) {
+  requireOrgMember(database(), ctx);
+  assertHumanApproval(ctx);
+  const db = database();
+  const row = {
+    id: newId("appr"),
+    organization_id: ctx.organizationId,
+    requested_by: ctx.userId,
+    action_type: `BRAIN_${String(proposal.kind || "other").toUpperCase()}`,
+    payload: {
+      ...proposal,
+      source: "atlas_brain",
+    },
+    status: "pending" as const,
+    created_at: nowIso(),
+    resolved_at: null,
+  };
+  saveDatabase({ ...db, approvals: [row, ...db.approvals] });
+  writeAudit(ctx, {
+    action: `brain proposed ${row.action_type}`,
+    entityType: "approval",
+    entityId: row.id,
+  });
+  return row;
+}
+
 /**
  * Verify a server-side approval that a human already marked approved.
  * Never trust a client `approved: true` flag.

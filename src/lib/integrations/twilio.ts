@@ -1,21 +1,24 @@
 import twilio from "twilio";
-import { requireLive } from "@/lib/integrations/config";
+import { assertLiveOrDevSimulation } from "@/lib/integrations/config";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { writeJsonFile, readJsonFile } from "@/lib/db/file-persist";
 import { emitEvent } from "@/lib/events/bus";
 import { requireOrganizationId } from "@/lib/auth/tenant";
 import { isProduction } from "@/lib/ops/environment";
 import { ValidationError } from "@/lib/domain/errors";
+import { createExternalEvent } from "@/lib/integrations/calendar";
 
 export type MissedCallRecord = {
   id: string;
+  organizationId: string;
   from: string;
   to: string;
   receivedAt: string;
   smsSid?: string;
-  status: "received" | "sms_sent" | "replied" | "booked" | "escalated";
+  status: "received" | "sms_sent" | "replied" | "booked" | "escalated" | "failed";
   leadName?: string;
   notes?: string;
+  mode?: "live" | "simulation" | "unavailable";
 };
 
 type MissedStore = { calls: MissedCallRecord[] };
@@ -35,7 +38,8 @@ export async function sendSms(input: {
 }): Promise<{ ok: boolean; sid?: string; mode: "live" | "simulation" | "unavailable"; error?: string }> {
   const organizationId = requireOrganizationId(input.organizationId);
   const from = process.env.TWILIO_PHONE_NUMBER?.trim() || "";
-  if (requireLive("twilio") && from) {
+  const mode = assertLiveOrDevSimulation("twilio");
+  if (mode === "live" && from) {
     try {
       const client = twilio(process.env.TWILIO_ACCOUNT_SID!.trim(), process.env.TWILIO_AUTH_TOKEN!.trim());
       const message = await client.messages.create({ to: input.to, from, body: input.body });
@@ -55,7 +59,7 @@ export async function sendSms(input: {
     }
   }
 
-  if (isProduction()) {
+  if (mode === "unavailable" || isProduction()) {
     return {
       ok: false,
       mode: "unavailable",
@@ -74,7 +78,7 @@ export async function sendSms(input: {
 
 /** TwiML for inbound voice — answer, gather intent, or take message. */
 export function buildVoiceAnswerTwiml(opts: { gatherActionUrl: string; businessName: string }) {
-  const name = opts.businessName.replace(/[<>&]/g, "");
+  const name = opts.businessName.replace(/[<>&']/g, "");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Joanna">Thanks for calling ${name}. This is Atlas, your AI receptionist.</Say>
@@ -119,6 +123,7 @@ export async function handleMissedCall(input: {
   const store = loadMissed();
   const record: MissedCallRecord = {
     id: input.callSid || `missed_${Date.now()}`,
+    organizationId,
     from: input.from,
     to: input.to,
     receivedAt: new Date().toISOString(),
@@ -130,15 +135,20 @@ export async function handleMissedCall(input: {
     body: `Hi — this is Atlas for ${process.env.ATLAS_BUSINESS_NAME || "our team"}. Sorry we missed your call. Reply with your name and what you need (e.g. "Jordan — AC not cooling") and I’ll get you on the schedule.`,
     organizationId,
   });
-  if (!sms.ok && isProduction()) {
-    throw new ValidationError(sms.error || "Failed to send missed-call SMS.");
-  }
-  if (sms.ok) {
+  record.mode = sms.mode;
+  if (!sms.ok) {
+    record.status = "failed";
+    store.calls = [record, ...store.calls].slice(0, 200);
+    saveMissed(store);
+    if (isProduction() || sms.mode === "unavailable") {
+      throw new ValidationError(sms.error || "Failed to send missed-call SMS.");
+    }
+  } else {
     record.status = "sms_sent";
     record.smsSid = sms.sid;
   }
 
-  store.calls = [record, ...store.calls].slice(0, 200);
+  store.calls = [record, ...store.calls.filter((c) => c.id !== record.id)].slice(0, 200);
   saveMissed(store);
 
   await atlasStore.upsertCustomer({
@@ -159,7 +169,7 @@ export async function handleMissedCall(input: {
     type: "call.missed",
     organizationId,
     actorLabel: "Receptionist",
-    payload: { from: input.from, to: input.to, callSid: input.callSid, phone: input.from, handled: true },
+    payload: { from: input.from, to: input.to, callSid: input.callSid, phone: input.from, handled: sms.ok },
   });
   emitEvent({
     type: "lead.created",
@@ -178,7 +188,9 @@ export async function handleInboundSms(input: {
 }): Promise<{ reply: string; booked?: boolean }> {
   const organizationId = requireOrganizationId(input.organizationId);
   const store = loadMissed();
-  const open = store.calls.find((c) => c.from === input.from && c.status !== "booked");
+  const open = store.calls.find(
+    (c) => c.organizationId === organizationId && c.from === input.from && c.status !== "booked",
+  );
   const text = input.body.trim();
   const lower = text.toLowerCase();
 
@@ -189,17 +201,25 @@ export async function handleInboundSms(input: {
     if (nameMatch) open.leadName = nameMatch.slice(0, 80);
   }
 
-  if (lower.includes("book") || lower.includes("tomorrow") || lower.includes("monday") || lower.includes("am") || lower.includes("pm")) {
+  if (
+    lower.includes("book") ||
+    lower.includes("tomorrow") ||
+    lower.includes("monday") ||
+    lower.includes("am") ||
+    lower.includes("pm")
+  ) {
     const starts = new Date();
     starts.setDate(starts.getDate() + 1);
     starts.setHours(9, 0, 0, 0);
     const ends = new Date(starts.getTime() + 90 * 60 * 1000);
-    await atlasStore.createAppointment({
+    const title = `Service visit · ${open?.leadName || input.from}`;
+    // Prefer live Google/Microsoft calendar when connected; always write org appointment.
+    await createExternalEvent({
       organizationId,
-      title: `Service visit · ${open?.leadName || input.from}`,
+      title,
       startsAt: starts.toISOString(),
       endsAt: ends.toISOString(),
-      source: "missed-call-sms",
+      description: `Booked via Twilio SMS from ${input.from}`,
     });
     if (open) open.status = "booked";
     saveMissed(store);
@@ -214,6 +234,8 @@ export async function handleInboundSms(input: {
   return { reply, booked: false };
 }
 
-export function listMissedCalls() {
-  return loadMissed().calls;
+export function listMissedCalls(organizationId?: string) {
+  const calls = loadMissed().calls;
+  if (!organizationId) return calls;
+  return calls.filter((c) => c.organizationId === organizationId);
 }

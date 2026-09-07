@@ -1,11 +1,14 @@
 import type { BrainChatInput } from "@/lib/brain/types";
+import type { SessionContext } from "@/lib/domain/types";
+import { loadDatabase } from "@/lib/db/store";
+import { stageBrainActionApproval } from "@/lib/services/action-confirmations";
 
 export const BRAIN_TOOLS = [
   {
     type: "function" as const,
     function: {
       name: "get_business_brief",
-      description: "Get a short live brief of today’s revenue, schedule pressure, and open risks.",
+      description: "Get a short live brief of today’s revenue, schedule pressure, and open risks from this organization's real data.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   },
@@ -14,7 +17,7 @@ export const BRAIN_TOOLS = [
     function: {
       name: "propose_risky_action",
       description:
-        "Propose a risky or expensive action that requires owner approval before execution (money, mass outreach, schedule exceptions, filing).",
+        "Propose a risky or expensive action that requires owner approval before execution (money, mass outreach, schedule exceptions, filing). Stages a server-side approval card.",
       parameters: {
         type: "object",
         properties: {
@@ -102,26 +105,81 @@ Behavior:
 - Never pretend you already sent money, filed taxes, or mass-texted — propose those for approval.
 - If the owner is going offline, acknowledge standing orders and summarize what you will handle autonomously.
 - Separate facts you know from estimates/suggestions.
+- Prefer get_business_brief over inventing numbers.
 
 You are the Atlas Brain — not a generic chatbot.`;
+}
+
+function buildLiveBusinessBrief(organizationId: string) {
+  const db = loadDatabase();
+  const customers = db.customers.filter((c) => c.organization_id === organizationId);
+  const tasks = db.tasks.filter((t) => t.orgId === organizationId);
+  const openTasks = tasks.filter((t) => t.status !== "done" && t.status !== "completed");
+  const events = db.calendar_events.filter((e) => e.organization_id === organizationId);
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const upcoming = events.filter((e) => {
+    const start = new Date(e.start_time).getTime();
+    return start >= now && start <= now + 7 * dayMs;
+  });
+  const today = events.filter((e) => {
+    const start = new Date(e.start_time);
+    const d = new Date();
+    return start.toDateString() === d.toDateString();
+  });
+  const txns = db.transactions.filter((t) => t.orgId === organizationId);
+  const income30 = txns
+    .filter((t) => t.kind === "income")
+    .filter((t) => {
+      const age = now - new Date(t.date).getTime();
+      return age >= 0 && age <= 30 * dayMs;
+    })
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const overdueInvoices = txns.filter(
+    (t) => t.kind === "income" && /overdue/i.test(t.label || ""),
+  );
+  const overdueTotal = overdueInvoices.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const pendingApprovals = db.approvals.filter(
+    (a) => a.organization_id === organizationId && a.status === "pending",
+  ).length;
+  const activeCustomers = customers.filter((c) => c.status === "active" || c.status === "lead").length;
+
+  return {
+    source: "organization_database",
+    organizationId,
+    revenueLast30Days: Math.round(income30),
+    overdueInvoiceTotal: Math.round(overdueTotal),
+    overdueInvoiceCount: overdueInvoices.length,
+    openTasks: openTasks.length,
+    bookingsToday: today.length,
+    bookingsNext7Days: upcoming.length,
+    customers: activeCustomers,
+    pendingApprovals,
+    risks: [
+      overdueTotal > 0 ? `$${Math.round(overdueTotal).toLocaleString()} in overdue invoices` : null,
+      openTasks.filter((t) => t.priority === "high").length
+        ? `${openTasks.filter((t) => t.priority === "high").length} high-priority open tasks`
+        : null,
+      pendingApprovals ? `${pendingApprovals} approvals waiting` : null,
+    ].filter(Boolean),
+  };
 }
 
 /** Deterministic tool executors used by both live and simulation paths. */
 export function executeBrainTool(
   name: string,
   args: Record<string, unknown>,
+  ctx?: SessionContext | null,
 ): { content: string; proposedAction?: import("@/lib/brain/types").BrainActionProposal } {
   if (name === "get_business_brief") {
-    return {
-      content: JSON.stringify({
-        yesterdayRevenue: 4280,
-        openBookings: 9,
-        cancellations: 2,
-        overdueInvoices: 2310,
-        nextSixDays: "fully scheduled",
-        risks: ["license renewal in 9 days", "Alex overtime climbing"],
-      }),
-    };
+    if (!ctx?.organizationId) {
+      return {
+        content: JSON.stringify({
+          error: "organizationId required — sign in to load a live business brief.",
+        }),
+      };
+    }
+    return { content: JSON.stringify(buildLiveBusinessBrief(ctx.organizationId)) };
   }
 
   if (name === "remember_standing_order") {
@@ -144,9 +202,18 @@ export function executeBrainTool(
       confirmPrompt: String(args.confirmPrompt || "Approve this action?"),
       doneLabel: String(args.doneLabel || "Approved — Atlas will execute now."),
     };
+    let approvalId: string | undefined;
+    if (ctx?.organizationId && ctx.userId) {
+      const approval = stageBrainActionApproval(ctx, proposedAction);
+      approvalId = approval.id;
+    }
     return {
-      content: JSON.stringify({ status: "awaiting_owner_approval", ...proposedAction }),
-      proposedAction,
+      content: JSON.stringify({
+        status: "awaiting_owner_approval",
+        approvalId,
+        ...proposedAction,
+      }),
+      proposedAction: { ...proposedAction, approvalId },
     };
   }
 

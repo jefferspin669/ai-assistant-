@@ -23,6 +23,8 @@ export type BrainActionProposal = {
   impact: string;
   confirmPrompt: string;
   doneLabel: string;
+  /** Server-side approval id when staged into Approvals. */
+  approvalId?: string;
 };
 
 export type BrainResult = {
@@ -43,6 +45,8 @@ export type BrainChatInput = {
   ownerName?: string;
   dnaRules?: string[];
   history?: { role: "user" | "assistant"; content: string }[];
+  /** Authenticated workspace — required for live brief + staging approvals. */
+  session?: import("@/lib/domain/types").SessionContext | null;
 };
 
 export function brainMode(): BrainMode {

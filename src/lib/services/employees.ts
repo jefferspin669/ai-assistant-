@@ -7,6 +7,9 @@ import { database } from "@/lib/services/access";
 import { createSession } from "@/lib/auth/session";
 import { writeAudit } from "@/lib/services/audit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { requirePermission } from "@/lib/auth/permissions";
+import { isProduction } from "@/lib/ops/environment";
+import { requireOrganizationId } from "@/lib/auth/tenant";
 
 export type ServerEmployee = {
   id: string;
@@ -57,42 +60,35 @@ function makeAccessCode() {
   return code;
 }
 
-/** Seed a demo roster for the default org once (dev/demo only). */
-export function ensureDemoEmployees(organizationId: string) {
+const SEED_WORKERS = [
+  { name: "Marcus Lee", email: "marcus@business.local", role: "Technician", department: "Field", code: "MARCUS" },
+  { name: "Sarah Kim", email: "sarah@business.local", role: "Office Manager", department: "Operations", code: "SARAH1" },
+  { name: "Jordan Price", email: "jordan@business.local", role: "Dispatcher", department: "Operations", code: "JORDAN" },
+] as const;
+
+/** Replace seed workers for an organization (used by resetDatabase). */
+export function resetSeedEmployees(organizationId: string) {
+  const orgId = requireOrganizationId(organizationId);
   const store = getStore();
-  if (store.employees.some((e) => e.organizationId === organizationId)) {
-    return listEmployees(organizationId).map((e) => ({
-      ...e,
-      accessCode: undefined as string | undefined,
-    }));
-  }
-  const demos = [
-    { name: "Marcus Lee", email: "marcus@business.local", role: "Technician", department: "Field", code: "MARCUS" },
-    { name: "Sarah Kim", email: "sarah@business.local", role: "Office Manager", department: "Operations", code: "SARAH1" },
-    { name: "Jordan Price", email: "jordan@business.local", role: "Dispatcher", department: "Operations", code: "JORDAN" },
-  ];
+  const kept = store.employees.filter((e) => e.organizationId !== orgId);
   const created: ServerEmployee[] = [];
   const codes: Record<string, string> = {};
-  for (const demo of demos) {
-    const code = demo.code;
-    codes[demo.email] = code;
+  for (const seed of SEED_WORKERS) {
+    codes[seed.email] = seed.code;
     created.push({
       id: newId("emp"),
-      organizationId,
+      organizationId: orgId,
       userId: null,
-      name: demo.name,
-      email: demo.email,
-      role: demo.role,
-      department: demo.department,
-      accessCodeHash: hashPassword(code),
+      name: seed.name,
+      email: seed.email,
+      role: seed.role,
+      department: seed.department,
+      accessCodeHash: hashPassword(seed.code),
       status: "active",
       createdAt: nowIso(),
     });
   }
-  setStore({
-    updatedAt: nowIso(),
-    employees: [...created, ...store.employees],
-  });
+  setStore({ updatedAt: nowIso(), employees: [...created, ...kept] });
   return created.map((e) => ({
     id: e.id,
     name: e.name,
@@ -103,16 +99,26 @@ export function ensureDemoEmployees(organizationId: string) {
   }));
 }
 
+/** @deprecated Prefer listSeedWorkerAccounts / resetSeedEmployees. */
+export function ensureDemoEmployees(organizationId: string) {
+  const orgId = requireOrganizationId(organizationId);
+  const store = getStore();
+  if (!store.employees.some((e) => e.organizationId === orgId)) {
+    return resetSeedEmployees(orgId);
+  }
+  return listSeedWorkerAccounts(orgId);
+}
+
 export function listEmployees(organizationId: string) {
-  return getStore().employees.filter(
-    (e) => e.organizationId === organizationId && e.status === "active",
-  );
+  const orgId = requireOrganizationId(organizationId);
+  return getStore().employees.filter((e) => e.organizationId === orgId && e.status === "active");
 }
 
 export function createEmployee(
   ctx: SessionContext,
   input: { name: string; email: string; role?: string; department?: string; accessCode?: string },
 ) {
+  requirePermission(ctx, "employees.manage");
   const email = input.email.trim().toLowerCase();
   if (!email || !input.name.trim()) throw new ValidationError("name and email required");
   const store = getStore();
@@ -165,7 +171,6 @@ function ensureEmployeeUser(employee: ServerEmployee) {
     user_credentials: [
       {
         user_id: userId,
-        // Access code is the employee credential; stored hashed on the employee record.
         password_hash: hashPassword(randomPlaceholder()),
         mfa_secret: null,
         mfa_enabled: false,
@@ -210,18 +215,17 @@ export function authenticateEmployeeLogin(input: {
     (e) => e.email === email && e.status === "active" && verifyPassword(code, e.accessCodeHash),
   );
   if (input.organizationId) {
-    matches = matches.filter((e) => e.organizationId === input.organizationId);
+    const orgId = requireOrganizationId(input.organizationId);
+    matches = matches.filter((e) => e.organizationId === orgId);
+  }
+  if (matches.length > 1 && !input.organizationId) {
+    throw new ValidationError("Multiple companies match this worker — pass organizationId.");
   }
   if (!matches.length) {
-    // Auto-seed demo roster for the default org when empty (local demos only).
-    const orgId = input.organizationId || database().organizations[0]?.id;
-    if (orgId && !store.employees.some((e) => e.organizationId === orgId)) {
-      ensureDemoEmployees(orgId);
-      return authenticateEmployeeLogin(input);
-    }
     throw new AuthenticationError("Email or access code doesn’t match.");
   }
   const employee = matches[0]!;
+  forbidCrossTenantGuess(employee.organizationId, input.organizationId);
   const userId = ensureEmployeeUser(employee);
   const session = createSession(userId, employee.organizationId, "employee-portal");
   return {
@@ -237,6 +241,15 @@ export function authenticateEmployeeLogin(input: {
       userId,
     },
   };
+}
+
+function forbidCrossTenantGuess(employeeOrgId: string, requestedOrgId?: string) {
+  if (requestedOrgId && requestedOrgId !== employeeOrgId) {
+    throw new AuthenticationError("Email or access code doesn’t match.");
+  }
+  if (isProduction()) {
+    requireOrganizationId(employeeOrgId);
+  }
 }
 
 export function employeeFromSession(ctx: SessionContext) {
@@ -257,4 +270,23 @@ export function employeeFromSession(ctx: SessionContext) {
     organizationId: employee.organizationId,
     userId: employee.userId,
   };
+}
+
+/** Dev helper: list seed access codes (never in production). */
+export function listSeedWorkerAccounts(organizationId: string) {
+  if (isProduction()) return [];
+  const orgId = requireOrganizationId(organizationId);
+  const existing = listEmployees(orgId);
+  if (!existing.length) return resetSeedEmployees(orgId);
+  return SEED_WORKERS.filter((seed) => existing.some((e) => e.email === seed.email)).map((seed) => {
+    const row = existing.find((e) => e.email === seed.email)!;
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      role: row.role,
+      department: row.department,
+      accessCode: seed.code,
+    };
+  });
 }

@@ -199,6 +199,12 @@ export default function LoginPage() {
                   {busy ? "Signing in…" : "Sign in"}
                 </button>
               </form>
+              <p className="muted-line" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
+                Seed accounts (dev): owner <code>demo@atlas.ai</code> / <code>atlas-demo</code>,
+                manager <code>alex@atlas.ai</code> / <code>atlas-manager</code>, worker{" "}
+                <code>sam@atlas.ai</code> / <code>atlas-worker</code>. Field portal:{" "}
+                <a href={sitePath("/employee/login")}>/employee/login</a>
+              </p>
               <button className="btn btn-outline" type="button" onClick={onPasskey}>
                 Use passkey
               </button>

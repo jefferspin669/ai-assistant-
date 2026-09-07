@@ -1,32 +1,28 @@
-import { apiResponse, readJson } from "@/lib/api/http";
-import { ok, err } from "@/lib/api/types";
+import { apiSuccess, withPermission } from "@/lib/api/http";
+import { ValidationError } from "@/lib/domain/errors";
 import { createExternalEvent, getConnectedProviders } from "@/lib/integrations/calendar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return apiResponse(ok({ connected: getConnectedProviders() }));
-}
+export const GET = withPermission("calendar.read", async () => {
+  return apiSuccess({ connected: getConnectedProviders() });
+});
 
-export async function POST(req: Request) {
-  const body = await readJson(req);
+export const POST = withPermission("calendar.write", async ({ workspace, body }) => {
   const title = String(body.title || "");
   const startsAt = String(body.startsAt || body.start || "");
   const endsAt = String(body.endsAt || body.end || "");
   if (!title || !startsAt || !endsAt) {
-    return apiResponse(err("title, startsAt, endsAt required", 422));
+    throw new ValidationError("title, startsAt, endsAt required");
   }
-  try {
-    const result = await createExternalEvent({
-      title,
-      startsAt,
-      endsAt,
-      description: body.description ? String(body.description) : undefined,
-      provider: body.provider === "microsoft" || body.provider === "google" ? body.provider : undefined,
-    });
-    return apiResponse(ok(result));
-  } catch (error) {
-    return apiResponse(err(error instanceof Error ? error.message : "calendar sync failed", 502));
-  }
-}
+  const result = await createExternalEvent({
+    title,
+    startsAt,
+    endsAt,
+    description: body.description ? String(body.description) : undefined,
+    provider: body.provider === "microsoft" || body.provider === "google" ? body.provider : undefined,
+    organizationId: workspace.organizationId,
+  });
+  return apiSuccess(result);
+});

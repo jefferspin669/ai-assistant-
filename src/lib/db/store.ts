@@ -51,6 +51,11 @@ function getServerDb() {
   } else {
     g.__atlasServerDb = seedDatabase();
     writeJsonFile(DB_FILE, g.__atlasServerDb);
+    if (typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { resetSeedEmployees } = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+      resetSeedEmployees(g.__atlasServerDb.organizations[0].id);
+    }
   }
   return g.__atlasServerDb;
 }
@@ -227,6 +232,8 @@ function normalizeCalendarEvent(
 /** Seed a demo workspace so the architecture map and APIs have data. */
 export function seedDatabase(): AtlasDatabase {
   const userId = newId("user");
+  const memberUserId = newId("user");
+  const invitedUserId = newId("user");
   const orgId = newId("org");
   const stamp = nowIso();
 
@@ -242,26 +249,6 @@ export function seedDatabase(): AtlasDatabase {
     updated_at: stamp,
   };
 
-  const credential: DbUserCredential = {
-    user_id: userId,
-    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
-    mfa_secret: null,
-    mfa_enabled: false,
-  };
-
-  const org: DbOrganization = {
-    id: orgId,
-    owner_id: userId,
-    business_name: "Atlas Demo Co",
-    logo_url: null,
-    business_type: "HVAC",
-    tax_structure: "LLC",
-    state: "TX",
-    created_at: stamp,
-  };
-
-  const memberUserId = newId("user");
-  const invitedUserId = newId("user");
   const teammate: DbUser = {
     id: memberUserId,
     email: "alex@atlas.ai",
@@ -280,9 +267,39 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
-    email_verified_at: null,
+    email_verified_at: stamp,
     created_at: stamp,
     updated_at: stamp,
+  };
+
+  const credential: DbUserCredential = {
+    user_id: userId,
+    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const managerCredential: DbUserCredential = {
+    user_id: memberUserId,
+    password_hash: hashPassword("atlas-manager", "seedatlasmgr12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const workerCredential: DbUserCredential = {
+    user_id: invitedUserId,
+    password_hash: hashPassword("atlas-worker", "seedatlaswrk12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+
+  const org: DbOrganization = {
+    id: orgId,
+    owner_id: userId,
+    business_name: "Atlas Demo Co",
+    logo_url: null,
+    business_type: "HVAC",
+    tax_structure: "LLC",
+    state: "TX",
+    created_at: stamp,
   };
 
   const organization_members: DbOrganizationMember[] = [
@@ -307,7 +324,7 @@ export function seedDatabase(): AtlasDatabase {
       organization_id: orgId,
       user_id: invitedUserId,
       role: "employee",
-      status: "invited",
+      status: "active",
       joined_at: stamp,
     },
   ];
@@ -546,7 +563,7 @@ export function seedDatabase(): AtlasDatabase {
 
   return {
     users: [user, teammate, invited],
-    user_credentials: [credential],
+    user_credentials: [credential, managerCredential, workerCredential],
     organizations: [org],
     organization_members,
     calendar_categories,
@@ -827,6 +844,12 @@ function enqueuePostgresPersist(next: AtlasDatabase) {
 export function resetDatabase() {
   const seeded = seedDatabase();
   saveDatabase(seeded);
+  if (typeof window === "undefined") {
+    // Seed field-worker access codes for the same org (tenant-scoped).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { resetSeedEmployees } = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+    resetSeedEmployees(seeded.organizations[0]!.id);
+  }
   return seeded;
 }
 

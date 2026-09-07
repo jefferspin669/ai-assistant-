@@ -4,9 +4,9 @@ import { ok } from "@/lib/api/types";
 import { cookieHeader } from "@/lib/auth/session";
 import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 import { ensureServerDatabase } from "@/lib/db/ensure";
-import { authenticateEmployeeLogin, ensureDemoEmployees } from "@/lib/services/employees";
+import { authenticateEmployeeLogin, listSeedWorkerAccounts } from "@/lib/services/employees";
 import { database } from "@/lib/services/access";
-import { atlasRuntimeEnv } from "@/lib/ops/environment";
+import { isProduction } from "@/lib/ops/environment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,17 +39,17 @@ export async function POST(req: Request) {
   }
 }
 
-/** Demo helper: list seeded demo accounts only outside production. */
+/** Dev helper: list seed worker access codes (empty in production). */
 export async function GET() {
   try {
     await ensureServerDatabase();
-    if (atlasRuntimeEnv() === "production") {
-      return apiResponse(ok({ demos: [] as unknown[], demoMode: false }));
+    if (isProduction()) {
+      return apiResponse(ok({ demos: [] as unknown[], seedAccounts: [], demoMode: false }));
     }
     const orgId = database().organizations[0]?.id;
-    if (!orgId) return apiResponse(ok({ demos: [], demoMode: true }));
-    const demos = ensureDemoEmployees(orgId);
-    return apiResponse(ok({ demos, demoMode: true }));
+    if (!orgId) return apiResponse(ok({ demos: [], seedAccounts: [], demoMode: true }));
+    const seedAccounts = listSeedWorkerAccounts(orgId);
+    return apiResponse(ok({ demos: seedAccounts, seedAccounts, demoMode: true }));
   } catch (error) {
     return jsonError(error);
   }

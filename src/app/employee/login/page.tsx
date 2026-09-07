@@ -125,7 +125,7 @@ export default function EmployeeLoginPage() {
           {demoMode && demos.length > 0 ? (
             <>
               <div className="auth-divider">
-                <span>demo accounts</span>
+                <span>seed worker accounts</span>
               </div>
               <div className="list">
                 {demos.map((member) => (
