@@ -1,6 +1,6 @@
 import "server-only";
 import { fileExists, readJsonFile, writeJsonFile } from "@/lib/db/file-persist";
-import { AuthenticationError, ValidationError } from "@/lib/domain/errors";
+import { AuthenticationError, ConflictError, ValidationError } from "@/lib/domain/errors";
 import type { SessionContext } from "@/lib/domain/types";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database } from "@/lib/services/access";
@@ -120,16 +120,33 @@ export function createEmployee(
 ) {
   requirePermission(ctx, "employees.manage");
   const email = input.email.trim().toLowerCase();
-  if (!email || !input.name.trim()) throw new ValidationError("name and email required");
   const store = getStore();
   if (store.employees.some((e) => e.organizationId === ctx.organizationId && e.email === email)) {
-    throw new ValidationError("Employee email already exists.");
+    throw new ConflictError("An employee with that email already exists.");
+  }
+  return provisionEmployee(ctx.organizationId, input, ctx);
+}
+
+/** Internal: add a roster row without permission check (invite accept path). */
+export function provisionEmployee(
+  organizationId: string,
+  input: { name: string; email: string; role?: string; department?: string; accessCode?: string },
+  auditCtx?: SessionContext,
+) {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !input.name.trim()) throw new ValidationError("name and email required");
+  const store = getStore();
+  if (store.employees.some((e) => e.organizationId === organizationId && e.email === email)) {
+    return {
+      employee: store.employees.find((e) => e.organizationId === organizationId && e.email === email)!,
+      accessCode: undefined as string | undefined,
+    };
   }
   const accessCode = (input.accessCode || makeAccessCode()).toUpperCase();
   const row: ServerEmployee = {
     id: newId("emp"),
-    organizationId: ctx.organizationId,
-    userId: null,
+    organizationId,
+    userId: auditCtx?.userId || null,
     name: input.name.trim(),
     email,
     role: input.role?.trim() || "Team member",
@@ -139,7 +156,9 @@ export function createEmployee(
     createdAt: nowIso(),
   };
   setStore({ updatedAt: nowIso(), employees: [row, ...store.employees] });
-  writeAudit(ctx, { action: "employee.created", entityType: "employee", entityId: row.id });
+  if (auditCtx) {
+    writeAudit(auditCtx, { action: "employee.created", entityType: "employee", entityId: row.id });
+  }
   return { employee: row, accessCode };
 }
 

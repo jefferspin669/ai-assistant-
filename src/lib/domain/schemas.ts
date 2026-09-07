@@ -24,6 +24,10 @@ export const createTaskSchema = z.object({
   priority: taskPrioritySchema.optional(),
   dueDate: z.string().nullable().optional(),
   category: z.string().optional(),
+  /** Owner-facing project name for this work item. */
+  projectLabel: z.string().trim().min(1).max(160).optional(),
+  /** Assign to a field worker from GET /api/employees. */
+  assigneeEmployeeId: z.string().trim().min(1).max(80).optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial();

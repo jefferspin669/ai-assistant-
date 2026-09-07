@@ -61,6 +61,9 @@ export const tasks = pgTable("tasks", {
   dueDate: text("due_date"),
   category: text("category").notNull().default("general"),
   notes: text("notes").notNull().default(""),
+  projectLabel: text("project_label"),
+  assigneeEmployeeId: text("assignee_employee_id"),
+  assigneeUserId: text("assignee_user_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -259,6 +262,17 @@ export const autonomyPolicies = pgTable("autonomy_policies", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const workspaceDomains = pgTable(
+  "workspace_domains",
+  {
+    organizationId: text("organization_id").notNull(),
+    domain: text("domain").notNull(),
+    data: jsonb("data"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("workspace_domains_org_domain").on(table.organizationId, table.domain)],
+);
+
 export const DRIZZLE_TABLES = [
   "organizations",
   "users",
@@ -283,4 +297,5 @@ export const DRIZZLE_TABLES = [
   "subscriptions",
   "automations",
   "autonomy_policies",
+  "workspace_domains",
 ] as const;

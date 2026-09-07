@@ -1,7 +1,11 @@
 import type { BrainChatInput } from "@/lib/brain/types";
 import type { SessionContext } from "@/lib/domain/types";
 import { loadDatabase } from "@/lib/db/store";
-import { stageBrainActionApproval } from "@/lib/services/action-confirmations";
+import {
+  ACTION_SMS,
+  stageActionApproval,
+  stageBrainActionApproval,
+} from "@/lib/services/action-confirmations";
 
 export const BRAIN_TOOLS = [
   {
@@ -38,6 +42,14 @@ export const BRAIN_TOOLS = [
           impact: { type: "string" },
           confirmPrompt: { type: "string" },
           doneLabel: { type: "string" },
+          to: {
+            type: "string",
+            description: "Phone number for SMS proposals (E.164). Required for mass_sms when known.",
+          },
+          body: {
+            type: "string",
+            description: "SMS body for mass_sms proposals.",
+          },
         },
         required: ["kind", "title", "summary", "confirmPrompt", "doneLabel"],
         additionalProperties: false,
@@ -193,8 +205,9 @@ export function executeBrainTool(
   }
 
   if (name === "propose_risky_action") {
+    const kind = String(args.kind || "other");
     const proposedAction = {
-      kind: String(args.kind || "other"),
+      kind,
       title: String(args.title || "Proposed action"),
       summary: String(args.summary || ""),
       details: Array.isArray(args.details) ? args.details.map(String) : [],
@@ -204,6 +217,38 @@ export function executeBrainTool(
     };
     let approvalId: string | undefined;
     if (ctx?.organizationId && ctx.userId) {
+      // SMS proposals stage the executable SEND_SMS rail so approval runs Twilio.
+      if (kind === "mass_sms") {
+        const db = loadDatabase();
+        const to =
+          String(args.to || "").trim() ||
+          db.customers.find((c) => c.organization_id === ctx.organizationId && c.phone)?.phone ||
+          "";
+        const body =
+          String(args.body || "").trim() ||
+          proposedAction.summary ||
+          "Quick update from Atlas — reply if you need anything.";
+        if (to) {
+          const approval = stageActionApproval(ctx, ACTION_SMS, {
+            to,
+            body,
+            title: proposedAction.title,
+            source: "atlas_brain",
+            kind,
+          });
+          approvalId = approval.id;
+          return {
+            content: JSON.stringify({
+              status: "awaiting_owner_approval",
+              approvalId,
+              actionType: ACTION_SMS,
+              to,
+              ...proposedAction,
+            }),
+            proposedAction: { ...proposedAction, approvalId },
+          };
+        }
+      }
       const approval = stageBrainActionApproval(ctx, proposedAction);
       approvalId = approval.id;
     }

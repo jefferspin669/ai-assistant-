@@ -8,8 +8,8 @@ import {
   assessProjectRisks,
   createAtlasProject,
   generateProjectPlanFromPrompt,
+  hydrateAtlasProjects,
   loadAtlasProjects,
-  loadProjectFolders,
   seedProjectsIfEmpty,
   updateAtlasProject,
   workloadByMember,
@@ -39,18 +39,25 @@ export function ProjectStudio() {
   const [newName, setNewName] = useState("");
   const [comment, setComment] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     seedDemoTeamIfEmpty();
-    seedProjectsIfEmpty();
+    const remote = await hydrateAtlasProjects();
+    if (!remote.projects.length) {
+      seedProjectsIfEmpty();
+    }
     setProjects(loadAtlasProjects());
     setMembers(loadTeamMembers());
+    setReady(true);
   }, []);
 
   useEffect(() => {
-    refresh();
-    const list = loadAtlasProjects();
-    setSelectedId(list[0]?.id ?? "");
+    void (async () => {
+      await refresh();
+      const list = loadAtlasProjects();
+      setSelectedId((prev) => prev || list[0]?.id || "");
+    })();
   }, [refresh]);
 
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0];
@@ -60,8 +67,7 @@ export function ProjectStudio() {
     e.preventDefault();
     if (!newName.trim()) return;
     const p = createAtlasProject({ name: newName });
-    refresh();
-    setSelectedId(p.id);
+    void refresh().then(() => setSelectedId(p.id));
     setNewName("");
     setNote(`Created project “${p.name}”.`);
   }
@@ -69,9 +75,10 @@ export function ProjectStudio() {
   function onGeneratePlan(e: FormEvent) {
     e.preventDefault();
     const p = generateProjectPlanFromPrompt(planPrompt);
-    refresh();
-    setSelectedId(p.id);
-    setMode("projects");
+    void refresh().then(() => {
+      setSelectedId(p.id);
+      setMode("projects");
+    });
     setNote(`Atlas generated “${p.name}” with ${p.tasks.length} tasks across your teams.`);
   }
 
@@ -79,7 +86,7 @@ export function ProjectStudio() {
     e.preventDefault();
     if (!selected || !comment.trim()) return;
     addProjectComment(selected.id, comment.trim());
-    refresh();
+    void refresh();
     setComment("");
     setNote("Comment added to project history.");
   }
@@ -88,11 +95,12 @@ export function ProjectStudio() {
     if (!selected) return;
     const tasks = selected.tasks.map((t) => (t.id === taskId ? { ...t, status } : t));
     updateAtlasProject(selected.id, { tasks });
-    refresh();
+    void refresh();
   }
 
   return (
     <div className="training-studio">
+      {!ready ? <p className="muted-line">Loading projects from workspace…</p> : null}
       <div className="stat-grid metrics-dense">
         <div className="stat">
           <span>Projects</span>

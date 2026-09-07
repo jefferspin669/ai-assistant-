@@ -15,6 +15,7 @@ import { listDeadLetters } from "@/lib/queue/dead-letter";
 import { publicEnvReport } from "@/lib/secrets/redact";
 import { atlasRuntimeEnv } from "@/lib/ops/environment";
 import { orchestratorStats } from "@/lib/orchestrator/store";
+import { reliabilitySnapshot } from "@/lib/ops/reliability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,10 +29,11 @@ export async function GET() {
   const driver = databaseDriver();
   const worker = await readWorkerHeartbeat();
   const secrets = publicEnvReport();
+  const reliability = await reliabilitySnapshot();
   return NextResponse.json({
     ok: true,
     data: {
-      status: "ok",
+      status: reliability.readyForTraffic ? "ok" : "degraded",
       engine: "atlas-database-v5",
       driver,
       persistence:
@@ -57,6 +59,7 @@ export async function GET() {
       dataDir: dataDir(),
       integrations: integrationStatus(),
       workspace: workspaceStats(),
+      reliability,
       stats,
     },
   });

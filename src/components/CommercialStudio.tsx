@@ -44,6 +44,9 @@ export function CommercialStudio() {
   const [invoiceName, setInvoiceName] = useState("Jamie Cole");
   const [invoiceAmount, setInvoiceAmount] = useState("1250");
 
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyNote, setVerifyNote] = useState<string | null>(null);
+
   const twilioMode =
     status?.integrations.find((i) => i.id === "twilio")?.mode || ("simulation" as IntegrationMode);
 
@@ -109,6 +112,29 @@ export function CommercialStudio() {
     }
   }
 
+  async function verifySandbox() {
+    setVerifyBusy(true);
+    setVerifyNote(null);
+    try {
+      const res = await fetch("/api/integrations/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integrations: ["brain", "stripe", "twilio", "resend", "google_calendar", "microsoft_calendar"],
+          dryRun: false,
+        }),
+      });
+      const json = await res.json();
+      setVerifyNote(JSON.stringify(json, null, 2));
+      await refresh();
+    } catch (error) {
+      setVerifyNote(error instanceof Error ? error.message : "Verify failed");
+    } finally {
+      setVerifyBusy(false);
+    }
+  }
+
   return (
     <div className="training-studio">
       <div className="stat-grid metrics-dense">
@@ -171,10 +197,23 @@ export function CommercialStudio() {
             <button className="btn btn-outline" type="button" onClick={() => void refresh()} disabled={busy}>
               Refresh status
             </button>
-            <SiteLink className="btn btn-dark" href="/app/autonomous">
+            <button
+              className="btn btn-dark"
+              type="button"
+              onClick={() => void verifySandbox()}
+              disabled={busy || verifyBusy}
+            >
+              {verifyBusy ? "Verifying…" : "Sandbox verify credentials"}
+            </button>
+            <SiteLink className="btn btn-outline" href="/app/autonomous">
               Open autonomy engine
             </SiteLink>
           </div>
+          {verifyNote ? (
+            <pre className="code-block" style={{ marginTop: "0.85rem", whiteSpace: "pre-wrap" }}>
+              {verifyNote}
+            </pre>
+          ) : null}
         </section>
 
         <section className="panel">

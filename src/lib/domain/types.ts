@@ -53,6 +53,9 @@ export type Task = {
   priority: TaskPriority;
   dueDate: string | null;
   category: string;
+  projectLabel?: string | null;
+  assigneeEmployeeId?: string | null;
+  assigneeUserId?: string | null;
   createdAt: string;
   updatedAt: string;
   provenance?: DataProvenance;

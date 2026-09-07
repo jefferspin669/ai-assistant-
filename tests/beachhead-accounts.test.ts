@@ -116,17 +116,17 @@ describe("beachhead accounts + tenant + brain", () => {
         summary: "Send collection texts",
         confirmPrompt: "Approve mass SMS?",
         doneLabel: "Approved",
+        to: "+15550001111",
+        body: "Please pay your overdue invoice.",
       },
       ctx,
     );
     expect(proposed.proposedAction?.approvalId).toBeTruthy();
     const db = loadDatabase();
-    expect(
-      db.approvals.some(
-        (a) =>
-          a.id === proposed.proposedAction?.approvalId && a.organization_id === ctx.organizationId,
-      ),
-    ).toBe(true);
+    const row = db.approvals.find((a) => a.id === proposed.proposedAction?.approvalId);
+    expect(row?.organization_id).toBe(ctx.organizationId);
+    expect(row?.action_type).toBe("SEND_SMS");
+    expect(row?.status).toBe("pending");
   });
 
   it("blocks default org fallbacks in production", () => {

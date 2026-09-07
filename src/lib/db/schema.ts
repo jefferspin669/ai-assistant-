@@ -94,6 +94,12 @@ export type DbTask = {
   dueDate: string | null;
   category: string;
   notes: string;
+  /** Beachhead "project" label for owner→worker assignment. */
+  projectLabel?: string | null;
+  /** Server employee roster id (from /api/employees). */
+  assigneeEmployeeId?: string | null;
+  /** Linked Atlas user id when the worker has signed in. */
+  assigneeUserId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -272,6 +278,18 @@ export type DbPasswordReset = {
   used_at: string | null;
 };
 
+/** Owner-issued invite to join an organization (email token link). */
+export type DbOrganizationInvite = {
+  token: string;
+  organization_id: string;
+  email: string;
+  role: OrgMemberRole;
+  invited_by: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+};
+
 /** Short-lived MFA challenge — not a full session. */
 export type DbMfaChallenge = {
   id: string;
@@ -346,6 +364,7 @@ export type AtlasDatabase = {
   integrations: DbIntegration[];
   login_attempts: DbLoginAttempt[];
   password_resets: DbPasswordReset[];
+  organization_invites: DbOrganizationInvite[];
   mfa_challenges: DbMfaChallenge[];
   quotes: DbQuote[];
   webhook_receipts: DbWebhookReceipt[];

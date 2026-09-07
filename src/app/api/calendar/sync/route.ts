@@ -5,8 +5,8 @@ import { createExternalEvent, getConnectedProviders } from "@/lib/integrations/c
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const GET = withPermission("calendar.read", async () => {
-  return apiSuccess({ connected: getConnectedProviders() });
+export const GET = withPermission("calendar.read", async ({ workspace }) => {
+  return apiSuccess({ connected: getConnectedProviders(workspace.organizationId) });
 });
 
 export const POST = withPermission("calendar.write", async ({ workspace, body }) => {

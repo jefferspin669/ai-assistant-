@@ -335,6 +335,47 @@ export function completeMfaLogin(challengeToken: string) {
   };
 }
 
+export function listMemberships(userId: string) {
+  const db = database();
+  return db.organization_members
+    .filter((row) => row.user_id === userId && row.status === "active")
+    .map((row) => {
+      const org = db.organizations.find((o) => o.id === row.organization_id);
+      return {
+        organizationId: row.organization_id,
+        organizationName: org?.business_name || "Organization",
+        role: row.role as OrgRole,
+        joinedAt: row.joined_at,
+      };
+    });
+}
+
+/** Re-bind the session cookie to another active membership. */
+export function switchOrganization(ctx: SessionContext, organizationId: string) {
+  const db = database();
+  const member = db.organization_members.find(
+    (row) =>
+      row.user_id === ctx.userId &&
+      row.organization_id === organizationId &&
+      row.status === "active",
+  );
+  if (!member) {
+    throw new AuthenticationError("You are not an active member of that organization.");
+  }
+  revokeSession(ctx.sessionId);
+  const session = createSession(ctx.userId, organizationId, "org-switch");
+  return {
+    token: session.token,
+    sessionId: session.sessionId,
+    ctx: {
+      userId: ctx.userId,
+      organizationId,
+      role: member.role as OrgRole,
+      sessionId: session.sessionId,
+    } satisfies SessionContext,
+  };
+}
+
 export function mintDevSession(): { token: string; ctx: SessionContext } {
   if (isProduction()) {
     throw new AuthenticationError("Dev session minting is disabled in production.");

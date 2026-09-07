@@ -139,6 +139,10 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   let event: { type: string; data: { object: Record<string, unknown> } };
 
+  if (requireLive("stripe") && (!secret || !signature)) {
+    throw new Error("Live Stripe webhooks require STRIPE_WEBHOOK_SECRET and Stripe-Signature.");
+  }
+
   if (secret && signature) {
     const stripe = getStripe();
     const verified = stripe.webhooks.constructEvent(rawBody, signature, secret);
@@ -146,8 +150,6 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
       type: verified.type,
       data: { object: verified.data.object as unknown as Record<string, unknown> },
     };
-  } else if (requireLive("stripe") && secret && !signature) {
-    throw new Error("Missing Stripe-Signature");
   } else {
     event = JSON.parse(rawBody) as typeof event;
   }

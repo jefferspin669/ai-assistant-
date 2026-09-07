@@ -16,7 +16,9 @@ import { emitEvent } from "@/lib/events/bus";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database, requireCustomer } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
-import { requirePermission } from "@/lib/auth/permissions";
+import { hasPermission, requirePermission } from "@/lib/auth/permissions";
+import { ACTION_SMS, smsPayloadSchema } from "@/lib/services/action-confirmations";
+import { sendSms } from "@/lib/integrations/twilio";
 
 export type AtlasActionResult =
   | { type: "CREATE_TASK"; task: Task; requiresApproval?: false }
@@ -160,8 +162,11 @@ export function executeAtlasAction(input: unknown, ctx: SessionContext): AtlasAc
   return executeApprovedAction(action, ctx);
 }
 
-export function resolveApproval(ctx: SessionContext, approvalId: string, decision: "approved" | "rejected") {
-  requirePermission(ctx, "payments.refund");
+export async function resolveApproval(
+  ctx: SessionContext,
+  approvalId: string,
+  decision: "approved" | "rejected",
+) {
   assertHumanApproval(ctx);
   const db = database();
   const row = db.approvals.find(
@@ -169,6 +174,16 @@ export function resolveApproval(ctx: SessionContext, approvalId: string, decisio
   );
   if (!row) throw new NotFoundError("Approval not found.");
   if (row.status !== "pending") throw new ValidationError("Approval already resolved.");
+
+  // Owners/admins approve money; SMS/invoice can also be approved with action permissions.
+  if (row.action_type === ACTION_SMS) {
+    if (!hasPermission(ctx, "actions.sms") && !hasPermission(ctx, "payments.refund")) {
+      requirePermission(ctx, "actions.sms");
+    }
+  } else {
+    requirePermission(ctx, "payments.refund");
+  }
+
   saveDatabase({
     ...db,
     approvals: db.approvals.map((item) =>
@@ -187,6 +202,50 @@ export function resolveApproval(ctx: SessionContext, approvalId: string, decisio
     actorId: ctx.userId,
     payload: { id: row.id, actionType: row.action_type },
   });
+
+  if (row.action_type === ACTION_SMS) {
+    const payload = smsPayloadSchema.parse(row.payload);
+    const sms = await sendSms({
+      to: payload.to,
+      body: payload.body,
+      organizationId: ctx.organizationId,
+    });
+    const latest = database();
+    saveDatabase({
+      ...latest,
+      approvals: latest.approvals.map((item) =>
+        item.id === approvalId
+          ? {
+              ...item,
+              payload: {
+                ...item.payload,
+                consumedAt: nowIso(),
+                consumedBy: ctx.userId,
+                execution: sms,
+              },
+            }
+          : item,
+      ),
+    });
+    writeAudit(ctx, {
+      action: sms.ok ? `executed ${ACTION_SMS} via Twilio (${sms.mode})` : `failed ${ACTION_SMS}: ${sms.error || "unknown"}`,
+      entityType: "approval",
+      entityId: row.id,
+    });
+    return {
+      approval: { ...row, status: decision as "approved" },
+      result: {
+        executed: ACTION_SMS,
+        integration: "twilio",
+        ok: sms.ok,
+        mode: sms.mode,
+        sid: sms.sid,
+        error: sms.error,
+        to: payload.to,
+      },
+    };
+  }
+
   const atlasAction = row.payload.atlasAction;
   if (atlasAction) {
     const action = decodeAtlasAction(atlasAction);

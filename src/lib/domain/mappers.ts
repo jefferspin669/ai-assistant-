@@ -80,6 +80,9 @@ export function toTask(row: DbTask): Task {
     priority: row.priority,
     dueDate: row.dueDate,
     category: row.category,
+    projectLabel: row.projectLabel ?? null,
+    assigneeEmployeeId: row.assigneeEmployeeId ?? null,
+    assigneeUserId: row.assigneeUserId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

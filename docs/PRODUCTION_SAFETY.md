@@ -68,10 +68,11 @@ Do not “fix forward” on a money or privacy incident without a backup first.
 
 ## Uptime monitoring and alerts
 
-- Liveness: `GET /api/health` (postgres, redis, queue, **worker heartbeat**, dead-letter count, secret leak scan)
+- Liveness: `GET /api/health` (postgres, redis, queue, **worker heartbeat**, dead-letter count, secret leak scan, **`reliability` snapshot**)
+- Integration sandbox verify: `POST /api/integrations/verify` `{ "integrations": ["twilio","stripe",…] }` (owner/admin). Use `{ "dryRun": true }` in CI.
 - Errors: `SENTRY_DSN`
 - Cron: Vercel cron → `GET /api/autonomy/tick` (see `vercel.json`)
-- Alert when `worker.stale === true` or `deadLetters` grows
+- Alert when `worker.stale === true` or `deadLetters` grows or `reliability.readyForTraffic === false`
 
 ## Disaster recovery
 

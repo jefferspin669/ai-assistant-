@@ -422,7 +422,9 @@ export function TaskAssignmentStudio() {
           )}
 
           <p className="muted-line" style={{ marginTop: "1rem" }}>
-            See who&apos;s online on the <Link href="/app/workforce-status">Workforce Status</Link> page.
+            <Link className="btn btn-outline" href="/app/workforce">
+              Workforce status
+            </Link>
           </p>
         </section>
       </div>

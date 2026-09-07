@@ -1,5 +1,5 @@
-import { ConflictError, NotFoundError, ValidationError } from "@/lib/domain/errors";
-import { requirePermission } from "@/lib/auth/permissions";
+import { AuthorizationError, ConflictError, NotFoundError, ValidationError } from "@/lib/domain/errors";
+import { hasPermission, requirePermission } from "@/lib/auth/permissions";
 import { writeAudit } from "@/lib/services/audit";
 import { toCalendarEvent, toCustomer, toDbTaskStatus, toTask, toTransaction } from "@/lib/domain/mappers";
 import type {
@@ -16,6 +16,7 @@ import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { DbCustomer, DbTask } from "@/lib/db/schema";
 import { emitEvent } from "@/lib/events/bus";
 import { database, requireCustomer, requireEvent, requireOrgMember, requireTask } from "@/lib/services/access";
+import { listEmployees } from "@/lib/services/employees";
 
 export function listCustomers(ctx: SessionContext): Customer[] {
   const db = database();
@@ -70,11 +71,29 @@ export function deleteCustomer(ctx: SessionContext, customerId: string): { id: s
   return { id: customerId };
 }
 
+function employeeIdForSession(ctx: SessionContext): string | null {
+  const match = listEmployees(ctx.organizationId).find(
+    (e) => e.userId === ctx.userId || e.email === database().users.find((u) => u.id === ctx.userId)?.email,
+  );
+  return match?.id ?? null;
+}
+
 export function listOrgTasks(ctx: SessionContext): Task[] {
   const db = database();
   requireOrgMember(db, ctx);
   requirePermission(ctx, "tasks.read");
-  return db.tasks.filter((row) => row.orgId === ctx.organizationId).map(toTask);
+  let rows = db.tasks.filter((row) => row.orgId === ctx.organizationId);
+  // Field workers only see work assigned to them.
+  if (ctx.role === "employee" || ctx.role === "viewer") {
+    const empId = employeeIdForSession(ctx);
+    rows = rows.filter(
+      (row) =>
+        (empId && row.assigneeEmployeeId === empId) ||
+        row.assigneeUserId === ctx.userId ||
+        row.userId === ctx.userId,
+    );
+  }
+  return rows.map(toTask);
 }
 
 export function createOrgTask(
@@ -86,12 +105,27 @@ export function createOrgTask(
     priority?: TaskPriority;
     dueDate?: string | null;
     category?: string;
+    projectLabel?: string;
+    assigneeEmployeeId?: string;
   },
 ): Task {
   const db = database();
   requireOrgMember(db, ctx);
   requirePermission(ctx, "tasks.write");
+
+  let assigneeEmployeeId: string | null = input.assigneeEmployeeId?.trim() || null;
+  let assigneeUserId: string | null = null;
+  if (assigneeEmployeeId) {
+    if (!hasPermission(ctx, "employees.manage") && ctx.role !== "manager" && ctx.role !== "owner" && ctx.role !== "admin") {
+      throw new AuthorizationError("Only owners/managers can assign work to employees.");
+    }
+    const worker = listEmployees(ctx.organizationId).find((e) => e.id === assigneeEmployeeId);
+    if (!worker) throw new ValidationError("assigneeEmployeeId is not a worker in this organization.");
+    assigneeUserId = worker.userId;
+  }
+
   const stamp = nowIso();
+  const projectLabel = input.projectLabel?.trim() || null;
   const row: DbTask = {
     id: newId("task"),
     orgId: ctx.organizationId,
@@ -101,38 +135,114 @@ export function createOrgTask(
     status: toDbTaskStatus(input.status || "todo"),
     priority: input.priority || "normal",
     dueDate: input.dueDate ?? null,
-    category: input.category?.trim() || "General",
+    category: input.category?.trim() || (projectLabel ? "Project" : "General"),
+    projectLabel,
+    assigneeEmployeeId,
+    assigneeUserId,
     createdAt: stamp,
     updatedAt: stamp,
   };
   saveDatabase({ ...db, tasks: [row, ...db.tasks] });
-  writeAudit(ctx, { action: "created task", entityType: "task", entityId: row.id });
+  writeAudit(ctx, {
+    action: assigneeEmployeeId
+      ? `created project task assigned to ${assigneeEmployeeId}`
+      : "created task",
+    entityType: "task",
+    entityId: row.id,
+  });
   return toTask(row);
 }
 
 export function updateOrgTask(
   ctx: SessionContext,
   taskId: string,
-  patch: Partial<Pick<Task, "title" | "notes" | "status" | "priority" | "dueDate" | "category">>,
+  patch: Partial<
+    Pick<
+      Task,
+      | "title"
+      | "notes"
+      | "status"
+      | "priority"
+      | "dueDate"
+      | "category"
+      | "projectLabel"
+      | "assigneeEmployeeId"
+      | "assigneeUserId"
+    >
+  >,
 ): Task {
   const db = database();
   const existing = requireTask(db, ctx, taskId);
   requirePermission(ctx, "tasks.write");
+
+  const empId = employeeIdForSession(ctx);
+  const isAssignee =
+    (empId && existing.assigneeEmployeeId === empId) || existing.assigneeUserId === ctx.userId;
+  const canManage = hasPermission(ctx, "employees.manage") || ctx.role === "manager" || ctx.role === "owner" || ctx.role === "admin";
+  if (ctx.role === "employee" && !isAssignee) {
+    throw new AuthorizationError("You can only update tasks assigned to you.");
+  }
+  if (ctx.role === "employee" && patch.assigneeEmployeeId !== undefined) {
+    throw new AuthorizationError("Workers cannot reassign tasks.");
+  }
+
+  let assigneeEmployeeId =
+    patch.assigneeEmployeeId === undefined ? existing.assigneeEmployeeId ?? null : patch.assigneeEmployeeId;
+  let assigneeUserId = existing.assigneeUserId ?? null;
+  if (patch.assigneeEmployeeId !== undefined) {
+    if (!canManage) throw new AuthorizationError("Only owners/managers can assign work.");
+    if (assigneeEmployeeId) {
+      const worker = listEmployees(ctx.organizationId).find((e) => e.id === assigneeEmployeeId);
+      if (!worker) throw new ValidationError("assigneeEmployeeId is not a worker in this organization.");
+      assigneeUserId = worker.userId;
+    } else {
+      assigneeUserId = null;
+    }
+  } else if (isAssignee && empId && !assigneeUserId) {
+    // Bind the worker's user id on first update after login.
+    assigneeUserId = ctx.userId;
+  }
+
+  const prevStatus = toTask(existing).status;
+  const nextStatus = patch.status ? toDbTaskStatus(patch.status) : existing.status;
   const next: DbTask = {
     ...existing,
     title: patch.title?.trim() || existing.title,
     notes: patch.notes ?? existing.notes,
-    status: patch.status ? toDbTaskStatus(patch.status) : existing.status,
+    status: nextStatus,
     priority: patch.priority || existing.priority,
     dueDate: patch.dueDate === undefined ? existing.dueDate : patch.dueDate,
     category: patch.category ?? existing.category,
+    projectLabel:
+      patch.projectLabel === undefined ? existing.projectLabel ?? null : patch.projectLabel,
+    assigneeEmployeeId,
+    assigneeUserId,
     updatedAt: nowIso(),
   };
   saveDatabase({
     ...db,
     tasks: db.tasks.map((row) => (row.id === taskId ? next : row)),
   });
-  return toTask(next);
+
+  const mapped = toTask(next);
+  if (mapped.status !== prevStatus) {
+    writeAudit(ctx, {
+      action:
+        mapped.status === "completed"
+          ? `completed project task${next.projectLabel ? ` (${next.projectLabel})` : ""}`
+          : `updated task status to ${mapped.status}`,
+      entityType: "task",
+      entityId: next.id,
+    });
+  }
+  if (patch.assigneeEmployeeId !== undefined && canManage) {
+    writeAudit(ctx, {
+      action: `assigned task to ${assigneeEmployeeId || "unassigned"}`,
+      entityType: "task",
+      entityId: next.id,
+    });
+  }
+  return mapped;
 }
 
 export function deleteOrgTask(ctx: SessionContext, taskId: string): { id: string } {

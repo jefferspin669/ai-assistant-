@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useAccount } from "@/components/AccountProvider";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import {
   VOICE_OPTIONS,
   formatWhen,
@@ -57,6 +58,12 @@ export function OrganizationPanel({
 
   return (
     <div className="account-stack">
+      <section className="panel">
+        <h2>Active workspace</h2>
+        <p className="panel-lead">If you belong to more than one company, switch here.</p>
+        <OrganizationSwitcher />
+      </section>
+
       <section className="panel">
         <h2>Search everything</h2>
         <p className="panel-lead">Cloud items, memories, knowledge base, and team chat.</p>
@@ -425,11 +432,43 @@ export function TeamPanel({
           className="form-grid"
           onSubmit={(e) => {
             e.preventDefault();
-            const result = inviteMember(inviteName, inviteEmail, inviteRole);
-            if (!result.ok) return fail(result.error);
-            setInviteName("");
-            setInviteEmail("");
-            note("Invite sent.");
+            void (async () => {
+              const name = inviteName;
+              const email = inviteEmail;
+              const role = inviteRole;
+              try {
+                const res = await fetch("/api/invitations", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    email,
+                    role,
+                    fullName: name,
+                  }),
+                });
+                const json = (await res.json()) as {
+                  ok?: boolean;
+                  error?: string;
+                  data?: { acceptUrl?: string; token?: string };
+                };
+                if (!res.ok || json.ok === false) {
+                  fail(json.error || "Invite failed.");
+                  return;
+                }
+                setInviteName("");
+                setInviteEmail("");
+                note(
+                  json.data?.acceptUrl
+                    ? `Invite sent. Dev link: ${json.data.acceptUrl}`
+                    : "Invite sent.",
+                );
+                // Keep local Account Center roster in sync for demos without a reload.
+                inviteMember(name || email, email, role);
+              } catch {
+                fail("Could not reach Atlas.");
+              }
+            })();
           }}
         >
           <label>

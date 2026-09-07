@@ -65,6 +65,31 @@ function tenantBag(organizationId: string) {
   return getMemory().tenants[organizationId] || {};
 }
 
+/** Best-effort Postgres mirror when DATABASE_URL is set (file remains primary for demos). */
+function mirrorDomainToPostgres(
+  organizationId: string,
+  domain: WorkspaceDomain,
+  data: unknown,
+  updatedAt: string,
+) {
+  void import("@/lib/db/postgres")
+    .then(async ({ hasPostgres, getDrizzle }) => {
+      if (!hasPostgres()) return;
+      const { workspaceDomains } = await import("@/lib/db/drizzle-schema");
+      const db = getDrizzle();
+      await db
+        .insert(workspaceDomains)
+        .values({ organizationId, domain, data, updatedAt })
+        .onConflictDoUpdate({
+          target: [workspaceDomains.organizationId, workspaceDomains.domain],
+          set: { data, updatedAt },
+        });
+    })
+    .catch(() => {
+      /* table may not exist yet — file store still authoritative */
+    });
+}
+
 export function assertPayloadSize(data: unknown) {
   const size = JSON.stringify(data ?? null).length;
   if (size > MAX_WORKSPACE_PAYLOAD_BYTES) {
@@ -105,6 +130,7 @@ export function putWorkspaceDomain(organizationId: string, domain: WorkspaceDoma
     },
   };
   setMemory(next);
+  mirrorDomainToPostgres(organizationId, domain, data, next.updatedAt);
   return { organizationId, domain, data, updatedAt: next.updatedAt };
 }
 
@@ -125,6 +151,11 @@ export function putWorkspaceMany(
     },
   };
   setMemory(next);
+  for (const [domain, data] of Object.entries(domains)) {
+    if (isWorkspaceDomain(domain)) {
+      mirrorDomainToPostgres(organizationId, domain, data, next.updatedAt);
+    }
+  }
   return loadWorkspace(organizationId);
 }
 
