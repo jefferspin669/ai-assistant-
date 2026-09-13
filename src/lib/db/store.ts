@@ -51,6 +51,11 @@ function getServerDb() {
   } else {
     g.__atlasServerDb = seedDatabase();
     writeJsonFile(DB_FILE, g.__atlasServerDb);
+    if (typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { resetSeedEmployees } = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+      resetSeedEmployees(g.__atlasServerDb.organizations[0].id);
+    }
   }
   return g.__atlasServerDb;
 }
@@ -112,6 +117,8 @@ function emptyDb(): AtlasDatabase {
     integrations: [],
     login_attempts: [],
     password_resets: [],
+    organization_invites: [],
+    mfa_challenges: [],
     quotes: [],
     webhook_receipts: [],
     email_verifications: [],
@@ -138,6 +145,8 @@ function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
     integrations: raw.integrations || [],
     login_attempts: raw.login_attempts || [],
     password_resets: raw.password_resets || [],
+    organization_invites: raw.organization_invites || [],
+    mfa_challenges: raw.mfa_challenges || [],
     quotes: raw.quotes || [],
     webhook_receipts: raw.webhook_receipts || [],
     email_verifications: raw.email_verifications || [],
@@ -225,6 +234,8 @@ function normalizeCalendarEvent(
 /** Seed a demo workspace so the architecture map and APIs have data. */
 export function seedDatabase(): AtlasDatabase {
   const userId = newId("user");
+  const memberUserId = newId("user");
+  const invitedUserId = newId("user");
   const orgId = newId("org");
   const stamp = nowIso();
 
@@ -240,26 +251,6 @@ export function seedDatabase(): AtlasDatabase {
     updated_at: stamp,
   };
 
-  const credential: DbUserCredential = {
-    user_id: userId,
-    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
-    mfa_secret: null,
-    mfa_enabled: false,
-  };
-
-  const org: DbOrganization = {
-    id: orgId,
-    owner_id: userId,
-    business_name: "Atlas Demo Co",
-    logo_url: null,
-    business_type: "HVAC",
-    tax_structure: "LLC",
-    state: "TX",
-    created_at: stamp,
-  };
-
-  const memberUserId = newId("user");
-  const invitedUserId = newId("user");
   const teammate: DbUser = {
     id: memberUserId,
     email: "alex@atlas.ai",
@@ -278,9 +269,39 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
-    email_verified_at: null,
+    email_verified_at: stamp,
     created_at: stamp,
     updated_at: stamp,
+  };
+
+  const credential: DbUserCredential = {
+    user_id: userId,
+    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const managerCredential: DbUserCredential = {
+    user_id: memberUserId,
+    password_hash: hashPassword("atlas-manager", "seedatlasmgr12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const workerCredential: DbUserCredential = {
+    user_id: invitedUserId,
+    password_hash: hashPassword("atlas-worker", "seedatlaswrk12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+
+  const org: DbOrganization = {
+    id: orgId,
+    owner_id: userId,
+    business_name: "Atlas Demo Co",
+    logo_url: null,
+    business_type: "HVAC",
+    tax_structure: "LLC",
+    state: "TX",
+    created_at: stamp,
   };
 
   const organization_members: DbOrganizationMember[] = [
@@ -305,7 +326,7 @@ export function seedDatabase(): AtlasDatabase {
       organization_id: orgId,
       user_id: invitedUserId,
       role: "employee",
-      status: "invited",
+      status: "active",
       joined_at: stamp,
     },
   ];
@@ -544,7 +565,7 @@ export function seedDatabase(): AtlasDatabase {
 
   return {
     users: [user, teammate, invited],
-    user_credentials: [credential],
+    user_credentials: [credential, managerCredential, workerCredential],
     organizations: [org],
     organization_members,
     calendar_categories,
@@ -638,6 +659,8 @@ export function seedDatabase(): AtlasDatabase {
     ],
     login_attempts: [],
     password_resets: [],
+    organization_invites: [],
+    mfa_challenges: [],
     quotes: [],
     webhook_receipts: [],
     email_verifications: [],
@@ -759,6 +782,8 @@ export function loadDatabase(): AtlasDatabase {
       integrations: parsed.integrations || [],
       login_attempts: parsed.login_attempts || [],
       password_resets: parsed.password_resets || [],
+      organization_invites: parsed.organization_invites || [],
+      mfa_challenges: parsed.mfa_challenges || [],
       quotes: parsed.quotes || [],
       webhook_receipts: parsed.webhook_receipts || [],
       email_verifications: parsed.email_verifications || [],
@@ -778,20 +803,62 @@ export function saveDatabase(db: AtlasDatabase) {
       writeJsonFile(DB_FILE, next);
     }
     if (postgresLive()) {
-      void import("@/lib/db/postgres")
-        .then((mod) => mod.persistAtlasDatabase(next))
-        .catch((error) => {
-          console.error("[atlas:pg]", error instanceof Error ? error.message : error);
-        });
+      enqueuePostgresPersist(next);
     }
     return;
   }
   localStorage.setItem(DB_KEY, JSON.stringify(next));
 }
 
+/** Await queued Postgres snapshot writes. Throws PersistenceError on failure. */
+export async function flushDatabaseWrites() {
+  if (typeof window !== "undefined") return;
+  await persistChain;
+  if (lastPersistError) {
+    const err = lastPersistError;
+    lastPersistError = null;
+    const { PersistenceError } = await import("@/lib/domain/errors");
+    throw new PersistenceError(err.message);
+  }
+}
+
+/** Test-only: simulate a failed Postgres write that flush must surface. */
+export function __setLastPersistErrorForTests(error: Error | null) {
+  lastPersistError = error;
+}
+
+/** Memory + JSON immediately; Postgres is awaited before returning. */
+export async function saveDatabaseAsync(db: AtlasDatabase) {
+  saveDatabase(db);
+  await flushDatabaseWrites();
+}
+
+let persistChain: Promise<void> = Promise.resolve();
+let lastPersistError: Error | null = null;
+
+function enqueuePostgresPersist(next: AtlasDatabase) {
+  persistChain = persistChain
+    .catch(() => undefined)
+    .then(async () => {
+      const mod = await import("@/lib/db/postgres");
+      await mod.persistAtlasDatabase(next);
+      lastPersistError = null;
+    })
+    .catch((error) => {
+      lastPersistError = error instanceof Error ? error : new Error(String(error));
+      console.error("[atlas:pg]", lastPersistError.message);
+    });
+}
+
 export function resetDatabase() {
   const seeded = seedDatabase();
   saveDatabase(seeded);
+  if (typeof window === "undefined") {
+    // Seed field-worker access codes for the same org (tenant-scoped).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { resetSeedEmployees } = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+    resetSeedEmployees(seeded.organizations[0]!.id);
+  }
   return seeded;
 }
 

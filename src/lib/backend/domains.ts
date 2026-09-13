@@ -9,6 +9,8 @@ export const WORKSPACE_DOMAINS = [
   "contacts",
   "notes",
   "dashboard-layout",
+  "projects",
+  "settings",
 ] as const;
 
 export type WorkspaceDomain = (typeof WORKSPACE_DOMAINS)[number];

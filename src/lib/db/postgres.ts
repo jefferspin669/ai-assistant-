@@ -127,6 +127,9 @@ export async function persistAtlasDatabase(data: AtlasDatabase): Promise<void> {
       dueDate: t.dueDate,
       category: t.category,
       notes: t.notes,
+      projectLabel: t.projectLabel ?? null,
+      assigneeEmployeeId: t.assigneeEmployeeId ?? null,
+      assigneeUserId: t.assigneeUserId ?? null,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     })),
@@ -354,11 +357,7 @@ export async function persistAtlasDatabase(data: AtlasDatabase): Promise<void> {
 }
 
 async function selectAll<T>(table: PgTable): Promise<T[]> {
-  try {
-    return (await getDrizzle().select().from(table)) as T[];
-  } catch {
-    return [];
-  }
+  return (await getDrizzle().select().from(table)) as T[];
 }
 
 export async function loadAtlasDatabaseFromPostgres(): Promise<AtlasDatabase | null> {
@@ -461,6 +460,9 @@ export async function loadAtlasDatabaseFromPostgres(): Promise<AtlasDatabase | n
       dueDate: t.dueDate,
       category: t.category,
       notes: t.notes,
+      projectLabel: (t as { projectLabel?: string | null }).projectLabel ?? null,
+      assigneeEmployeeId: (t as { assigneeEmployeeId?: string | null }).assigneeEmployeeId ?? null,
+      assigneeUserId: (t as { assigneeUserId?: string | null }).assigneeUserId ?? null,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     })),
@@ -635,6 +637,7 @@ export async function loadAtlasDatabaseFromPostgres(): Promise<AtlasDatabase | n
     integrations: [],
     login_attempts: [],
     password_resets: [],
+    mfa_challenges: [],
     webhook_receipts: [],
     email_verifications: [],
   };
