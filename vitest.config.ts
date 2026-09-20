@@ -5,10 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
-<<<<<<< HEAD
     setupFiles: ["./tests/setup.ts"],
-=======
->>>>>>> origin/main
     // Password/security tests intentionally exercise scrypt and can be CPU-heavy in CI.
     testTimeout: 30_000,
   },
