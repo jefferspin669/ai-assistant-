@@ -52,6 +52,18 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
   const db = database();
   const state = run.steps.reduce<Record<string, unknown>>((acc, item) => ({ ...acc, ...(item.result || {}) }), {});
 
+  if (step.kind === "ask_owner") {
+    const question = String(step.payload?.question || "Need a clarifying detail from the owner.");
+    notify(ctx, "Atlas needs a decision", question);
+    writeAudit(ctx, {
+      action: "orchestrator asked owner",
+      entityType: "orchestrator_run",
+      entityId: run.id,
+    });
+    mark(step, "waiting", { question, paused: true });
+    return;
+  }
+
   if (step.kind === "find_customer") {
     const q = String(state.customerQuery || customerQuery(run.goal) || "").toLowerCase();
     const inOrg = db.customers.filter((row) => row.organization_id === ctx.organizationId);

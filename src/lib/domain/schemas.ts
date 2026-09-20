@@ -24,9 +24,37 @@ export const createTaskSchema = z.object({
   priority: taskPrioritySchema.optional(),
   dueDate: z.string().nullable().optional(),
   category: z.string().optional(),
+  projectId: z.string().nullable().optional(),
+  assigneeId: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  notifyOnComplete: z.boolean().optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial();
+
+export const createProjectSchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().optional(),
+  status: z.enum(["active", "paused", "completed", "archived"]).optional(),
+});
+
+export const updateProjectSchema = createProjectSchema.partial();
+
+export const inviteWorkerSchema = z.object({
+  email: z.string().email(),
+  fullName: z.string().trim().min(1).optional(),
+  role: z.enum(["employee", "manager", "admin", "viewer", "accountant"]).optional(),
+});
+
+export const acceptInviteSchema = z.object({
+  memberId: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+});
+
+export const requestCustomerNotifySchema = z.object({
+  taskId: z.string().min(1),
+  message: z.string().trim().min(1).optional(),
+});
 
 export const createCalendarEventSchema = z.object({
   title: z.string().trim().min(1),
@@ -97,6 +125,7 @@ export const atlasActionSchema = z.discriminatedUnion("type", [
     payload: z.object({
       customerId: z.string().min(1),
       message: z.string().trim().min(1),
+      taskId: z.string().optional(),
     }),
   }),
   z.object({

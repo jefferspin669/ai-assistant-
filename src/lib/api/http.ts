@@ -7,6 +7,7 @@ import { isAtlasError, AuthenticationError } from "@/lib/domain/errors";
 import type { Permission, SessionContext } from "@/lib/domain/types";
 import { requirePermission } from "@/lib/auth/permissions";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { awaitDatabaseWrites } from "@/lib/db/store";
 import { readCachedSession } from "@/lib/auth/session-cache";
 import {
   provisionAtlasUserFromSupabase,
@@ -114,6 +115,7 @@ type ApiHandler = (ctx: ApiHandlerContext) => Promise<Response> | Response;
 /**
  * Session + JSON body + error conversion. `workspace` is the authenticated org session.
  * Identity never comes from the request body.
+ * Flushes Postgres / queue writes before the response so every write is awaited.
  */
 export function withAuth(handler: ApiHandler) {
   return async (req: Request) => {
@@ -123,8 +125,15 @@ export function withAuth(handler: ApiHandler) {
         req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS"
           ? {}
           : await readJson(req);
-      return await handler({ req, workspace, body });
+      const response = await handler({ req, workspace, body });
+      await awaitDatabaseWrites();
+      return response;
     } catch (error) {
+      try {
+        await awaitDatabaseWrites();
+      } catch {
+        /* surface the original handler error */
+      }
       return jsonError(error);
     }
   };

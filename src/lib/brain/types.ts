@@ -1,5 +1,7 @@
 /** Atlas Brain — real LLM path with deterministic keyword fallback. */
 
+import type { SessionContext } from "@/lib/domain/types";
+
 export type BrainMode = "live" | "simulation";
 
 export type BrainMessage = {
@@ -25,6 +27,12 @@ export type BrainActionProposal = {
   doneLabel: string;
 };
 
+export type BrainCitation = {
+  entityType: string;
+  entityId: string;
+  href?: string;
+};
+
 export type BrainResult = {
   mode: BrainMode;
   agentLabel: string;
@@ -35,6 +43,9 @@ export type BrainResult = {
   toolCalls?: BrainToolCall[];
   proposedAction?: BrainActionProposal;
   model?: string;
+  citations?: BrainCitation[];
+  clarifyingQuestion?: string;
+  approvalId?: string;
 };
 
 export type BrainChatInput = {
@@ -43,6 +54,10 @@ export type BrainChatInput = {
   ownerName?: string;
   dnaRules?: string[];
   history?: { role: "user" | "assistant"; content: string }[];
+  /** Injected live context pack for the system prompt. */
+  liveContext?: string;
+  /** Authenticated workspace session — enables strict tools. */
+  session?: SessionContext;
 };
 
 export function brainMode(): BrainMode {

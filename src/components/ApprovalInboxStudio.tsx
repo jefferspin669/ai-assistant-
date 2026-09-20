@@ -11,6 +11,7 @@ import {
   type ApprovalRequest,
 } from "@/lib/surface-workspace";
 import { logAudit } from "@/lib/user-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 const PRIORITY_META: Record<ApprovalPriority, { label: string; dot: string; cls: string }> = {
   urgent: { label: "Urgent", dot: "🔴", cls: "badge warn" },
@@ -54,7 +55,7 @@ export function ApprovalInboxStudio() {
   }, []);
 
   useEffect(() => {
-    seedApprovalsIfEmpty();
+    if (isDemoWorkspace()) seedApprovalsIfEmpty();
     refresh();
     void refreshLive();
     setReady(true);

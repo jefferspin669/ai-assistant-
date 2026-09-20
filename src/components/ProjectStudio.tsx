@@ -17,6 +17,7 @@ import {
   type ProjectTaskStatus,
 } from "@/lib/projects-workspace";
 import { loadTeamMembers, seedDemoTeamIfEmpty, type TeamPerson } from "@/lib/user-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 const STATUS_LABELS: Record<ProjectTaskStatus, string> = {
   todo: "To Do",
@@ -41,8 +42,10 @@ export function ProjectStudio() {
   const [note, setNote] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    seedDemoTeamIfEmpty();
-    seedProjectsIfEmpty();
+    if (isDemoWorkspace()) {
+      seedDemoTeamIfEmpty();
+      seedProjectsIfEmpty();
+    }
     setProjects(loadAtlasProjects());
     setMembers(loadTeamMembers());
   }, []);
@@ -115,6 +118,12 @@ export function ProjectStudio() {
           <small>Members with work</small>
         </div>
       </div>
+
+      {projects.length === 0 ? (
+        <p data-testid="projects-empty" style={{ opacity: 0.75 }}>
+          No projects yet. Create one to start assigning work — Atlas does not invent demo projects here.
+        </p>
+      ) : null}
 
       <div className="training-tabs" role="tablist">
         {[

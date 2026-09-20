@@ -13,7 +13,7 @@ import { createApproval, listApprovals, requiresApproval } from "@/lib/services/
 import { intentFromAtlasAction, submitWork } from "@/lib/autonomy/submit";
 import { enqueueJob } from "@/lib/services/jobs";
 import { emitEvent } from "@/lib/events/bus";
-import { newId, nowIso, saveDatabase } from "@/lib/db/store";
+import { enqueueAwaitedSideEffect, newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database, requireCustomer } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -76,13 +76,35 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
       requirePermission(ctx, "customers.write");
       return { type: "CREATE_CUSTOMER", customer: createCustomer(ctx, action.payload) };
     case "SEND_MESSAGE": {
-      requireCustomer(database(), ctx, action.payload.customerId);
-      enqueueJob(ctx, "send_message", { ...action.payload, userId: ctx.userId });
+      const db = database();
+      const customer = requireCustomer(db, ctx, action.payload.customerId);
+      const to = customer.phone || customer.email || "";
+      const job = enqueueJob(ctx, "send_message", {
+        ...action.payload,
+        userId: ctx.userId,
+        to,
+        phone: customer.phone,
+        email: customer.email,
+        body: action.payload.message,
+        taskId: action.payload.taskId,
+      });
       writeAudit(ctx, {
-        action: "Atlas sent customer message",
+        action: "Atlas queued customer message",
         entityType: "customer",
         entityId: action.payload.customerId,
       });
+      // Run immediately when no Redis worker — still goes through idempotent handler.
+      if (typeof window === "undefined" && !process.env.REDIS_URL?.trim()) {
+        enqueueAwaitedSideEffect(async () => {
+          const { handleQueuedWork } = await import("@/lib/queue/handlers");
+          await handleQueuedWork("send_message", {
+            jobId: job.id,
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            payload: job.payload,
+          });
+        });
+      }
       return {
         type: "SEND_MESSAGE",
         queued: true,
