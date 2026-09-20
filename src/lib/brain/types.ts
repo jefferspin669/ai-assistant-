@@ -25,6 +25,8 @@ export type BrainActionProposal = {
   impact: string;
   confirmPrompt: string;
   doneLabel: string;
+  /** Server-side approval id when staged into Approvals. */
+  approvalId?: string;
 };
 
 export type BrainCitation = {
@@ -46,6 +48,8 @@ export type BrainResult = {
   citations?: BrainCitation[];
   clarifyingQuestion?: string;
   approvalId?: string;
+  evidence?: import("@/lib/brain/context").BrainEvidence[];
+  gaps?: string[];
 };
 
 export type BrainChatInput = {

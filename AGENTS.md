@@ -21,7 +21,8 @@ API identity comes from the `atlas_session` httpOnly cookie — never from body 
 - Command Center talks to `POST /api/ai/chat`
 - If `ATLAS_LLM_API_KEY` is set → live OpenAI-compatible LLM + tool calling
 - If unset → simulation/keyword fallback (demos still work)
-- Tools: business brief, propose risky action (approval), remember standing order
+- Tools: business brief, search_business_context, plan_business_goal, answer_from_context, memory, tasks/schedule/invoice/SMS (strict + approvals), propose risky action, remember standing order, run_business_goal
+- Evidence: permission-filtered retrieval with citations + gaps; simulation uses evidence-fallback for named operational questions
 - Postgres schema: `supabase/schema.sql`
 
 ## Commercial beachhead (`/app/commercial`)

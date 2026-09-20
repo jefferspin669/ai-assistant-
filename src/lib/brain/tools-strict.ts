@@ -16,7 +16,14 @@ import {
 } from "@/lib/services/workspace";
 import { executeAtlasAction } from "@/lib/domain/actions";
 import { rememberBusinessFact, searchUnifiedMemories } from "@/lib/memory/unified";
-import { buildBusinessContext, formatEvidenceAnswer } from "@/lib/brain/context";
+import {
+  buildBusinessContext,
+  formatEvidenceAnswer,
+  searchBusinessContext,
+  type BrainEvidence,
+} from "@/lib/brain/context";
+import { listCapabilities } from "@/lib/capabilities/registry";
+import { planGoal } from "@/lib/orchestrator/planner";
 import { claimExactOnce } from "@/lib/safety/idempotency";
 import { writeAudit } from "@/lib/services/audit";
 import type { BrainActionProposal } from "@/lib/brain/types";
@@ -28,6 +35,8 @@ export type StrictToolResult = {
   approvalId?: string;
   idempotentReplay?: boolean;
   needsInfo?: string;
+  evidence?: BrainEvidence[];
+  gaps?: string[];
 };
 
 const createTaskArgs = z.object({
@@ -80,6 +89,14 @@ const searchMemoryArgs = z.object({
   query: z.string().trim().min(1),
 });
 
+const searchContextArgs = z.object({
+  query: z.string().trim().min(2).max(500),
+});
+
+const planGoalArgs = z.object({
+  goal: z.string().trim().min(3).max(1_000),
+});
+
 function assertToolGate(ctx: SessionContext, risk: "low" | "sensitive" | "payment" | "mass_comm") {
   if (!ctx.organizationId || !ctx.userId) throw new AuthorizationError("Session required.");
   const policy = getPolicy(ctx.organizationId);
@@ -115,13 +132,54 @@ export async function executeStrictBrainTool(
         citations: pack.facts.filter((f) => f.citation).map((f) => f.citation!),
       };
     }
+    const canReadFinancials = hasPermission(ctx, "payments.read");
+    const canReadApprovals = hasPermission(ctx, "audit.read") || ctx.role === "owner" || ctx.role === "admin";
+    const income = pack.facts.find((f) => f.id === "ledger_income");
     return {
       content: JSON.stringify({
-        ...Object.fromEntries(pack.facts.map((f) => [f.id, { value: f.value, evidence: f.evidence }])),
+        source: "organization_database",
+        organizationId: ctx.organizationId,
+        openTasks: pack.facts.find((f) => f.id === "open_tasks")?.value,
+        customers: pack.facts.find((f) => f.id === "customers")?.value,
+        revenueLast30Days: canReadFinancials ? income?.value : undefined,
+        restricted: { financials: !canReadFinancials, approvals: !canReadApprovals },
+        facts: pack.facts,
         missing: pack.missing,
         memories: pack.memories,
       }),
       citations: pack.facts.filter((f) => f.citation).map((f) => f.citation!),
+    };
+  }
+
+  if (name === "search_business_context") {
+    assertToolGate(ctx, "low");
+    const parsed = searchContextArgs.parse(args);
+    const result = searchBusinessContext(ctx, parsed.query);
+    return {
+      content: JSON.stringify(result),
+      evidence: result.evidence,
+      gaps: result.gaps,
+      citations: result.evidence.map((item) => ({ entityType: item.source, entityId: item.id })),
+    };
+  }
+
+  if (name === "plan_business_goal") {
+    assertToolGate(ctx, "low");
+    const parsed = planGoalArgs.parse(args);
+    const capabilities = listCapabilities(ctx);
+    const plan = planGoal(parsed.goal, capabilities);
+    return {
+      content: JSON.stringify({
+        goal: parsed.goal,
+        ...plan,
+        capabilities: capabilities.map(({ id, label, status, approval }) => ({
+          id,
+          label,
+          status,
+          approval,
+        })),
+        executed: false,
+      }),
     };
   }
 
