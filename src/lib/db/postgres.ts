@@ -716,5 +716,6 @@ export async function loadAtlasDatabaseFromPostgres(): Promise<AtlasDatabase | n
     mfa_challenges: [],
     webhook_receipts: [],
     email_verifications: [],
+    organization_invites: [],
   };
 }

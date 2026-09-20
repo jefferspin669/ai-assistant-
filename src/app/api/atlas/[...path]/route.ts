@@ -1,20 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { atlasApi } from "@/lib/api/atlas-api";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { resolveSession, jsonError } from "@/lib/api/http";
+import { AuthenticationError, AuthorizationError } from "@/lib/domain/errors";
+import { hasPermission } from "@/lib/auth/permissions";
+import type { SessionContext } from "@/lib/domain/types";
+import { isProduction } from "@/lib/ops/environment";
 
 /**
- * HTTP façade over the Atlas Backend API.
- * Example: GET /api/atlas/meta/health
- *          POST /api/atlas/ai/chat { "message": "How is business?" }
+ * Legacy HTTP façade over atlas-api.
+ * Sensitive domains require an authenticated session; body userId / organizationId
+ * are ignored — identity comes only from the atlas_session cookie.
  *
- * When DATABASE_URL is set, this hydrates from Postgres once per instance.
- * It does not re-seed demo data on every request.
+ * Prefer dedicated routes (`/api/settings`, `/api/organizations`, `/api/memory`, …)
+ * for new work. This catch-all exists for older clients.
  */
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
+const PUBLIC_AUTH_ACTIONS = new Set(["signup", "login"]);
+
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
+}
+
+function stripIdentity(body: Record<string, unknown>) {
+  const next = { ...body };
+  delete next.userId;
+  delete next.user_id;
+  delete next.organizationId;
+  delete next.organization_id;
+  delete next.owner_id;
+  return next;
+}
+
+function requireSessionRole(session: SessionContext, roles: SessionContext["role"][]) {
+  if (!roles.includes(session.role)) {
+    throw new AuthorizationError("Insufficient role for this Atlas API path.");
+  }
 }
 
 async function handle(req: NextRequest, ctx: Ctx) {
@@ -25,9 +48,28 @@ async function handle(req: NextRequest, ctx: Ctx) {
   let body: Record<string, unknown> = {};
   if (req.method !== "GET" && req.method !== "HEAD") {
     try {
-      body = (await req.json()) as Record<string, unknown>;
+      body = stripIdentity((await req.json()) as Record<string, unknown>);
     } catch {
       body = {};
+    }
+  }
+
+  const isPublicAuth =
+    domain === "auth" && action && PUBLIC_AUTH_ACTIONS.has(action) && req.method === "POST";
+  const isPublicMeta = domain === "meta";
+
+  let session: SessionContext | null = null;
+  try {
+    session = await resolveSession(req);
+  } catch {
+    if (!isPublicAuth && !isPublicMeta) {
+      if (isProduction()) {
+        throw new AuthenticationError("Sign in required for /api/atlas/*.");
+      }
+      // Dev demos: still refuse mutating/listing business data without a cookie.
+      if (!isPublicAuth && !isPublicMeta) {
+        throw new AuthenticationError("Sign in required for /api/atlas/*.");
+      }
     }
   }
 
@@ -50,7 +92,15 @@ async function handle(req: NextRequest, ctx: Ctx) {
   if (domain === "auth" && action === "login" && req.method === "POST") {
     return json(atlasApi.auth.login(String(body.email || ""), String(body.password || "")));
   }
+
+  if (!session) {
+    throw new AuthenticationError("Sign in required for /api/atlas/*.");
+  }
+
   if (domain === "users" && action && req.method === "POST") {
+    if (action !== session.userId && session.role !== "owner" && session.role !== "admin") {
+      throw new AuthorizationError("You can only update your own profile.");
+    }
     return json(
       atlasApi.users.update(action, {
         full_name: body.full_name != null ? String(body.full_name) : undefined,
@@ -67,8 +117,18 @@ async function handle(req: NextRequest, ctx: Ctx) {
       }),
     );
   }
-  if (domain === "users") return json(atlasApi.users.list());
+  if (domain === "users") {
+    requireSessionRole(session, ["owner", "admin"]);
+    return json(atlasApi.users.list());
+  }
+
   if (domain === "businesses" && action && req.method === "POST") {
+    if (action !== session.organizationId) {
+      throw new AuthorizationError("Cannot mutate another organization's business record.");
+    }
+    if (!hasPermission(session, "workspace.write")) {
+      throw new AuthorizationError("Missing permission: workspace.write");
+    }
     return json(
       atlasApi.businesses.update(action, {
         business_name: body.business_name != null ? String(body.business_name) : undefined,
@@ -81,14 +141,14 @@ async function handle(req: NextRequest, ctx: Ctx) {
             : body.logo_url != null
               ? String(body.logo_url)
               : undefined,
-        owner_id: body.owner_id != null ? String(body.owner_id) : undefined,
       }),
     );
   }
   if (domain === "businesses" && req.method === "POST") {
+    requireSessionRole(session, ["owner", "admin"]);
     return json(
       atlasApi.businesses.create({
-        owner_id: String(body.owner_id || ""),
+        owner_id: session.userId,
         business_name: String(body.business_name || body.name || ""),
         business_type: body.business_type != null ? String(body.business_type) : undefined,
         tax_structure: body.tax_structure != null ? String(body.tax_structure) : undefined,
@@ -97,11 +157,22 @@ async function handle(req: NextRequest, ctx: Ctx) {
       }),
     );
   }
-  if (domain === "businesses") return json(atlasApi.businesses.list());
+  if (domain === "businesses") {
+    const all = atlasApi.businesses.list();
+    if (!all.success) return json(all);
+    return json({
+      ...all,
+      data: all.data.filter((org) => org.id === session.organizationId),
+    });
+  }
+
   if (domain === "organization-members" && action === "invite" && req.method === "POST") {
+    if (!hasPermission(session, "employees.manage")) {
+      throw new AuthorizationError("Missing permission: employees.manage");
+    }
     return json(
       atlasApi.organizationMembers.invite({
-        organization_id: String(body.organization_id || ""),
+        organization_id: session.organizationId,
         user_id: body.user_id != null ? String(body.user_id) : undefined,
         email: body.email != null ? String(body.email) : undefined,
         full_name: body.full_name != null ? String(body.full_name) : undefined,
@@ -110,6 +181,9 @@ async function handle(req: NextRequest, ctx: Ctx) {
     );
   }
   if (domain === "organization-members" && action && req.method === "POST") {
+    if (!hasPermission(session, "employees.manage")) {
+      throw new AuthorizationError("Missing permission: employees.manage");
+    }
     return json(
       atlasApi.organizationMembers.update(action, {
         role: body.role as "owner" | "admin" | "manager" | "employee" | "viewer" | undefined,
@@ -118,9 +192,18 @@ async function handle(req: NextRequest, ctx: Ctx) {
     );
   }
   if (domain === "organization-members") {
-    const orgId = req.nextUrl.searchParams.get("organization_id") || undefined;
-    return json(atlasApi.organizationMembers.list(orgId || undefined));
+    return json(atlasApi.organizationMembers.list(session.organizationId));
   }
+
+  if (domain === "calendar-categories" || domain === "calendar") {
+    if (!hasPermission(session, "calendar.read") && req.method === "GET") {
+      throw new AuthorizationError("Missing permission: calendar.read");
+    }
+    if (req.method === "POST" && !hasPermission(session, "calendar.write")) {
+      throw new AuthorizationError("Missing permission: calendar.write");
+    }
+  }
+
   if (domain === "calendar-categories" && action && req.method === "POST") {
     return json(
       atlasApi.calendar.updateCategory(action, {
@@ -133,8 +216,8 @@ async function handle(req: NextRequest, ctx: Ctx) {
   if (domain === "calendar-categories" && req.method === "POST") {
     return json(
       atlasApi.calendar.createCategory({
-        user_id: String(body.user_id || ""),
-        organization_id: String(body.organization_id || ""),
+        user_id: session.userId,
+        organization_id: session.organizationId,
         name: String(body.name || ""),
         color: body.color != null ? String(body.color) : undefined,
         icon: body.icon != null ? String(body.icon) : undefined,
@@ -145,8 +228,8 @@ async function handle(req: NextRequest, ctx: Ctx) {
   if (domain === "calendar-categories") {
     return json(
       atlasApi.calendar.listCategories({
-        user_id: req.nextUrl.searchParams.get("user_id") || undefined,
-        organization_id: req.nextUrl.searchParams.get("organization_id") || undefined,
+        user_id: session.userId,
+        organization_id: session.organizationId,
       }),
     );
   }
@@ -185,8 +268,8 @@ async function handle(req: NextRequest, ctx: Ctx) {
   if (domain === "calendar" && req.method === "POST") {
     return json(
       atlasApi.calendar.createEvent({
-        user_id: String(body.user_id || ""),
-        organization_id: String(body.organization_id || ""),
+        user_id: session.userId,
+        organization_id: session.organizationId,
         title: String(body.title || ""),
         description: body.description != null ? String(body.description) : undefined,
         start_time: String(body.start_time || new Date().toISOString()),
@@ -205,31 +288,76 @@ async function handle(req: NextRequest, ctx: Ctx) {
   if (domain === "calendar") {
     return json(
       atlasApi.calendar.listEvents({
-        user_id: req.nextUrl.searchParams.get("user_id") || undefined,
-        organization_id: req.nextUrl.searchParams.get("organization_id") || undefined,
+        user_id: session.userId,
+        organization_id: session.organizationId,
       }),
     );
   }
-  if (domain === "tasks") return json(atlasApi.tasks.list());
-  if (domain === "transactions") return json(atlasApi.transactions.list());
-  if (domain === "taxes" && action === "estimate") return json(atlasApi.taxes.estimate());
-  if (domain === "taxes") return json(atlasApi.taxes.listRecords());
+
+  if (domain === "tasks") {
+    if (!hasPermission(session, "tasks.read")) {
+      throw new AuthorizationError("Missing permission: tasks.read");
+    }
+    const listed = atlasApi.tasks.list();
+    if (!listed.success) return json(listed);
+    return json({
+      ...listed,
+      data: listed.data.filter((t) => t.orgId === session.organizationId),
+    });
+  }
+  if (domain === "transactions") {
+    if (!hasPermission(session, "payments.read")) {
+      throw new AuthorizationError("Missing permission: payments.read");
+    }
+    const listed = atlasApi.transactions.list();
+    if (!listed.success) return json(listed);
+    return json({
+      ...listed,
+      data: listed.data.filter((t) => t.orgId === session.organizationId),
+    });
+  }
+  if (domain === "taxes" && action === "estimate") {
+    if (!hasPermission(session, "payments.read")) {
+      throw new AuthorizationError("Missing permission: payments.read");
+    }
+    return json(atlasApi.taxes.estimate());
+  }
+  if (domain === "taxes") {
+    if (!hasPermission(session, "payments.read")) {
+      throw new AuthorizationError("Missing permission: payments.read");
+    }
+    return json(atlasApi.taxes.listRecords());
+  }
   if (domain === "ai" && action === "chat" && req.method === "POST") {
     return json(atlasApi.ai.chat(String(body.message || "")));
   }
   if (domain === "ai" && action === "conversations") return json(atlasApi.ai.listConversations());
   if (domain === "ai" && action === "memories") return json(atlasApi.ai.listMemories());
   if (domain === "notifications") return json(atlasApi.notifications.list());
-  if (domain === "files") return json(atlasApi.files.list());
-  if (domain === "billing") return json(atlasApi.billing.list());
+  if (domain === "files") {
+    requireSessionRole(session, ["owner", "admin", "manager"]);
+    return json(atlasApi.files.list());
+  }
+  if (domain === "billing") {
+    requireSessionRole(session, ["owner", "admin"]);
+    return json(atlasApi.billing.list());
+  }
 
   return json({ ok: false, error: `Unknown API path: /api/atlas/${segments.join("/")}`, status: 404 }, 404);
 }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  return handle(req, ctx);
+  try {
+    return await handle(req, ctx);
+  } catch (error) {
+    return jsonError(error);
+  }
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  return handle(req, ctx);
+  try {
+    return await handle(req, ctx);
+  } catch (error) {
+    return jsonError(error);
+  }
 }

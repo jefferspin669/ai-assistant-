@@ -312,6 +312,18 @@ export type DbPasswordReset = {
   used_at: string | null;
 };
 
+/** Owner-issued invite to join an organization (email token link). */
+export type DbOrganizationInvite = {
+  token: string;
+  organization_id: string;
+  email: string;
+  role: OrgMemberRole;
+  invited_by: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+};
+
 /** Short-lived MFA challenge — not a full session. */
 export type DbMfaChallenge = {
   id: string;
@@ -393,6 +405,7 @@ export type AtlasDatabase = {
   webhook_receipts: DbWebhookReceipt[];
   email_verifications: DbEmailVerification[];
   autonomy_policies: DbAutonomyPolicy[];
+  organization_invites: DbOrganizationInvite[];
 };
 
 export const DB_TABLES = [

@@ -133,6 +133,7 @@ function emptyDb(): AtlasDatabase {
     webhook_receipts: [],
     email_verifications: [],
     autonomy_policies: [],
+    organization_invites: [],
   };
 }
 
@@ -160,6 +161,7 @@ function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
     webhook_receipts: raw.webhook_receipts || [],
     email_verifications: raw.email_verifications || [],
     autonomy_policies: raw.autonomy_policies || [],
+    organization_invites: raw.organization_invites || [],
     notifications: raw.notifications || [],
     agents: raw.agents || [],
     automations: raw.automations || [],
@@ -759,6 +761,7 @@ export function seedDatabase(): AtlasDatabase {
     quotes: [],
     webhook_receipts: [],
     email_verifications: [],
+    organization_invites: [],
   };
 }
 
@@ -881,6 +884,8 @@ export function loadDatabase(): AtlasDatabase {
       quotes: parsed.quotes || [],
       webhook_receipts: parsed.webhook_receipts || [],
       email_verifications: parsed.email_verifications || [],
+      autonomy_policies: parsed.autonomy_policies || [],
+      organization_invites: parsed.organization_invites || [],
     };
     localStorage.setItem(DB_KEY, JSON.stringify(state));
     return state;

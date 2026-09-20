@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAccount } from "@/components/AccountProvider";
 import { useLanguage } from "@/components/LanguageProvider";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import { atlasApi } from "@/lib/api/atlas-api";
 import { settingsHub } from "@/lib/section-hubs";
 import type {
@@ -253,6 +254,7 @@ export function SettingsStudio() {
             {org ? ` · ${org.id}` : ""}.
             {org ? ` owner_id ${org.owner_id}` : ""}
           </p>
+          <OrganizationSwitcher />
           <form
             className="form-grid"
             onSubmit={(e) => {
