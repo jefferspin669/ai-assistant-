@@ -21,7 +21,11 @@ API identity comes from the `atlas_session` httpOnly cookie — never from body 
 - Command Center talks to `POST /api/ai/chat`
 - If `ATLAS_LLM_API_KEY` is set → live OpenAI-compatible LLM + tool calling
 - If unset → simulation/keyword fallback (demos still work)
-- Tools: business brief, propose risky action (approval), remember standing order
+- Tools: business brief, search_business_context, plan_business_goal, answer_from_context, memory, tasks/schedule/invoice/SMS (strict + approvals), propose risky action, remember standing order, run_business_goal
+- Evidence: permission-filtered retrieval (tasks, projects, customers, calendar, transactions, documents, policies, communications, memories) with citations + gaps; simulation uses evidence-fallback for named operational questions
+- Memory: server `/api/memory` with conflict detection, owner correct/delete; feedback via `/api/feedback` → memory outcomes
+- Live model: allowlisted models, timeouts, token/cost/latency metering on replies + `GET /api/health` → `brain`
+- Orchestrator: `POST /api/orchestrator` with `{ runId, answer }` resumes ask_owner waits
 - Postgres schema: `supabase/schema.sql`
 
 ## Commercial beachhead (`/app/commercial`)
@@ -59,6 +63,7 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Package manager is npm (`package-lock.json`); Node 20+ works (verified on Node 22). After pulling, run `npm install` so `zod` and `vitest` are present.
 - Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`, `npm test`. Setup: `npm install`.
 - Optional local stack: `docker compose up -d postgres redis`, then `npm run db:migrate`, `npm run worker`, `npm run dev`.
+- Staging drills (no cloud sandbox keys required): `npm run drill:trust`; with Postgres/Redis + running app, `npm run smoke:staging`.
 - Dev server: `http://localhost:3000` via `npm run dev`.
 - Optional env: copy `.env.example` → `.env.local`. `ATLAS_LLM_API_KEY` for live Brain; `DATABASE_URL` / `REDIS_URL` for Postgres + workers.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.

@@ -32,6 +32,69 @@ jobs:
           # Build-time only — runtime production still requires a real DATABASE_URL.
           # Next build must typecheck/compile without a live database.
           NEXT_TELEMETRY_DISABLED: "1"
+      - name: Trust drills (JSON + simulation)
+        run: npm run drill:trust
+
+  staging-stack:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: atlas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://atlas:atlas@localhost:5432/atlas
+      REDIS_URL: redis://localhost:6379
+      ATLAS_ENV: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Migrate Postgres
+        run: npm run db:migrate
+      - name: Trust drills with Postgres dump/restore
+        run: npm run drill:trust
+      - name: Start app for health smoke
+        run: |
+          npm run build
+          npm run start -- -H 127.0.0.1 -p 3000 &
+          echo $! > /tmp/atlas-app.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3000/api/health >/dev/null; then
+              echo "app up"
+              break
+            fi
+            sleep 2
+          done
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          ATLAS_APP_PASSWORD: "ci-staging-smoke-password-32chars"
+      - name: Staging health smoke
+        run: npm run smoke:staging
+        env:
+          BASE_URL: http://127.0.0.1:3000
+          ATLAS_APP_PASSWORD: "ci-staging-smoke-password-32chars"
 
   audit:
     runs-on: ubuntu-latest
@@ -48,7 +111,7 @@ jobs:
 
   release-gate:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [acceptance]
+    needs: [acceptance, staging-stack]
     runs-on: ubuntu-latest
     steps:
       - name: Record release SHA

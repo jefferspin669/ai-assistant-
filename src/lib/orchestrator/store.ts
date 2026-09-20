@@ -39,7 +39,10 @@ export function dueRuns(now = Date.now()) {
   return load().runs.filter((row) => {
     if (row.status !== "waiting") return false;
     const step = row.steps[row.cursor];
-    if (!step?.waitUntil) return true;
+    if (!step) return false;
+    // ask_owner waits for an explicit owner answer via resumeRun — not auto-tick.
+    if (step.kind === "ask_owner") return false;
+    if (!step.waitUntil) return true;
     return new Date(step.waitUntil).getTime() <= now;
   });
 }

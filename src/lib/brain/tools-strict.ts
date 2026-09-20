@@ -12,14 +12,19 @@ import {
   createCustomerScopedEvent,
   createOrgTask,
   listCustomers,
+  listOrgEvents,
+  listOrgTasks,
   updateOrgTask,
 } from "@/lib/services/workspace";
 import { executeAtlasAction } from "@/lib/domain/actions";
-import { rememberBusinessFact, searchUnifiedMemories } from "@/lib/memory/unified";
-import { buildBusinessContext, formatEvidenceAnswer } from "@/lib/brain/context";
+import { rememberBusinessFactChecked, searchUnifiedMemories } from "@/lib/memory/unified";
+import { buildBusinessContext, formatEvidenceAnswer, searchBusinessContext, type BrainEvidence } from "@/lib/brain/context";
+import { listCapabilities } from "@/lib/capabilities/registry";
+import { planGoal } from "@/lib/orchestrator/planner";
 import { claimExactOnce } from "@/lib/safety/idempotency";
 import { writeAudit } from "@/lib/services/audit";
 import type { BrainActionProposal } from "@/lib/brain/types";
+import { wrapUntrustedBusinessData } from "@/lib/brain/untrusted";
 
 export type StrictToolResult = {
   content: string;
@@ -28,6 +33,9 @@ export type StrictToolResult = {
   approvalId?: string;
   idempotentReplay?: boolean;
   needsInfo?: string;
+  evidence?: BrainEvidence[];
+  gaps?: string[];
+  verified?: boolean;
 };
 
 const createTaskArgs = z.object({
@@ -73,11 +81,20 @@ const rememberArgs = z.object({
   accessLevel: z
     .enum(["owner", "leadership", "managers", "all_staff", "customer_facing"])
     .optional(),
+  force: z.boolean().optional(),
   idempotencyKey: z.string().min(1),
 });
 
 const searchMemoryArgs = z.object({
   query: z.string().trim().min(1),
+});
+
+const searchContextArgs = z.object({
+  query: z.string().trim().min(2).max(500),
+});
+
+const planGoalArgs = z.object({
+  goal: z.string().trim().min(3).max(1_000),
 });
 
 function assertToolGate(ctx: SessionContext, risk: "low" | "sensitive" | "payment" | "mass_comm") {
@@ -115,13 +132,54 @@ export async function executeStrictBrainTool(
         citations: pack.facts.filter((f) => f.citation).map((f) => f.citation!),
       };
     }
+    const canReadFinancials = hasPermission(ctx, "payments.read");
+    const canReadApprovals = hasPermission(ctx, "audit.read") || ctx.role === "owner" || ctx.role === "admin";
+    const income = pack.facts.find((f) => f.id === "ledger_income");
     return {
       content: JSON.stringify({
-        ...Object.fromEntries(pack.facts.map((f) => [f.id, { value: f.value, evidence: f.evidence }])),
+        source: "organization_database",
+        organizationId: ctx.organizationId,
+        openTasks: pack.facts.find((f) => f.id === "open_tasks")?.value,
+        customers: pack.facts.find((f) => f.id === "customers")?.value,
+        revenueLast30Days: canReadFinancials ? income?.value : undefined,
+        restricted: { financials: !canReadFinancials, approvals: !canReadApprovals },
+        facts: pack.facts,
         missing: pack.missing,
         memories: pack.memories,
       }),
       citations: pack.facts.filter((f) => f.citation).map((f) => f.citation!),
+    };
+  }
+
+  if (name === "search_business_context") {
+    assertToolGate(ctx, "low");
+    const parsed = searchContextArgs.parse(args);
+    const result = searchBusinessContext(ctx, parsed.query);
+    return {
+      content: JSON.stringify(result),
+      evidence: result.evidence,
+      gaps: result.gaps,
+      citations: result.evidence.map((item) => ({ entityType: item.source, entityId: item.id })),
+    };
+  }
+
+  if (name === "plan_business_goal") {
+    assertToolGate(ctx, "low");
+    const parsed = planGoalArgs.parse(args);
+    const capabilities = listCapabilities(ctx);
+    const plan = planGoal(parsed.goal, capabilities);
+    return {
+      content: JSON.stringify({
+        goal: parsed.goal,
+        ...plan,
+        capabilities: capabilities.map(({ id, label, status, approval }) => ({
+          id,
+          label,
+          status,
+          approval,
+        })),
+        executed: false,
+      }),
     };
   }
 
@@ -133,7 +191,7 @@ export async function executeStrictBrainTool(
       content: JSON.stringify({
         hits: rows.map((r) => ({
           id: r.id,
-          content: r.content,
+          content: wrapUntrustedBusinessData("memory", r.content),
           confidence: r.confidence,
           accessLevel: r.accessLevel,
           source: r.source,
@@ -151,10 +209,27 @@ export async function executeStrictBrainTool(
     if (!claim.allowed) {
       return { content: JSON.stringify({ saved: false, idempotentReplay: true }), idempotentReplay: true };
     }
-    const row = rememberBusinessFact(ctx, parsed);
+    const result = rememberBusinessFactChecked(ctx, {
+      content: parsed.content,
+      memoryType: parsed.memoryType,
+      accessLevel: parsed.accessLevel,
+      force: parsed.force,
+    });
+    if (!result.saved) {
+      return {
+        content: JSON.stringify({
+          saved: false,
+          needsOwnerReview: true,
+          conflicts: result.conflicts,
+          hint: "Ask the owner to correct/delete the old memory or re-run with force=true.",
+        }),
+        needsInfo: `This conflicts with existing memory. ${result.conflicts[0]?.reason || "Review before saving."}`,
+      };
+    }
     return {
-      content: JSON.stringify({ saved: true, id: row.id }),
-      citations: [{ entityType: "memory", entityId: row.id }],
+      content: JSON.stringify({ saved: true, id: result.memory!.id, verified: true }),
+      citations: [{ entityType: "memory", entityId: result.memory!.id }],
+      verified: true,
     };
   }
 
@@ -173,9 +248,11 @@ export async function executeStrictBrainTool(
       assigneeId: parsed.assigneeId ?? null,
       dueDate: parsed.dueDate ?? null,
     });
+    const verified = listOrgTasks(ctx).some((row) => row.id === task.id);
     return {
-      content: JSON.stringify({ created: true, task }),
+      content: JSON.stringify({ created: true, task, verified }),
       citations: [{ entityType: "task", entityId: task.id }],
+      verified,
     };
   }
 
@@ -253,9 +330,11 @@ export async function executeStrictBrainTool(
       endTime: parsed.endTime,
       title: parsed.title,
     });
+    const verified = listOrgEvents(ctx).some((row) => row.id === event.id);
     return {
-      content: JSON.stringify({ scheduled: true, event }),
+      content: JSON.stringify({ scheduled: true, event, verified }),
       citations: [{ entityType: "calendar_event", entityId: event.id }],
+      verified,
     };
   }
 
