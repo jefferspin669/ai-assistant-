@@ -265,8 +265,35 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
   }
 
   if (step.kind === "check_payment") {
-    const paid = Boolean(state.alreadyPaid);
-    mark(step, "done", { paid, unpaid: !paid });
+    const customerName = String(state.customerName || "");
+    const invoiceId = String(state.invoiceId || "");
+    // Re-query the ledger — do not trust the earlier inspect snapshot alone.
+    const paidNow = db.transactions.some(
+      (row) =>
+        row.orgId === ctx.organizationId &&
+        row.kind === "income" &&
+        (/payment|paid/i.test(row.label) || (invoiceId && row.label.includes(invoiceId))) &&
+        (!customerName || row.label.toLowerCase().includes(customerName.toLowerCase())),
+    );
+    const paid = paidNow || Boolean(state.alreadyPaid);
+    mark(step, "done", {
+      paid,
+      unpaid: !paid,
+      verifiedAt: new Date().toISOString(),
+      source: paidNow ? "ledger_requery" : state.alreadyPaid ? "prior_inspect" : "none",
+    });
+    try {
+      const { recordMemoryOutcome } = await import("@/lib/memory/unified");
+      recordMemoryOutcome(ctx, {
+        recommendation: paid
+          ? `Invoice recovery succeeded for ${customerName || "customer"}`
+          : `Invoice still unpaid for ${customerName || "customer"} after wait`,
+        status: paid ? "successful" : "rejected",
+        memoryId: null,
+      });
+    } catch {
+      /* outcome learning is best-effort — never fail the run */
+    }
     return;
   }
 

@@ -38,6 +38,7 @@ Host secrets in Vercel / Fly / AWS Secrets Manager. Do not commit `.env.local`.
 ```
 npm run db:backup    # JSON snapshot, or pg_dump when DATABASE_URL is set
 npm run db:restore -- .data/backups/atlas-db-<stamp>.json
+npm run drill:trust  # JSON round-trip always; pg_dump→psql when DATABASE_URL is set
 ```
 
 CI / unit tests restore a JSON snapshot in `tests/safety.test.ts`. Production: Supabase PITR + nightly `pg_dump` to object storage. After restore, run `GET /api/health` and `npm test`.
@@ -51,6 +52,37 @@ CI / unit tests restore a JSON snapshot in `tests/safety.test.ts`. Production: S
 | production | `ATLAS_ENV=production` + live credentials | Never share staging DB |
 
 Health reports `environment` from `ATLAS_ENV` / `VERCEL_ENV`.
+
+### Local staging stack (Postgres + Redis)
+
+```bash
+# Docker (preferred)
+docker compose up -d postgres redis
+export DATABASE_URL=postgres://atlas:atlas@127.0.0.1:5432/atlas
+export REDIS_URL=redis://127.0.0.1:6379
+export ATLAS_ENV=staging
+npm run db:migrate
+npm run worker &
+npm run dev
+
+# Prove rails
+npm run drill:trust          # simulation adapters + JSON backup; pg_dump when DATABASE_URL set
+npm run smoke:staging        # migrate + redis ping + GET /api/health (app must be running)
+```
+
+CI job `staging-stack` in `.github/workflows/atlas-ci.yml` boots Postgres 16 + Redis 7 service containers and runs the same drills.
+
+### Two-business security trial
+
+Automated in `tests/two-business-security-trial.test.ts` (HTTP API: two session cookies, customer + workspace isolation). Run with `npm test`.
+
+### Brain outcome verification
+
+Orchestrator `check_payment` re-queries the ledger (does not trust the earlier inspect snapshot) and writes a memory outcome (`successful` / `rejected`). Covered by `tests/brain-outcome-loop.test.ts`.
+
+### Sandbox credentials still required for live E2E
+
+Twilio signed webhooks, Stripe Checkout + webhooks, Resend delivery, and Google/Microsoft calendar OAuth need real sandbox accounts. Until set, adapters stay in simulation (`npm run drill:trust` asserts that path). Copy `.env.example` → `.env.local` and fill test keys when ready.
 
 ## CI/CD and rollback
 
