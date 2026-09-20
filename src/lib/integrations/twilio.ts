@@ -3,16 +3,19 @@ import { requireLive } from "@/lib/integrations/config";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { writeJsonFile, readJsonFile } from "@/lib/db/file-persist";
 import { emitEvent } from "@/lib/events/bus";
+import { requireOrganizationId } from "@/lib/auth/tenant";
 
 export type MissedCallRecord = {
   id: string;
+  organizationId?: string;
   from: string;
   to: string;
   receivedAt: string;
   smsSid?: string;
-  status: "received" | "sms_sent" | "replied" | "booked" | "escalated";
+  status: "received" | "sms_sent" | "replied" | "booked" | "escalated" | "failed";
   leadName?: string;
   notes?: string;
+  mode?: "live" | "simulation" | "unavailable";
 };
 
 type MissedStore = { calls: MissedCallRecord[] };
@@ -101,10 +104,13 @@ export async function handleMissedCall(input: {
   from: string;
   to: string;
   callSid?: string;
+  organizationId?: string;
 }): Promise<MissedCallRecord> {
+  const organizationId = requireOrganizationId(input.organizationId);
   const store = loadMissed();
   const record: MissedCallRecord = {
     id: input.callSid || `missed_${Date.now()}`,
+    organizationId,
     from: input.from,
     to: input.to,
     receivedAt: new Date().toISOString(),
@@ -114,24 +120,28 @@ export async function handleMissedCall(input: {
   const sms = await sendSms({
     to: input.from,
     body: `Hi — this is Atlas for ${process.env.ATLAS_BUSINESS_NAME || "our team"}. Sorry we missed your call. Reply with your name and what you need (e.g. "Jordan — AC not cooling") and I’ll get you on the schedule.`,
+    organizationId,
   });
+  record.mode = sms.mode;
   if (sms.ok) {
     record.status = "sms_sent";
     record.smsSid = sms.sid;
+  } else {
+    record.status = "failed";
   }
 
-  store.calls = [record, ...store.calls].slice(0, 200);
+  store.calls = [record, ...store.calls.filter((c) => c.id !== record.id)].slice(0, 200);
   saveMissed(store);
 
   await atlasStore.upsertCustomer({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     fullName: `Caller ${input.from}`,
     phone: input.from,
     notes: "Missed-call recovery lead",
   });
 
   await atlasStore.writeAudit({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     actor: "Receptionist",
     action: "missed_call.recovered",
     detail: { from: input.from, smsSid: sms.sid, mode: sms.mode },
@@ -139,13 +149,13 @@ export async function handleMissedCall(input: {
 
   emitEvent({
     type: "call.missed",
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     actorLabel: "Receptionist",
-    payload: { from: input.from, to: input.to, callSid: input.callSid, phone: input.from, handled: true },
+    payload: { from: input.from, to: input.to, callSid: input.callSid, phone: input.from, handled: sms.ok },
   });
   emitEvent({
     type: "lead.created",
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     actorLabel: "Receptionist",
     payload: { from: input.from, phone: input.from, source: "missed-call" },
   });
@@ -156,15 +166,23 @@ export async function handleMissedCall(input: {
 export async function handleInboundSms(input: {
   from: string;
   body: string;
+  organizationId?: string;
 }): Promise<{ reply: string; booked?: boolean }> {
+  const organizationId = requireOrganizationId(input.organizationId);
   const store = loadMissed();
-  const open = store.calls.find((c) => c.from === input.from && c.status !== "booked");
+  const open = store.calls.find(
+    (c) =>
+      (!c.organizationId || c.organizationId === organizationId) &&
+      c.from === input.from &&
+      c.status !== "booked",
+  );
   const text = input.body.trim();
   const lower = text.toLowerCase();
 
   if (open) {
     open.status = "replied";
     open.notes = text;
+    open.organizationId = organizationId;
     const nameMatch = text.split(/[-–—]/)[0]?.trim();
     if (nameMatch) open.leadName = nameMatch.slice(0, 80);
   }
@@ -175,7 +193,7 @@ export async function handleInboundSms(input: {
     starts.setHours(9, 0, 0, 0);
     const ends = new Date(starts.getTime() + 90 * 60 * 1000);
     await atlasStore.createAppointment({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId,
       title: `Service visit · ${open?.leadName || input.from}`,
       startsAt: starts.toISOString(),
       endsAt: ends.toISOString(),
@@ -184,13 +202,13 @@ export async function handleInboundSms(input: {
     if (open) open.status = "booked";
     saveMissed(store);
     const reply = `Booked a hold for tomorrow at 9:00 AM. Reply YES to confirm or suggest another time. — Atlas`;
-    await sendSms({ to: input.from, body: reply });
+    await sendSms({ to: input.from, body: reply, organizationId });
     return { reply, booked: true };
   }
 
   saveMissed(store);
   const reply = `Thanks${open?.leadName ? `, ${open.leadName}` : ""}. I logged that. Reply BOOK tomorrow or tell me a better day/time. — Atlas`;
-  await sendSms({ to: input.from, body: reply });
+  await sendSms({ to: input.from, body: reply, organizationId });
   return { reply, booked: false };
 }
 

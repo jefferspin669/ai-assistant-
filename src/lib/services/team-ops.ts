@@ -3,7 +3,7 @@
  * Server-authoritative; no demo seed on this path.
  */
 
-import { hashPassword } from "@/lib/secure-store";
+import { hashPassword } from "@/lib/auth/password";
 import { AuthorizationError, ConflictError, NotFoundError, ValidationError } from "@/lib/domain/errors";
 import { requirePermission } from "@/lib/auth/permissions";
 import { canManageProjectTasks } from "@/lib/rules/engine";

@@ -1,6 +1,6 @@
 import { apiResponse, asRecord, jsonError, readJson } from "@/lib/api/http";
 import { ok } from "@/lib/api/types";
-import { authenticate, cookieHeader } from "@/lib/auth/session";
+import { authenticate, cookieHeader, mfaCookieHeader } from "@/lib/auth/session";
 import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 import { ensureServerDatabase } from "@/lib/db/ensure";
 import {
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
             organizationId: provisioned.ctx.organizationId,
             role: provisioned.ctx.role,
             sessionId: provisioned.ctx.sessionId,
+            mfaRequired: false,
             auth: "supabase",
           }),
           { "Set-Cookie": cookieHeader(provisioned.token) },
@@ -35,6 +36,21 @@ export async function POST(req: Request) {
     }
 
     const result = authenticate(email, password, clientKey(req));
+    if (result.mfaRequired && result.challengeToken) {
+      return apiResponse(
+        ok({
+          userId: result.user.id,
+          organizationId: result.organizationId,
+          role: result.role,
+          mfaRequired: true,
+          challengeId: result.challengeId,
+          full_name: result.user.full_name,
+          auth: "atlas",
+        }),
+        { "Set-Cookie": mfaCookieHeader(result.challengeToken) },
+      );
+    }
+
     return apiResponse(
       ok({
         userId: result.user.id,
@@ -42,10 +58,10 @@ export async function POST(req: Request) {
         role: result.role,
         sessionId: result.sessionId,
         full_name: result.user.full_name,
-        mfaRequired: result.mfaRequired,
+        mfaRequired: false,
         auth: "atlas",
       }),
-      { "Set-Cookie": cookieHeader(result.token) },
+      { "Set-Cookie": cookieHeader(result.token!) },
     );
   } catch (error) {
     return jsonError(error);
