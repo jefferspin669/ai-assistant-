@@ -1,4 +1,4 @@
-# PR checks: types, tests (including autonomy safety), vulnerability scan.
+# PR checks: types, tests, production build, migrations, internal links.
 # Pages deploy stays on nextjs.yml (static export — not the live API).
 name: Atlas CI
 
@@ -8,7 +8,7 @@ on:
     branches: ["main"]
 
 jobs:
-  test:
+  acceptance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,8 +17,21 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm test
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit / acceptance tests
+        run: npm test
+      - name: Migration gate
+        run: node scripts/check-migrations.mjs
+      - name: Internal link validation
+        run: node scripts/validate-internal-links.mjs
+      - name: Production build
+        run: npm run build
+        env:
+          ATLAS_ENV: production
+          # Build-time only — runtime production still requires a real DATABASE_URL.
+          # Next build must typecheck/compile without a live database.
+          NEXT_TELEMETRY_DISABLED: "1"
 
   audit:
     runs-on: ubuntu-latest
@@ -33,11 +46,9 @@ jobs:
         run: npm audit --omit=dev --audit-level=critical
         continue-on-error: true
 
-  # Release gate on main: tests must pass before a host (Vercel/Fly) promote.
-  # Rollback: promote the previous host deployment, or `git revert <sha>` on main.
   release-gate:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [test]
+    needs: [acceptance]
     runs-on: ubuntu-latest
     steps:
       - name: Record release SHA

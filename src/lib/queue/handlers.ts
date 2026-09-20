@@ -2,7 +2,7 @@ import { writeAudit } from "@/lib/services/audit";
 import { notify } from "@/lib/services/jobs";
 import { sendSms } from "@/lib/integrations/twilio";
 import { sendEmail } from "@/lib/integrations/resend";
-import { beginJob, claimCustomerMessage, finishJob } from "@/lib/safety/idempotency";
+import { beginJob, claimCustomerMessage, claimExactOnce, finishJob } from "@/lib/safety/idempotency";
 import { isPaymentKind, paymentAttemptOutcome } from "@/lib/safety/guards";
 import { recordDeadLetter } from "@/lib/queue/dead-letter";
 
@@ -106,6 +106,34 @@ export async function handleQueuedWork(kind: string, job: JobBody) {
           text: body,
           organizationId: job.organizationId,
         });
+      }
+    }
+
+    if (kind === "send_message") {
+      const to = String(job.payload.phone || job.payload.to || "");
+      const body = String(job.payload.body || job.payload.message || "");
+      const taskId = String(job.payload.taskId || "");
+      const onceKey = taskId
+        ? `task_notify:${job.organizationId}:${taskId}`
+        : `send_message:${job.organizationId}:${to}:${body.slice(0, 64)}`;
+      if (to && body) {
+        const once = await claimExactOnce(onceKey);
+        if (!once.allowed) {
+          writeAudit(session, {
+            action: `worker:duplicate_notify:${summary}`,
+            entityType: "job",
+            entityId: job.jobId,
+            actorLabel: "Atlas Worker",
+          });
+        } else {
+          await sendSms({ to, body, organizationId: job.organizationId });
+          writeAudit(session, {
+            action: "sent customer notification",
+            entityType: "customer",
+            entityId: String(job.payload.customerId || ""),
+            actorLabel: "Atlas Worker",
+          });
+        }
       }
     }
 

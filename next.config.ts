@@ -32,6 +32,10 @@ const nextConfig: NextConfig = {
         net: false,
         tls: false,
         dns: false,
+        perf_hooks: false,
+        crypto: false,
+        stream: false,
+        worker_threads: false,
       };
     }
     return config;

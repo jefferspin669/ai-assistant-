@@ -1,4 +1,4 @@
-import { newId, nowIso, saveDatabase } from "@/lib/db/store";
+import { newId, nowIso, saveDatabase, enqueueAwaitedSideEffect } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { database } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
@@ -21,18 +21,16 @@ export function enqueueJob(
   };
   saveDatabase({ ...db, jobs: [job, ...db.jobs] });
   if (typeof window === "undefined" && process.env.REDIS_URL?.trim()) {
-    void import("@/lib/queue/bullmq")
-      .then((mod) =>
+    enqueueAwaitedSideEffect(() =>
+      import("@/lib/queue/bullmq").then((mod) =>
         mod.addBullJob(kind, {
           jobId: job.id,
           organizationId: ctx.organizationId,
           userId: ctx.userId,
           payload: job.payload,
         }),
-      )
-      .catch((error) => {
-        console.error("[atlas:queue]", error instanceof Error ? error.message : error);
-      });
+      ),
+    );
   }
   return job;
 }

@@ -47,15 +47,32 @@ export type Task = {
   id: string;
   organizationId: string;
   userId: string;
+  projectId: string | null;
+  assigneeId: string | null;
   title: string;
   notes: string;
   status: TaskStatus;
   priority: TaskPriority;
   dueDate: string | null;
   category: string;
+  customerId: string | null;
+  notifyOnComplete: boolean;
   createdAt: string;
   updatedAt: string;
   provenance?: DataProvenance;
+};
+
+export type ProjectStatus = "active" | "paused" | "completed" | "archived";
+
+export type Project = {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type EventPriority = "low" | "normal" | "high";

@@ -84,16 +84,34 @@ export type DbCalendarEvent = {
 /** @deprecated Use DbCalendarEvent */
 export type DbEvent = DbCalendarEvent;
 
+export type DbProject = {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string;
+  status: "active" | "paused" | "completed" | "archived";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type DbTask = {
   id: string;
   orgId: string;
   userId: string;
+  /** Owning project — workers may only mutate tasks on projects they are assigned to. */
+  projectId: string | null;
+  /** Assigned worker user id. Employees may only update tasks where assigneeId === their userId. */
+  assigneeId: string | null;
   title: string;
   status: "todo" | "doing" | "done" | "in_progress" | "blocked" | "completed";
   priority: "low" | "normal" | "high";
   dueDate: string | null;
   category: string;
   notes: string;
+  customerId: string | null;
+  /** When true, completing the task proposes a customer notification for owner approval. */
+  notifyOnComplete: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -317,6 +335,7 @@ export type AtlasDatabase = {
   organization_members: DbOrganizationMember[];
   calendar_categories: DbCalendarCategory[];
   calendar_events: DbCalendarEvent[];
+  projects: DbProject[];
   tasks: DbTask[];
   customers: DbCustomer[];
   transactions: DbTransaction[];
@@ -347,6 +366,7 @@ export const DB_TABLES = [
   "Organization Members",
   "Calendar Categories",
   "Calendar Events",
+  "Projects",
   "Customers",
   "Tasks",
   "Transactions",

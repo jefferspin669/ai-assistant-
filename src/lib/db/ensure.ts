@@ -1,4 +1,10 @@
-import { databaseDriver, jsonMirrorEnabled, postgresLive } from "@/lib/db/driver";
+import {
+  assertProductionPersistence,
+  databaseDriver,
+  fileFallbackAllowed,
+  jsonMirrorEnabled,
+  postgresLive,
+} from "@/lib/db/driver";
 import {
   applyServerDatabase,
   loadDatabase,
@@ -25,17 +31,22 @@ function g() {
  * Load Postgres into the process cache once per instance.
  * Empty databases are seeded once (so demo login still works locally).
  * Never reseeds when organizations already exist.
+ * Production requires DATABASE_URL — file fallback is refused.
  */
 export async function ensureServerDatabase(): Promise<EnsureResult> {
   if (typeof window !== "undefined") {
     return { driver: "json", source: "memory", seeded: false };
   }
+  assertProductionPersistence();
   const existing = g().__atlasEnsured;
   if (existing) return existing;
   if (g().__atlasEnsure) return g().__atlasEnsure!;
 
   g().__atlasEnsure = (async () => {
     if (!postgresLive()) {
+      if (!fileFallbackAllowed()) {
+        throw new Error("DATABASE_URL is required in production.");
+      }
       loadDatabase();
       const result: EnsureResult = { driver: "json", source: "json", seeded: false };
       g().__atlasEnsured = result;
@@ -58,6 +69,10 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       g().__atlasEnsured = result;
       return result;
     } catch (error) {
+      // Production: never fall back to JSON after a Postgres failure.
+      if (!fileFallbackAllowed()) {
+        throw error instanceof Error ? error : new Error("postgres hydrate failed");
+      }
       const result: EnsureResult = {
         driver: databaseDriver(),
         source: "error",

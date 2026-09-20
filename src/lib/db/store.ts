@@ -1,4 +1,9 @@
-import { jsonMirrorEnabled, postgresLive } from "@/lib/db/driver";
+import {
+  assertProductionPersistence,
+  fileFallbackAllowed,
+  jsonMirrorEnabled,
+  postgresLive,
+} from "@/lib/db/driver";
 import { hashPassword } from "@/lib/secure-store";
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
@@ -15,6 +20,7 @@ import type {
   DbNotification,
   DbOrganization,
   DbOrganizationMember,
+  DbProject,
   DbSubscription,
   DbTask,
   DbTaxRecord,
@@ -33,9 +39,14 @@ const LEGACY_DB_KEYS = [
 ];
 
 /** Process-local DB for Next.js API routes (shared across route modules). */
-type AtlasGlobal = typeof globalThis & { __atlasServerDb?: AtlasDatabase };
+type AtlasGlobal = typeof globalThis & {
+  __atlasServerDb?: AtlasDatabase;
+  __atlasPersistChain?: Promise<void>;
+  __atlasQueueChain?: Promise<void>;
+};
 
 function getServerDb() {
+  assertProductionPersistence();
   const g = globalThis as AtlasGlobal;
   if (g.__atlasServerDb) {
     return g.__atlasServerDb;
@@ -44,6 +55,9 @@ function getServerDb() {
     // Real adapter: wait for ensureServerDatabase() to hydrate. Do not seed JSON.
     g.__atlasServerDb = emptyDb();
     return g.__atlasServerDb;
+  }
+  if (!fileFallbackAllowed()) {
+    throw new Error("File JSON fallback is disabled in production.");
   }
   const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
   if (fromDisk) {
@@ -94,6 +108,7 @@ function emptyDb(): AtlasDatabase {
     organization_members: [],
     calendar_categories: [],
     calendar_events: [],
+    projects: [],
     tasks: [],
     customers: [],
     transactions: [],
@@ -146,8 +161,44 @@ function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
     agents: raw.agents || [],
     automations: raw.automations || [],
     customers: raw.customers || [],
-    tasks: raw.tasks || [],
+    projects: (raw.projects || []).map((project) => normalizeProject(project)),
+    tasks: (raw.tasks || []).map((task) => normalizeTask(task)),
     transactions: raw.transactions || [],
+  };
+}
+
+function normalizeProject(raw: Partial<DbProject>): DbProject {
+  const stamp = nowIso();
+  return {
+    id: raw.id || newId("proj"),
+    orgId: raw.orgId || "",
+    name: raw.name || "Untitled project",
+    description: raw.description || "",
+    status: raw.status || "active",
+    createdBy: raw.createdBy || "",
+    createdAt: raw.createdAt || stamp,
+    updatedAt: raw.updatedAt || stamp,
+  };
+}
+
+function normalizeTask(raw: Partial<DbTask>): DbTask {
+  const stamp = nowIso();
+  return {
+    id: raw.id || newId("task"),
+    orgId: raw.orgId || "",
+    userId: raw.userId || "",
+    projectId: raw.projectId ?? null,
+    assigneeId: raw.assigneeId ?? null,
+    title: raw.title || "Untitled task",
+    status: raw.status || "todo",
+    priority: raw.priority || "normal",
+    dueDate: raw.dueDate ?? null,
+    category: raw.category || "General",
+    notes: raw.notes || "",
+    customerId: raw.customerId ?? null,
+    notifyOnComplete: Boolean(raw.notifyOnComplete),
+    createdAt: raw.createdAt || stamp,
+    updatedAt: raw.updatedAt || stamp,
   };
 }
 
@@ -378,16 +429,22 @@ export function seedDatabase(): AtlasDatabase {
     ];
   }
 
+  // Team-ops workflow (projects / assigned tasks) starts empty — no demo projects.
+  const projects: DbProject[] = [];
   const tasks: DbTask[] = loadTasks().map((task) => ({
     id: task.id,
     orgId,
     userId,
+    projectId: null,
+    assigneeId: null,
     title: task.title,
     status: task.status,
     priority: task.priority,
     dueDate: task.dueDate,
     category: task.category,
     notes: task.notes,
+    customerId: null,
+    notifyOnComplete: false,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   }));
@@ -549,6 +606,7 @@ export function seedDatabase(): AtlasDatabase {
     organization_members,
     calendar_categories,
     calendar_events,
+    projects,
     tasks,
     customers,
     transactions,
@@ -771,6 +829,7 @@ export function loadDatabase(): AtlasDatabase {
 }
 
 export function saveDatabase(db: AtlasDatabase) {
+  assertProductionPersistence();
   const next = hydrateDatabase(db);
   if (typeof window === "undefined") {
     setServerDb(next);
@@ -778,21 +837,128 @@ export function saveDatabase(db: AtlasDatabase) {
       writeJsonFile(DB_FILE, next);
     }
     if (postgresLive()) {
-      void import("@/lib/db/postgres")
-        .then((mod) => mod.persistAtlasDatabase(next))
-        .catch((error) => {
-          console.error("[atlas:pg]", error instanceof Error ? error.message : error);
-        });
+      enqueuePostgresPersist(next);
     }
     return;
   }
   localStorage.setItem(DB_KEY, JSON.stringify(next));
 }
 
+/**
+ * Await every queued Postgres write (and BullMQ enqueue). API handlers flush
+ * before responding so PostgreSQL is authoritative — no fire-and-forget.
+ */
+export async function awaitDatabaseWrites(): Promise<void> {
+  if (typeof window !== "undefined") return;
+  const g = globalThis as AtlasGlobal;
+  if (g.__atlasPersistChain) await g.__atlasPersistChain;
+  if (g.__atlasQueueChain) await g.__atlasQueueChain;
+}
+
+function enqueuePostgresPersist(next: AtlasDatabase) {
+  const g = globalThis as AtlasGlobal;
+  const prior = g.__atlasPersistChain || Promise.resolve();
+  g.__atlasPersistChain = prior
+    .then(async () => {
+      // Keep the module id in a variable so client bundles do not statically pull `postgres`.
+      const modId = ["@", "/", "lib", "/", "db", "/", "postgres"].join("");
+      const mod = (await import(modId)) as {
+        persistAtlasDatabase: (db: AtlasDatabase) => Promise<void>;
+      };
+      await mod.persistAtlasDatabase(next);
+    })
+    .catch((error) => {
+      console.error("[atlas:pg]", error instanceof Error ? error.message : error);
+      throw error;
+    });
+}
+
+/** Enqueue a side-effect that must complete before the HTTP response (e.g. BullMQ). */
+export function enqueueAwaitedSideEffect(work: () => Promise<unknown>) {
+  if (typeof window !== "undefined") return;
+  const g = globalThis as AtlasGlobal;
+  const prior = g.__atlasQueueChain || Promise.resolve();
+  g.__atlasQueueChain = prior.then(() => work()).then(() => undefined);
+}
+
 export function resetDatabase() {
   const seeded = seedDatabase();
   saveDatabase(seeded);
   return seeded;
+}
+
+/**
+ * Create a second empty business for multi-tenant tests (no demo customers/tasks).
+ */
+export function createEmptyOrganization(input: {
+  businessName: string;
+  ownerEmail: string;
+  ownerName: string;
+  password?: string;
+}): { orgId: string; userId: string } {
+  const db = loadDatabase();
+  const stamp = nowIso();
+  const userId = newId("user");
+  const orgId = newId("org");
+  const user: DbUser = {
+    id: userId,
+    email: input.ownerEmail.trim().toLowerCase(),
+    full_name: input.ownerName,
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    email_verified_at: stamp,
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  const org: DbOrganization = {
+    id: orgId,
+    owner_id: userId,
+    business_name: input.businessName,
+    logo_url: null,
+    business_type: "service",
+    tax_structure: "LLC",
+    state: "TX",
+    created_at: stamp,
+  };
+  const member: DbOrganizationMember = {
+    id: newId("om"),
+    organization_id: orgId,
+    user_id: userId,
+    role: "owner",
+    status: "active",
+    joined_at: stamp,
+  };
+  const credential: DbUserCredential = {
+    user_id: userId,
+    password_hash: hashPassword(input.password || "atlas-demo"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  saveDatabase({
+    ...db,
+    users: [user, ...db.users],
+    user_credentials: [credential, ...db.user_credentials],
+    organizations: [org, ...db.organizations],
+    organization_members: [member, ...db.organization_members],
+    autonomy_policies: [
+      {
+        organization_id: orgId,
+        level: 1,
+        kill_switch: false,
+        auto_payment_limit_cents: 500_000,
+        refund_limit_cents: 10_000,
+        discount_cap_percent: 10,
+        marketing_budget_cents: 150_000,
+        earliest_schedule_hour: 8,
+        wake_only_emergencies: true,
+        standing_orders: [],
+        updated_at: stamp,
+      },
+      ...db.autonomy_policies,
+    ],
+  });
+  return { orgId, userId };
 }
 
 export function databaseStats(db: AtlasDatabase) {
