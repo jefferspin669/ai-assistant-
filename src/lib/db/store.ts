@@ -929,11 +929,9 @@ function enqueuePostgresPersist(next: AtlasDatabase) {
   const prior = g.__atlasPersistChain || Promise.resolve();
   g.__atlasPersistChain = prior
     .then(async () => {
-      // Keep the module id in a variable so client bundles do not statically pull `postgres`.
-      const modId = ["@", "/", "lib", "/", "db", "/", "postgres"].join("");
-      const mod = (await import(modId)) as {
-        persistAtlasDatabase: (db: AtlasDatabase) => Promise<void>;
-      };
+      // Static specifier so Turbopack/webpack can resolve the module (Next 16+).
+      // store.ts is server-gated via `typeof window` before this path runs.
+      const mod = await import("@/lib/db/postgres");
       await mod.persistAtlasDatabase(next);
     })
     .catch((error) => {
