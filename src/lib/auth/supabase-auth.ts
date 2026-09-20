@@ -8,7 +8,7 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 import { ensureServerDatabase } from "@/lib/db/ensure";
 import { loadDatabase, newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { createSession } from "@/lib/auth/session";
-import { hashPassword } from "@/lib/secure-store";
+import { hashPassword } from "@/lib/auth/password";
 import type { OrgRole, SessionContext } from "@/lib/domain/types";
 
 export function supabaseAuthConfigured(): boolean {

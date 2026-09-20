@@ -128,6 +128,7 @@ function emptyDb(): AtlasDatabase {
     integrations: [],
     login_attempts: [],
     password_resets: [],
+    mfa_challenges: [],
     quotes: [],
     webhook_receipts: [],
     email_verifications: [],
@@ -154,6 +155,7 @@ function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
     integrations: raw.integrations || [],
     login_attempts: raw.login_attempts || [],
     password_resets: raw.password_resets || [],
+    mfa_challenges: raw.mfa_challenges || [],
     quotes: raw.quotes || [],
     webhook_receipts: raw.webhook_receipts || [],
     email_verifications: raw.email_verifications || [],
@@ -753,6 +755,7 @@ export function seedDatabase(): AtlasDatabase {
     ],
     login_attempts: [],
     password_resets: [],
+    mfa_challenges: [],
     quotes: [],
     webhook_receipts: [],
     email_verifications: [],
@@ -874,6 +877,7 @@ export function loadDatabase(): AtlasDatabase {
       integrations: parsed.integrations || [],
       login_attempts: parsed.login_attempts || [],
       password_resets: parsed.password_resets || [],
+      mfa_challenges: parsed.mfa_challenges || [],
       quotes: parsed.quotes || [],
       webhook_receipts: parsed.webhook_receipts || [],
       email_verifications: parsed.email_verifications || [],
@@ -911,6 +915,9 @@ export async function awaitDatabaseWrites(): Promise<void> {
   if (g.__atlasPersistChain) await g.__atlasPersistChain;
   if (g.__atlasQueueChain) await g.__atlasQueueChain;
 }
+
+/** Alias used by Twilio webhooks and other side-effect routes. */
+export const flushDatabaseWrites = awaitDatabaseWrites;
 
 function enqueuePostgresPersist(next: AtlasDatabase) {
   const g = globalThis as AtlasGlobal;

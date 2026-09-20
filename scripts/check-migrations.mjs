@@ -21,6 +21,7 @@ const required = [
   "0001_auth_and_remainder.sql",
   "0002_projects_and_assignees.sql",
   "0003_unified_memory.sql",
+  "0004_workspace_domains.sql",
 ];
 for (const name of required) {
   if (!files.includes(name)) {

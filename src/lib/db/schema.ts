@@ -312,6 +312,17 @@ export type DbPasswordReset = {
   used_at: string | null;
 };
 
+/** Short-lived MFA challenge — not a full session. */
+export type DbMfaChallenge = {
+  id: string;
+  token: string;
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  expires_at: string;
+  consumed_at: string | null;
+};
+
 export type DbQuote = {
   id: string;
   organization_id: string;
@@ -377,6 +388,7 @@ export type AtlasDatabase = {
   integrations: DbIntegration[];
   login_attempts: DbLoginAttempt[];
   password_resets: DbPasswordReset[];
+  mfa_challenges: DbMfaChallenge[];
   quotes: DbQuote[];
   webhook_receipts: DbWebhookReceipt[];
   email_verifications: DbEmailVerification[];
