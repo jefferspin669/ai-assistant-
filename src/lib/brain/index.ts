@@ -11,6 +11,7 @@ import {
   type BrainToolCall,
 } from "@/lib/brain/types";
 import { createOpenAIClient } from "@/lib/integrations/openai";
+import { estimateLlmCostUsd, recordBrainUsage } from "@/lib/brain/usage";
 import { isProduction } from "@/lib/ops/environment";
 import type OpenAI from "openai";
 
@@ -163,8 +164,38 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
   const gaps = new Set<string>();
   const toolCallsMade: BrainToolCall[] = [];
   const toolResults = new Map<string, Awaited<ReturnType<typeof runTool>>>();
+  let promptTokens = 0;
+  let completionTokens = 0;
+  const started = Date.now();
+  let steps = 0;
+
+  const usageMetrics = () => {
+    const totalTokens = promptTokens + completionTokens;
+    const latencyMs = Date.now() - started;
+    const costUsd = estimateLlmCostUsd(model, promptTokens, completionTokens);
+    recordBrainUsage({
+      organizationId: input.session?.organizationId || null,
+      model,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      latencyMs,
+      costUsd,
+      mode: "live",
+      ok: true,
+    });
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      latencyMs,
+      costUsd,
+      steps,
+    };
+  };
 
   for (let step = 0; step < 4; step += 1) {
+    steps += 1;
     const completion = await openai.chat.completions.create({
       model,
       messages,
@@ -172,6 +203,8 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
       tool_choice: "auto",
       temperature: 0.3,
     });
+    promptTokens += completion.usage?.prompt_tokens || 0;
+    completionTokens += completion.usage?.completion_tokens || 0;
     const message = completion.choices[0]?.message;
     if (!message) throw new Error("LLM returned no message.");
 
@@ -211,6 +244,7 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
     }
 
     const reply = (message.content || "").trim();
+    const usage = usageMetrics();
     if (clarifyingQuestion) {
       return {
         mode: "live",
@@ -223,6 +257,7 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
         evidence: evidence.length ? evidence : undefined,
         gaps: gaps.size ? [...gaps] : undefined,
         model,
+        usage,
       };
     }
     if (proposedAction) {
@@ -240,6 +275,7 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
         evidence: evidence.length ? evidence : undefined,
         gaps: gaps.size ? [...gaps] : undefined,
         model,
+        usage,
       };
     }
 
@@ -253,6 +289,7 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
       evidence: evidence.length ? evidence : undefined,
       gaps: gaps.size ? [...gaps] : undefined,
       model,
+      usage,
     };
   }
 
@@ -268,6 +305,7 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
     evidence: evidence.length ? evidence : undefined,
     gaps: gaps.size ? [...gaps] : undefined,
     model,
+    usage: usageMetrics(),
   };
 }
 

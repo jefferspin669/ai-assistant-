@@ -10,6 +10,8 @@ import { workspaceDashboard } from "@/lib/services/dashboard";
 import { listCustomers, listOrgEvents, listOrgProjects, listOrgTasks, listOrgTransactions } from "@/lib/services/workspace";
 import { searchUnifiedMemories } from "@/lib/memory/unified";
 import { database } from "@/lib/services/access";
+import { getPolicy } from "@/lib/autonomy/policy";
+import { sanitizeUntrustedContent } from "@/lib/brain/untrusted";
 
 export type EvidenceLevel = "verified" | "estimate" | "missing";
 
@@ -107,9 +109,15 @@ export function buildBusinessContext(
   if (!projects.length) missing.push("No projects created yet");
   if (!memories.length && question) missing.push("No matching business memories for this question");
 
-  // Inventory / communications remain client-local — honest missing signal.
+  // Inventory remains client-local — honest missing signal.
   missing.push("Inventory counts are not on the server database yet");
-  missing.push("Internal team chat threads are not on the server database yet");
+  if (
+    !database().jobs.some(
+      (j) => j.organization_id === ctx.organizationId && /sms|email|message/i.test(j.kind),
+    )
+  ) {
+    missing.push("No outbound SMS/email jobs on file yet");
+  }
 
   const lines = [
     `Org ${ctx.organizationId} context (${new Date().toISOString()}):`,
@@ -157,7 +165,17 @@ export function formatEvidenceAnswer(input: {
 }
 
 export type BrainEvidence = {
-  source: "task" | "customer" | "calendar" | "transaction" | "document" | "memory" | "approval";
+  source:
+    | "task"
+    | "customer"
+    | "calendar"
+    | "transaction"
+    | "document"
+    | "memory"
+    | "approval"
+    | "policy"
+    | "project"
+    | "communication";
   id: string;
   label: string;
   snippet: string;
@@ -185,10 +203,7 @@ function score(query: string[], text: string) {
 }
 
 function clip(value: unknown, max = 240) {
-  const text = String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  return sanitizeUntrustedContent(value, max);
 }
 
 /**
@@ -204,6 +219,20 @@ export function searchBusinessContext(ctx: SessionContext, query: string): Busin
   );
 
   if (hasPermission(ctx, "tasks.read")) {
+    for (const project of listOrgProjects(ctx)) {
+      const rank = score(queryWords, `${project.name} ${project.description} ${project.status}`);
+      if (rank) {
+        ranked.push({
+          source: "project",
+          id: project.id,
+          label: project.name,
+          snippet: clip(`Project ${project.status}; ${project.description || "No description"}`),
+          updatedAt: project.updatedAt,
+          confidence: "verified",
+          score: rank,
+        });
+      }
+    }
     for (const task of listOrgTasks(ctx)) {
       const projectName = task.projectId ? projectsById.get(task.projectId) || "" : "";
       const text = `${task.title} ${task.notes} ${task.status} ${task.priority} ${projectName} ${task.category}`;
@@ -220,6 +249,25 @@ export function searchBusinessContext(ctx: SessionContext, query: string): Busin
         });
       }
     }
+  }
+
+  // DNA / standing orders (policy) — always readable by members who can chat with Brain.
+  {
+    const policy = getPolicy(ctx.organizationId);
+    policy.standingOrders.forEach((order, index) => {
+      const rank = score(queryWords, `${order} policy standing order dna discount schedule`);
+      if (rank || /policy|dna|standing|discount|schedule|rule/i.test(query)) {
+        ranked.push({
+          source: "policy",
+          id: `standing_${index}`,
+          label: "Standing order",
+          snippet: clip(order),
+          updatedAt: policy.updatedAt,
+          confidence: "verified",
+          score: Math.max(rank, 1) + (/policy|dna|standing/i.test(query) ? 2 : 0),
+        });
+      }
+    });
   }
 
   if (hasPermission(ctx, "customers.read")) {
@@ -319,6 +367,51 @@ export function searchBusinessContext(ctx: SessionContext, query: string): Busin
           updatedAt: approval.created_at,
           confidence: "verified",
           score: rank + 1,
+        });
+      }
+    }
+  }
+
+  // Communications: queued/sent jobs + org chat transcripts (permission-filtered).
+  if (ctx.role === "owner" || ctx.role === "admin" || ctx.role === "manager" || hasPermission(ctx, "actions.sms")) {
+    for (const job of db.jobs.filter((row) => row.organization_id === ctx.organizationId)) {
+      if (!/sms|email|message|call|notify/i.test(job.kind)) continue;
+      const body = String(job.payload.body || job.payload.message || job.payload.to || "");
+      const rank = score(queryWords, `${job.kind} ${body} ${job.status}`);
+      if (rank || /sms|email|text|call|communication|message/i.test(query)) {
+        ranked.push({
+          source: "communication",
+          id: job.id,
+          label: `${job.kind} (${job.status})`,
+          snippet: clip(body || `Job ${job.kind} is ${job.status}`),
+          updatedAt: job.created_at,
+          confidence: "verified",
+          score: Math.max(rank, 1),
+        });
+      }
+    }
+  }
+  if (ctx.role === "owner" || ctx.role === "admin") {
+    for (const conversation of db.conversations.filter((row) => {
+      const member = db.organization_members.find(
+        (m) => m.user_id === row.userId && m.organization_id === ctx.organizationId && m.status === "active",
+      );
+      return Boolean(member);
+    })) {
+      const joined = conversation.messages
+        .slice(-6)
+        .map((m) => m.text)
+        .join(" ");
+      const rank = score(queryWords, `${conversation.title} ${conversation.preview} ${joined}`);
+      if (rank) {
+        ranked.push({
+          source: "communication",
+          id: conversation.id,
+          label: conversation.title || "Conversation",
+          snippet: clip(conversation.preview || joined),
+          updatedAt: conversation.updatedAt,
+          confidence: "verified",
+          score: rank,
         });
       }
     }

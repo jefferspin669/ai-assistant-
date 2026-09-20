@@ -22,7 +22,10 @@ API identity comes from the `atlas_session` httpOnly cookie — never from body 
 - If `ATLAS_LLM_API_KEY` is set → live OpenAI-compatible LLM + tool calling
 - If unset → simulation/keyword fallback (demos still work)
 - Tools: business brief, search_business_context, plan_business_goal, answer_from_context, memory, tasks/schedule/invoice/SMS (strict + approvals), propose risky action, remember standing order, run_business_goal
-- Evidence: permission-filtered retrieval with citations + gaps; simulation uses evidence-fallback for named operational questions
+- Evidence: permission-filtered retrieval (tasks, projects, customers, calendar, transactions, documents, policies, communications, memories) with citations + gaps; simulation uses evidence-fallback for named operational questions
+- Memory: server `/api/memory` with conflict detection, owner correct/delete; feedback via `/api/feedback` → memory outcomes
+- Live model: allowlisted models, timeouts, token/cost/latency metering on replies + `GET /api/health` → `brain`
+- Orchestrator: `POST /api/orchestrator` with `{ runId, answer }` resumes ask_owner waits
 - Postgres schema: `supabase/schema.sql`
 
 ## Commercial beachhead (`/app/commercial`)

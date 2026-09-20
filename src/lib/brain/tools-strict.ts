@@ -12,21 +12,19 @@ import {
   createCustomerScopedEvent,
   createOrgTask,
   listCustomers,
+  listOrgEvents,
+  listOrgTasks,
   updateOrgTask,
 } from "@/lib/services/workspace";
 import { executeAtlasAction } from "@/lib/domain/actions";
-import { rememberBusinessFact, searchUnifiedMemories } from "@/lib/memory/unified";
-import {
-  buildBusinessContext,
-  formatEvidenceAnswer,
-  searchBusinessContext,
-  type BrainEvidence,
-} from "@/lib/brain/context";
+import { rememberBusinessFactChecked, searchUnifiedMemories } from "@/lib/memory/unified";
+import { buildBusinessContext, formatEvidenceAnswer, searchBusinessContext, type BrainEvidence } from "@/lib/brain/context";
 import { listCapabilities } from "@/lib/capabilities/registry";
 import { planGoal } from "@/lib/orchestrator/planner";
 import { claimExactOnce } from "@/lib/safety/idempotency";
 import { writeAudit } from "@/lib/services/audit";
 import type { BrainActionProposal } from "@/lib/brain/types";
+import { wrapUntrustedBusinessData } from "@/lib/brain/untrusted";
 
 export type StrictToolResult = {
   content: string;
@@ -37,6 +35,7 @@ export type StrictToolResult = {
   needsInfo?: string;
   evidence?: BrainEvidence[];
   gaps?: string[];
+  verified?: boolean;
 };
 
 const createTaskArgs = z.object({
@@ -82,6 +81,7 @@ const rememberArgs = z.object({
   accessLevel: z
     .enum(["owner", "leadership", "managers", "all_staff", "customer_facing"])
     .optional(),
+  force: z.boolean().optional(),
   idempotencyKey: z.string().min(1),
 });
 
@@ -191,7 +191,7 @@ export async function executeStrictBrainTool(
       content: JSON.stringify({
         hits: rows.map((r) => ({
           id: r.id,
-          content: r.content,
+          content: wrapUntrustedBusinessData("memory", r.content),
           confidence: r.confidence,
           accessLevel: r.accessLevel,
           source: r.source,
@@ -209,10 +209,27 @@ export async function executeStrictBrainTool(
     if (!claim.allowed) {
       return { content: JSON.stringify({ saved: false, idempotentReplay: true }), idempotentReplay: true };
     }
-    const row = rememberBusinessFact(ctx, parsed);
+    const result = rememberBusinessFactChecked(ctx, {
+      content: parsed.content,
+      memoryType: parsed.memoryType,
+      accessLevel: parsed.accessLevel,
+      force: parsed.force,
+    });
+    if (!result.saved) {
+      return {
+        content: JSON.stringify({
+          saved: false,
+          needsOwnerReview: true,
+          conflicts: result.conflicts,
+          hint: "Ask the owner to correct/delete the old memory or re-run with force=true.",
+        }),
+        needsInfo: `This conflicts with existing memory. ${result.conflicts[0]?.reason || "Review before saving."}`,
+      };
+    }
     return {
-      content: JSON.stringify({ saved: true, id: row.id }),
-      citations: [{ entityType: "memory", entityId: row.id }],
+      content: JSON.stringify({ saved: true, id: result.memory!.id, verified: true }),
+      citations: [{ entityType: "memory", entityId: result.memory!.id }],
+      verified: true,
     };
   }
 
@@ -231,9 +248,11 @@ export async function executeStrictBrainTool(
       assigneeId: parsed.assigneeId ?? null,
       dueDate: parsed.dueDate ?? null,
     });
+    const verified = listOrgTasks(ctx).some((row) => row.id === task.id);
     return {
-      content: JSON.stringify({ created: true, task }),
+      content: JSON.stringify({ created: true, task, verified }),
       citations: [{ entityType: "task", entityId: task.id }],
+      verified,
     };
   }
 
@@ -311,9 +330,11 @@ export async function executeStrictBrainTool(
       endTime: parsed.endTime,
       title: parsed.title,
     });
+    const verified = listOrgEvents(ctx).some((row) => row.id === event.id);
     return {
-      content: JSON.stringify({ scheduled: true, event }),
+      content: JSON.stringify({ scheduled: true, event, verified }),
       citations: [{ entityType: "calendar_event", entityId: event.id }],
+      verified,
     };
   }
 

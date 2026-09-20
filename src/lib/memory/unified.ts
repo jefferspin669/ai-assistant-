@@ -3,13 +3,14 @@
  * Source of truth is Postgres (or JSON adapter); never leaks across tenants.
  */
 
-import { AuthorizationError, NotFoundError, ValidationError } from "@/lib/domain/errors";
+import { AuthorizationError, ConflictError, NotFoundError, ValidationError } from "@/lib/domain/errors";
 import { requirePermission } from "@/lib/auth/permissions";
 import type { OrgRole, SessionContext } from "@/lib/domain/types";
 import type { DbMemory, DbMemoryOutcome } from "@/lib/db/schema";
 import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
+import { findConflictingMemories, type MemoryConflict } from "@/lib/memory/conflicts";
 
 export type MemoryType = DbMemory["memoryType"];
 export type MemoryAccess = DbMemory["accessLevel"];
@@ -92,20 +93,51 @@ export function searchUnifiedMemories(
     .map((item) => item.row);
 }
 
-export function rememberBusinessFact(
+export type RememberFactInput = {
+  content: string;
+  title?: string;
+  memoryType?: MemoryType;
+  source?: string;
+  authorLabel?: string;
+  confidence?: number;
+  accessLevel?: MemoryAccess;
+  entityType?: string | null;
+  entityId?: string | null;
+  /** Bypass conflict gate after owner review. */
+  force?: boolean;
+};
+
+export type RememberFactResult = {
+  memory: DbMemory | null;
+  saved: boolean;
+  conflicts: MemoryConflict[];
+};
+
+/** Preview conflicts without writing. */
+export function previewMemoryConflicts(
   ctx: SessionContext,
-  input: {
-    content: string;
-    title?: string;
-    memoryType?: MemoryType;
-    source?: string;
-    authorLabel?: string;
-    confidence?: number;
-    accessLevel?: MemoryAccess;
-    entityType?: string | null;
-    entityId?: string | null;
-  },
-): DbMemory {
+  content: string,
+  opts: { entityId?: string | null; excludeId?: string | null } = {},
+): MemoryConflict[] {
+  requireOrgMember(database(), ctx);
+  return findConflictingMemories(ctx, content, opts);
+}
+
+export function rememberBusinessFact(ctx: SessionContext, input: RememberFactInput): DbMemory {
+  const result = rememberBusinessFactChecked(ctx, input);
+  if (!result.saved || !result.memory) {
+    throw new ConflictError(
+      `Memory conflicts with ${result.conflicts.length} existing fact(s). Pass force=true after owner review.`,
+    );
+  }
+  return result.memory;
+}
+
+/** Prefer this from APIs/tools — surfaces conflicts without throwing when blocked. */
+export function rememberBusinessFactChecked(
+  ctx: SessionContext,
+  input: RememberFactInput,
+): RememberFactResult {
   const db = database();
   requireOrgMember(db, ctx);
   requirePermission(ctx, "tasks.write");
@@ -114,6 +146,14 @@ export function rememberBusinessFact(
   if (input.accessLevel === "owner" && ctx.role !== "owner") {
     throw new AuthorizationError("Only the owner can write owner-only memory.");
   }
+
+  const conflicts = input.force
+    ? []
+    : findConflictingMemories(ctx, content, { entityId: input.entityId });
+  if (conflicts.length && !input.force) {
+    return { memory: null, saved: false, conflicts };
+  }
+
   const stamp = nowIso();
   const memoryType = input.memoryType || "operational";
   const row: DbMemory = {
@@ -136,7 +176,35 @@ export function rememberBusinessFact(
   };
   saveDatabase({ ...db, memories: [row, ...db.memories] });
   writeAudit(ctx, { action: "remembered business fact", entityType: "memory", entityId: row.id });
-  return row;
+  return { memory: row, saved: true, conflicts };
+}
+
+/** Owner/admin correction — updates content and records an edited outcome. */
+export function correctBusinessMemory(
+  ctx: SessionContext,
+  memoryId: string,
+  input: { content: string; title?: string; note?: string },
+): { memory: DbMemory; outcome: DbMemoryOutcome } {
+  const content = input.content.trim();
+  if (!content) throw new ValidationError("Corrected content is required.");
+  const existing = database().memories.find(
+    (row) => row.id === memoryId && row.organizationId === ctx.organizationId,
+  );
+  if (!existing) throw new NotFoundError("Memory not found.");
+  const original = existing.content;
+  const memory = updateUnifiedMemory(ctx, memoryId, {
+    content,
+    title: input.title,
+    approved: true,
+  });
+  const outcome = recordMemoryOutcome(ctx, {
+    recommendation: input.note || `Corrected memory ${memoryId}`,
+    status: "edited",
+    original,
+    edited: content,
+    memoryId,
+  });
+  return { memory, outcome };
 }
 
 export function updateUnifiedMemory(
@@ -217,12 +285,13 @@ export function recordMemoryOutcome(
   if (input.status === "accepted" || input.status === "successful") {
     const content = (input.edited || input.recommendation).trim();
     if (content && !/refund|fire|wire|password|ssn/i.test(content)) {
-      rememberBusinessFact(ctx, {
+      rememberBusinessFactChecked(ctx, {
         content: `Preference learned: ${content}`,
         memoryType: "leadership",
         source: "Outcome learning",
         confidence: input.status === "successful" ? 90 : 70,
         accessLevel: "leadership",
+        force: true,
       });
     }
   }

@@ -14,22 +14,35 @@ export function FeedbackToolbar({
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function onAction(kind: FeedbackKind) {
+  async function onAction(kind: FeedbackKind) {
     const note =
       kind === "suggest_better"
         ? window.prompt("What should Atlas have said?") || ""
         : kind === "report_problem"
           ? window.prompt("What went wrong? Add a few details.") || ""
           : "";
-    const result = submitFeedback({ kind, target, note });
-    if (!result.ok) {
-      setError(result.error);
+    const local = submitFeedback({ kind, target, note });
+    if (!local.ok) {
+      setError(local.error);
       setMessage("");
       return;
     }
+    setBusy(true);
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind, target, note }),
+      });
+    } catch {
+      /* local feedback still applied */
+    } finally {
+      setBusy(false);
+    }
     setError("");
-    setMessage(result.message);
+    setMessage(local.message);
     onSubmitted?.();
   }
 
@@ -42,7 +55,8 @@ export function FeedbackToolbar({
             key={action.id}
             type="button"
             className="biz-chip"
-            onClick={() => onAction(action.id)}
+            disabled={busy}
+            onClick={() => void onAction(action.id)}
             title={action.blurb}
           >
             {action.label}

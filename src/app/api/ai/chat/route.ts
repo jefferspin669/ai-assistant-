@@ -171,6 +171,7 @@ export async function POST(req: Request) {
       approvalId: brain.approvalId,
       evidence: brain.evidence,
       gaps: brain.gaps,
+      usage: brain.usage,
       grounding: {
         status: brain.evidence?.length
           ? "grounded"

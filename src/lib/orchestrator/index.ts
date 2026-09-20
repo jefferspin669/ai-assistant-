@@ -24,6 +24,7 @@ export { listCapabilities, getCapability, assertCapabilityAvailable };
 export { planGoal };
 export { listRuns, getRun };
 export { evaluateRules };
+// resumeRun exported below as function
 
 function customerQuery(goal: string) {
   const possessive = goal.match(/\b([A-Za-z][A-Za-z0-9 &.'-]*?)(?:'s)\s+(?:overdue|invoice|unpaid)/i);
@@ -317,6 +318,53 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
     compensateRun(run);
     mark(step, "done", { compensated: true });
   }
+}
+
+export async function resumeRun(
+  ctx: SessionContext,
+  runId: string,
+  answer: string,
+): Promise<OrchestratorRun> {
+  requireOrgMember(database(), ctx);
+  const run = getRun(runId, ctx.organizationId);
+  if (!run) {
+    const { NotFoundError } = await import("@/lib/domain/errors");
+    throw new NotFoundError("Orchestrator run not found.");
+  }
+  const trimmed = answer.trim();
+  if (!trimmed) {
+    const { ValidationError } = await import("@/lib/domain/errors");
+    throw new ValidationError("Provide an answer to resume the run.");
+  }
+  const step = run.steps[run.cursor];
+  if (!step || step.status !== "waiting") {
+    const { ValidationError } = await import("@/lib/domain/errors");
+    throw new ValidationError("Run is not waiting for an owner answer.");
+  }
+  if (step.kind === "ask_owner") {
+    mark(step, "done", {
+      question: step.result?.question || step.payload?.question,
+      answer: trimmed,
+      customerQuery: trimmed,
+      resumed: true,
+    });
+    run.cursor += 1;
+  } else if (step.kind === "wait") {
+    mark(step, "done", { forcedResume: true, answer: trimmed, waitedUntil: step.waitUntil });
+    run.cursor += 1;
+  } else {
+    const { ValidationError } = await import("@/lib/domain/errors");
+    throw new ValidationError(`Cannot resume step kind ${step.kind} with an owner answer.`);
+  }
+  writeAudit(ctx, {
+    action: "orchestrator resumed by owner",
+    entityType: "orchestrator_run",
+    entityId: run.id,
+  });
+  run.status = "running";
+  run.updatedAt = nowIso();
+  saveRun(run);
+  return tickRun(run);
 }
 
 export async function tickRun(run: OrchestratorRun, options: { now?: number } = {}): Promise<OrchestratorRun> {

@@ -15,6 +15,7 @@ import { listDeadLetters } from "@/lib/queue/dead-letter";
 import { publicEnvReport } from "@/lib/secrets/redact";
 import { atlasRuntimeEnv } from "@/lib/ops/environment";
 import { orchestratorStats } from "@/lib/orchestrator/store";
+import { brainUsageStats } from "@/lib/brain/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ export async function GET() {
       secrets,
       environment: atlasRuntimeEnv(),
       orchestrator: orchestratorStats(),
+      brain: brainUsageStats(),
       auth: supabaseAuthConfigured() ? "supabase+atlas_session" : "atlas_session",
       businessStore: atlasStore.mode(),
       workspaceFile: fileExists("workspace.json") ? "file:.data/workspace.json" : "memory-seeding",
