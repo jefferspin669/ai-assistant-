@@ -115,6 +115,7 @@ function emptyDb(): AtlasDatabase {
     taxRecords: [],
     conversations: [],
     memories: [],
+    memory_outcomes: [],
     documents: [],
     subscriptions: [],
     notifications: [],
@@ -164,6 +165,34 @@ function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
     projects: (raw.projects || []).map((project) => normalizeProject(project)),
     tasks: (raw.tasks || []).map((task) => normalizeTask(task)),
     transactions: raw.transactions || [],
+    memories: (raw.memories || []).map((row) => normalizeMemory(row)),
+    memory_outcomes: raw.memory_outcomes || [],
+  };
+}
+
+function normalizeMemory(raw: Partial<DbMemory> & { organization_id?: string }): DbMemory {
+  const stamp = nowIso();
+  const kind = raw.kind || "long-term";
+  const memoryType =
+    raw.memoryType ||
+    (kind === "person" ? "employee" : kind === "project" ? "project" : kind === "preference" ? "leadership" : "operational");
+  return {
+    id: raw.id || newId("mem"),
+    organizationId: raw.organizationId || raw.organization_id || "",
+    userId: raw.userId || "",
+    kind,
+    memoryType,
+    title: raw.title || "Memory",
+    content: raw.content || "",
+    source: raw.source || "system",
+    authorLabel: raw.authorLabel || "Atlas",
+    confidence: typeof raw.confidence === "number" ? raw.confidence : 80,
+    accessLevel: raw.accessLevel || "all_staff",
+    entityType: raw.entityType ?? null,
+    entityId: raw.entityId ?? null,
+    approved: raw.approved ?? true,
+    createdAt: raw.createdAt || stamp,
+    updatedAt: raw.updatedAt || stamp,
   };
 }
 
@@ -522,12 +551,39 @@ export function seedDatabase(): AtlasDatabase {
   const memories: DbMemory[] = [
     {
       id: newId("mem"),
+      organizationId: orgId,
       userId,
       kind: "preference",
+      memoryType: "leadership",
       title: "Morning summaries",
       content: "Prefer short morning summaries with dollars first.",
+      source: "Owner setup",
+      authorLabel: "Owner",
+      confidence: 100,
+      accessLevel: "leadership",
+      entityType: null,
+      entityId: null,
       approved: true,
       createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: newId("mem"),
+      organizationId: orgId,
+      userId,
+      kind: "long-term",
+      memoryType: "company",
+      title: "Diagnostic fee",
+      content: "Approved diagnostic fee: $89. Discounts over 10% require owner approval.",
+      source: "Pricing policy",
+      authorLabel: "Owner",
+      confidence: 95,
+      accessLevel: "customer_facing",
+      entityType: null,
+      entityId: null,
+      approved: true,
+      createdAt: stamp,
+      updatedAt: stamp,
     },
   ];
 
@@ -613,6 +669,7 @@ export function seedDatabase(): AtlasDatabase {
     taxRecords,
     conversations,
     memories,
+    memory_outcomes: [],
     documents,
     subscriptions,
     notifications,

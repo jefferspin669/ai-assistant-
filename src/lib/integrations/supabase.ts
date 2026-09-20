@@ -91,14 +91,24 @@ export const atlasStore = {
     }
     const db = loadDatabase();
     const id = newId("cust");
+    const stamp = nowIso();
     const memory: DbMemory = {
       id,
+      organizationId: input.organizationId || db.organizations[0]?.id || "",
       userId: db.users[0]?.id || "user_demo",
       kind: "person",
+      memoryType: "customer",
       title: input.fullName,
       content: [input.phone, input.email, input.notes].filter(Boolean).join(" · "),
+      source: "supabase-adapter",
+      authorLabel: "Atlas",
+      confidence: 80,
+      accessLevel: "all_staff",
+      entityType: "customer",
+      entityId: id,
       approved: true,
-      createdAt: nowIso(),
+      createdAt: stamp,
+      updatedAt: stamp,
     };
     saveDatabase({ ...db, memories: [memory, ...db.memories] });
     return { ok: true as const, data: [{ id, ...row, source: "file-db" }] };
@@ -124,14 +134,24 @@ export const atlasStore = {
       });
     }
     const db = loadDatabase();
+    const stamp = nowIso();
     const memory: DbMemory = {
       id: newId("audit"),
+      organizationId: input.organizationId,
       userId: db.users[0]?.id || "user_demo",
       kind: "long-term",
+      memoryType: "operational",
       title: `Audit · ${input.action}`,
       content: `${input.actor}: ${JSON.stringify(detail)}`,
+      source: "audit",
+      authorLabel: input.actor,
+      confidence: 100,
+      accessLevel: "leadership",
+      entityType: "audit",
+      entityId: null,
       approved: true,
-      createdAt: nowIso(),
+      createdAt: stamp,
+      updatedAt: stamp,
     };
     saveDatabase({ ...db, memories: [memory, ...db.memories] });
     return { ok: true as const };

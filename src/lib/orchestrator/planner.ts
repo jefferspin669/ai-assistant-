@@ -4,6 +4,8 @@ import type { Capability } from "@/lib/orchestrator/types";
 export type PlannerResult = {
   intent: string;
   steps: PlannedStep[];
+  /** When set, the run should pause and surface this question to the owner. */
+  clarifyingQuestion?: string;
 };
 
 function step(
@@ -20,6 +22,22 @@ export function planGoal(goal: string, capabilities: Capability[]): PlannerResul
   const q = goal.toLowerCase();
   const canSms = capabilities.some((c) => c.id === "send_sms" && c.status !== "UNAVAILABLE");
   const channel = canSms ? "send_sms" : "send_email";
+
+  // Missing critical info — pause and ask rather than inventing.
+  if (/invoice|collect|charge|refund|pay/.test(q) && !/(johnson|customer|@|\+?\d{7,})/.test(q)) {
+    return {
+      intent: "needs_customer",
+      clarifyingQuestion: "Which customer should this apply to?",
+      steps: [
+        step("s0", "ask_owner", "Ask which customer this is about", {
+          payload: { question: "Which customer should this apply to?" },
+        }),
+        step("s1", "find_customer", "Find customer"),
+        step("s6", "evaluate_rules", "Check business rules"),
+        step("s7", "approval", "Request approval if required"),
+      ],
+    };
+  }
 
   if (/overdue|unpaid|collect|invoice paid|past due/.test(q)) {
     return {

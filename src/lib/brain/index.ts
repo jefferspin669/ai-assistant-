@@ -1,9 +1,12 @@
 import { runOwnerCommand } from "@/lib/commands";
 import { BRAIN_TOOLS, buildSystemPrompt, executeBrainTool } from "@/lib/brain/tools";
+import { executeStrictBrainTool } from "@/lib/brain/tools-strict";
+import { buildBusinessContext, formatEvidenceAnswer } from "@/lib/brain/context";
 import {
   brainConfig,
   brainMode,
   type BrainChatInput,
+  type BrainCitation,
   type BrainResult,
   type BrainToolCall,
 } from "@/lib/brain/types";
@@ -11,10 +14,31 @@ import { createOpenAIClient } from "@/lib/integrations/openai";
 import type OpenAI from "openai";
 
 function simulationBrain(input: BrainChatInput): BrainResult {
-  const result = runOwnerCommand(input.message);
   const lower = input.message.toLowerCase();
 
-  // Standing-order phrasing should feel real even in simulation.
+  if (
+    input.session &&
+    (/how is business|brief|status|today/.test(lower) ||
+      /what do we know|memory|inventory|don't know|missing/.test(lower) ||
+      /compressor|stock|comms|chat thread/.test(lower))
+  ) {
+    const pack = buildBusinessContext(input.session, input.message);
+    return {
+      mode: "simulation",
+      agentLabel: "Atlas",
+      reply: formatEvidenceAnswer({
+        headline: "Live workspace brief (simulation Brain — authenticated DB):",
+        facts: pack.facts,
+        missing: pack.missing,
+      }),
+      needsConfirm: false,
+      model: "keyword-fallback+context",
+      citations: pack.facts.filter((f) => f.citation).map((f) => f.citation!),
+    };
+  }
+
+  const result = runOwnerCommand(input.message);
+
   if (
     (lower.includes("going home") || lower.includes("handle anything routine") || lower.includes("i'm going home")) &&
     (lower.includes("discount") || lower.includes("8") || lower.includes("emergency"))
@@ -40,6 +64,30 @@ function simulationBrain(input: BrainChatInput): BrainResult {
   };
 }
 
+async function runTool(
+  input: BrainChatInput,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<{
+  content: string;
+  proposedAction?: BrainResult["proposedAction"];
+  citations?: BrainCitation[];
+  clarifyingQuestion?: string;
+  approvalId?: string;
+}> {
+  if (input.session) {
+    const executed = await executeStrictBrainTool(input.session, name, args);
+    return {
+      content: executed.content,
+      proposedAction: executed.proposedAction,
+      citations: executed.citations,
+      clarifyingQuestion: executed.needsInfo,
+      approvalId: executed.approvalId,
+    };
+  }
+  return executeBrainTool(name, args);
+}
+
 async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
   const { model } = brainConfig();
   const openai = createOpenAIClient();
@@ -50,6 +98,9 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
   ];
 
   let proposedAction: BrainResult["proposedAction"];
+  let clarifyingQuestion: string | undefined;
+  let approvalId: string | undefined;
+  const citations: BrainCitation[] = [];
   const toolCallsMade: BrainToolCall[] = [];
 
   for (let step = 0; step < 4; step += 1) {
@@ -80,8 +131,11 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
           args = {};
         }
         toolCallsMade.push({ id: call.id, name: fn.name, arguments: args });
-        const executed = executeBrainTool(fn.name, args);
+        const executed = await runTool(input, fn.name, args);
         if (executed.proposedAction) proposedAction = executed.proposedAction;
+        if (executed.clarifyingQuestion) clarifyingQuestion = executed.clarifyingQuestion;
+        if (executed.approvalId) approvalId = executed.approvalId;
+        if (executed.citations) citations.push(...executed.citations);
         messages.push({
           role: "tool",
           tool_call_id: call.id,
@@ -92,6 +146,18 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
     }
 
     const reply = (message.content || "").trim();
+    if (clarifyingQuestion) {
+      return {
+        mode: "live",
+        agentLabel: "Atlas",
+        reply: reply || clarifyingQuestion,
+        needsConfirm: false,
+        toolCalls: toolCallsMade,
+        citations,
+        clarifyingQuestion,
+        model,
+      };
+    }
     if (proposedAction) {
       return {
         mode: "live",
@@ -102,6 +168,8 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
         doneLabel: proposedAction.doneLabel,
         toolCalls: toolCallsMade,
         proposedAction,
+        citations,
+        approvalId,
         model,
       };
     }
@@ -112,6 +180,7 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
       reply: reply || "I’m here — tell me what to handle.",
       needsConfirm: false,
       toolCalls: toolCallsMade,
+      citations,
       model,
     };
   }
@@ -123,6 +192,8 @@ async function liveBrain(input: BrainChatInput): Promise<BrainResult> {
     needsConfirm: false,
     toolCalls: toolCallsMade,
     proposedAction,
+    citations,
+    approvalId,
     model,
   };
 }
@@ -138,14 +209,20 @@ export async function runAtlasBrain(input: BrainChatInput): Promise<BrainResult>
     };
   }
 
+  let enriched = { ...input, message: trimmed };
+  if (input.session && !input.liveContext) {
+    const pack = buildBusinessContext(input.session, trimmed);
+    enriched = { ...enriched, liveContext: pack.summaryForPrompt };
+  }
+
   if (brainMode() === "simulation") {
-    return simulationBrain({ ...input, message: trimmed });
+    return simulationBrain(enriched);
   }
 
   try {
-    return await liveBrain({ ...input, message: trimmed });
+    return await liveBrain(enriched);
   } catch (error) {
-    const fallback = simulationBrain({ ...input, message: trimmed });
+    const fallback = simulationBrain(enriched);
     return {
       ...fallback,
       reply: `${fallback.reply}\n\n(Live Brain unavailable: ${error instanceof Error ? error.message : "unknown error"} — using simulation fallback.)`,

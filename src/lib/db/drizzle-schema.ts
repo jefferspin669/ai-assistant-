@@ -220,11 +220,32 @@ export const conversations = pgTable("conversations", {
 
 export const memories = pgTable("memories", {
   id: text("id").primaryKey(),
+  organizationId: text("organization_id"),
   userId: text("user_id").notNull(),
   kind: text("kind").notNull(),
+  memoryType: text("memory_type").notNull().default("operational"),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  source: text("source").notNull().default("system"),
+  authorLabel: text("author_label").notNull().default("Atlas"),
+  confidence: integer("confidence").notNull().default(80),
+  accessLevel: text("access_level").notNull().default("all_staff"),
+  entityType: text("entity_type"),
+  entityId: text("entity_id"),
   approved: boolean("approved").notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at"),
+});
+
+export const memoryOutcomes = pgTable("memory_outcomes", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull(),
+  memoryId: text("memory_id"),
+  recommendation: text("recommendation").notNull(),
+  status: text("status").notNull(),
+  original: text("original").notNull().default(""),
+  edited: text("edited"),
+  actorUserId: text("actor_user_id").notNull(),
   createdAt: text("created_at").notNull(),
 });
 
@@ -295,6 +316,7 @@ export const DRIZZLE_TABLES = [
   "calendar_categories",
   "conversations",
   "memories",
+  "memory_outcomes",
   "documents",
   "subscriptions",
   "automations",

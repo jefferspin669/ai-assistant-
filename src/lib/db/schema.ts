@@ -181,11 +181,33 @@ export type DbConversation = {
 
 export type DbMemory = {
   id: string;
+  /** Tenant boundary — required for unified business memory. */
+  organizationId: string;
   userId: string;
   kind: "preference" | "prompt" | "person" | "project" | "long-term";
+  memoryType: "company" | "leadership" | "employee" | "customer" | "operational" | "project";
   title: string;
   content: string;
+  source: string;
+  authorLabel: string;
+  confidence: number;
+  accessLevel: "owner" | "leadership" | "managers" | "all_staff" | "customer_facing";
+  entityType: string | null;
+  entityId: string | null;
   approved: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DbMemoryOutcome = {
+  id: string;
+  organizationId: string;
+  memoryId: string | null;
+  recommendation: string;
+  status: "accepted" | "rejected" | "edited" | "successful";
+  original: string;
+  edited: string | null;
+  actorUserId: string;
   createdAt: string;
 };
 
@@ -342,6 +364,7 @@ export type AtlasDatabase = {
   taxRecords: DbTaxRecord[];
   conversations: DbConversation[];
   memories: DbMemory[];
+  memory_outcomes: DbMemoryOutcome[];
   documents: DbDocument[];
   subscriptions: DbSubscription[];
   notifications: DbNotification[];

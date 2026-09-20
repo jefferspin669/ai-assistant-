@@ -3,10 +3,11 @@ import { ok } from "@/lib/api/types";
 import { runAtlasBrain } from "@/lib/brain";
 import { applyAwayMode, appendStandingOrder } from "@/lib/autonomy/policy";
 import { isAwayPhrase, LEVEL_LABELS } from "@/lib/autonomy";
-import { newId, nowIso, loadDatabase, saveDatabase } from "@/lib/db/store";
+import { newId, nowIso, loadDatabase, saveDatabase, awaitDatabaseWrites } from "@/lib/db/store";
 import { ensureServerDatabase } from "@/lib/db/ensure";
 import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 import { looksLikeOrchestratorGoal, orchestrate } from "@/lib/orchestrator";
+import type { SessionContext } from "@/lib/domain/types";
 
 export async function POST(req: Request) {
   try {
@@ -17,6 +18,14 @@ export async function POST(req: Request) {
   await ensureServerDatabase();
   const body = await readJson(req);
   const message = String(body.message || body.text || "");
+
+  let session: SessionContext | undefined;
+  try {
+    session = await resolveSession(req);
+  } catch {
+    /* demo chat still works without a cookie */
+  }
+
   const brain = await runAtlasBrain({
     message,
     businessName: body.businessName ? String(body.businessName) : undefined,
@@ -33,19 +42,14 @@ export async function POST(req: Request) {
             content: String(m.content || ""),
           }))
       : undefined,
+    session,
   });
 
   const data = loadDatabase();
   const stamp = nowIso();
-  let orgId = data.organizations[0]?.id;
-  let userId = data.users[0]?.id || "user_demo";
-  try {
-    const ctx = await resolveSession(req);
-    orgId = ctx.organizationId;
-    userId = ctx.userId;
-  } catch {
-    /* demo chat still works without a cookie */
-  }
+  const orgId = session?.organizationId || data.organizations[0]?.id;
+  const userId = session?.userId || data.users[0]?.id || "user_demo";
+
   let awayPolicy = null;
   if (orgId) {
     for (const call of brain.toolCalls || []) {
@@ -60,6 +64,16 @@ export async function POST(req: Request) {
     const level = LEVEL_LABELS[awayPolicy.level];
     brain.reply = `${brain.reply}\n\nAutonomy is now Level ${awayPolicy.level} — ${level.name}. ${level.headline} Payments over $${(awayPolicy.autoPaymentLimitCents / 100).toLocaleString()} still need you. Kill switch is off.`;
   }
+  if (brain.clarifyingQuestion) {
+    brain.reply = `${brain.reply}\n\nClarifying question: ${brain.clarifyingQuestion}`;
+  }
+  if (brain.citations?.length) {
+    const cites = brain.citations
+      .slice(0, 6)
+      .map((c) => `${c.entityType}:${c.entityId}`)
+      .join(", ");
+    brain.reply = `${brain.reply}\n\nSources: ${cites}`;
+  }
   const goalText =
     (brain.toolCalls || []).find((call) => call.name === "run_business_goal")?.arguments.goal ||
     (looksLikeOrchestratorGoal(message) ? message : "");
@@ -71,13 +85,22 @@ export async function POST(req: Request) {
       {
         userId,
         organizationId: orgId,
-        role: member?.role || "owner",
+        role: (member?.role as SessionContext["role"]) || "owner",
         sessionId: "chat",
       },
       String(goalText),
     );
-    const snapshot = run.run.steps.map((s) => `${s.status === "done" ? "✓" : s.status === "waiting" ? "⏳" : s.status === "blocked" ? "■" : "○"} ${s.label}`).join("\n");
-    brain.reply = `${brain.reply}\n\nOrchestrator run ${run.run.id} (${run.run.intent}, ${run.run.status}):\n${snapshot}`;
+    const snapshot = run.run.steps
+      .map(
+        (s) =>
+          `${s.status === "done" ? "✓" : s.status === "waiting" ? "⏳" : s.status === "blocked" ? "■" : "○"} ${s.label}`,
+      )
+      .join("\n");
+    const pause =
+      run.run.status === "waiting"
+        ? `\nPaused — ${String(run.run.steps.find((s) => s.status === "waiting")?.result?.question || "waiting on owner")}`
+        : "";
+    brain.reply = `${brain.reply}\n\nOrchestrator run ${run.run.id} (${run.run.intent}, ${run.run.status}):\n${snapshot}${pause}`;
   }
   let conversation = data.conversations[0];
   if (!conversation) {
@@ -106,6 +129,7 @@ export async function POST(req: Request) {
     ? latest.conversations.map((c) => (c.id === conversation.id ? conversation : c))
     : [conversation, ...latest.conversations];
   saveDatabase({ ...latest, conversations });
+  await awaitDatabaseWrites();
 
   return apiResponse(
     ok({
@@ -118,6 +142,9 @@ export async function POST(req: Request) {
       doneLabel: brain.doneLabel,
       proposedAction: brain.proposedAction,
       toolCalls: brain.toolCalls,
+      citations: brain.citations,
+      clarifyingQuestion: brain.clarifyingQuestion,
+      approvalId: brain.approvalId,
       conversation,
       autonomy: awayPolicy
         ? { level: awayPolicy.level, killSwitch: awayPolicy.killSwitch }

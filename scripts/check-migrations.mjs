@@ -16,7 +16,12 @@ if (!files.length) {
   process.exit(1);
 }
 
-const required = ["0000_init.sql", "0001_auth_and_remainder.sql", "0002_projects_and_assignees.sql"];
+const required = [
+  "0000_init.sql",
+  "0001_auth_and_remainder.sql",
+  "0002_projects_and_assignees.sql",
+  "0003_unified_memory.sql",
+];
 for (const name of required) {
   if (!files.includes(name)) {
     console.error(`[atlas:migrate-check] missing required migration ${name}`);
