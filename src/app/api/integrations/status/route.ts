@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { withAuth, apiSuccess } from "@/lib/api/http";
 import { integrationStatus } from "@/lib/integrations/config";
 import { getConnectedProviders } from "@/lib/integrations/calendar";
 import { listMissedCalls } from "@/lib/integrations/twilio";
@@ -7,14 +7,12 @@ import { atlasStore } from "@/lib/integrations/supabase";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    data: {
-      storeMode: atlasStore.mode(),
-      integrations: integrationStatus(),
-      calendarsConnected: getConnectedProviders(),
-      missedCalls: listMissedCalls().slice(0, 10),
-    },
+export const GET = withAuth(async ({ workspace }) => {
+  return apiSuccess({
+    storeMode: atlasStore.mode(),
+    integrations: integrationStatus(),
+    calendarsConnected: getConnectedProviders(),
+    missedCalls: listMissedCalls(workspace.organizationId).slice(0, 10),
+    organizationId: workspace.organizationId,
   });
-}
+});

@@ -67,7 +67,7 @@ function InventoryStudioInner() {
   }, [refresh]);
 
   const selected = items.find((i) => i.id === selectedId) ?? items[0];
-  const intel = useMemo(() => inventoryIntelligence(), [items, moves]);
+  const intel = useMemo(() => inventoryIntelligence(), []);
 
   function onAddItem(e: FormEvent) {
     e.preventDefault();

@@ -212,6 +212,8 @@ export async function handleInboundSms(input: {
   return { reply, booked: false };
 }
 
-export function listMissedCalls() {
-  return loadMissed().calls;
+export function listMissedCalls(organizationId?: string) {
+  const calls = loadMissed().calls;
+  if (!organizationId) return calls;
+  return calls.filter((c) => !c.organizationId || c.organizationId === organizationId);
 }

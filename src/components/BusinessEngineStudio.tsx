@@ -85,7 +85,7 @@ function BusinessEngineStudioInner() {
     }
   }, [promptParam, tab, tabParam]);
 
-  const healthOverall = useMemo(() => overallHealthScore(), [metrics, ready]);
+  const healthOverall = useMemo(() => overallHealthScore(), []);
   const showFlow = Boolean(flowParam) || tab === "simulate" || tab === "decision";
 
   function onTestDecision(e: FormEvent) {

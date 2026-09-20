@@ -57,7 +57,7 @@ export function ProjectStudio() {
   }, [refresh]);
 
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0];
-  const workload = useMemo(() => workloadByMember(), [projects]);
+  const workload = useMemo(() => workloadByMember(), []);
 
   function onCreateProject(e: FormEvent) {
     e.preventDefault();

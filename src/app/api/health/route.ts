@@ -10,12 +10,12 @@ import { queueDriver } from "@/lib/queue/env";
 import { databaseDriver } from "@/lib/db/driver";
 import { ensureServerDatabase } from "@/lib/db/ensure";
 import { supabaseAuthConfigured } from "@/lib/auth/supabase-auth";
-import { readWorkerHeartbeat } from "@/lib/queue/heartbeat";
 import { listDeadLetters } from "@/lib/queue/dead-letter";
 import { publicEnvReport } from "@/lib/secrets/redact";
 import { atlasRuntimeEnv } from "@/lib/ops/environment";
 import { orchestratorStats } from "@/lib/orchestrator/store";
 import { brainUsageStats } from "@/lib/brain/usage";
+import { reliabilitySnapshot } from "@/lib/ops/reliability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,12 +27,12 @@ export async function GET() {
   const postgres = await pingPostgres();
   const redis = await pingRedis();
   const driver = databaseDriver();
-  const worker = await readWorkerHeartbeat();
   const secrets = publicEnvReport();
+  const reliability = await reliabilitySnapshot();
   return NextResponse.json({
     ok: true,
     data: {
-      status: "ok",
+      status: reliability.readyForTraffic ? "ok" : "degraded",
       engine: "atlas-database-v5",
       driver,
       persistence:
@@ -47,10 +47,11 @@ export async function GET() {
       },
       redis,
       queue: queueDriver(),
-      worker,
+      worker: reliability.worker,
       deadLetters: listDeadLetters().length,
       secrets,
       environment: atlasRuntimeEnv(),
+      reliability,
       orchestrator: orchestratorStats(),
       brain: brainUsageStats(),
       auth: supabaseAuthConfigured() ? "supabase+atlas_session" : "atlas_session",
