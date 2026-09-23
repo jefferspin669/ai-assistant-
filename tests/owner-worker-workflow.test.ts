@@ -105,7 +105,7 @@ describe("owner → worker → approve workflow", () => {
       true,
     );
 
-    const resolved = resolveApproval(owner, approval.id, "approved");
+    const resolved = await resolveApproval(owner, approval.id, "approved");
     expect(resolved.approval.status).toBe("approved");
   });
 });

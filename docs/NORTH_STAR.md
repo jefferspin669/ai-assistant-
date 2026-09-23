@@ -46,17 +46,19 @@ Tax Center, Marketplace, Simulator, etc. stay as *prototype surface* until the b
 - Tool-calling stubs for propose/confirm risky actions
 - Publish a Postgres/Supabase schema for the commercial core
 
-### Phase 1–3 — Commercial wiring (in progress in repo)
+### Phase 1–3 — Commercial wiring ✅ (on security branch)
 
 - **Postgres + Drizzle + event bus + BullMQ** — dual-write schema in `drizzle/0000_init.sql`; events in `src/lib/events`; workers in `src/worker`
 - **Supabase client** — `src/lib/integrations/supabase.ts` dual-writes live REST when configured, else `.data`
-- **Twilio receptionist** — voice TwiML + SMS + missed-call recovery (`/api/webhooks/twilio/*`, `/api/receptionist/missed-call`)
-- **Google / Microsoft calendar** — OAuth + event create (`/api/calendar/oauth/*`, `/api/calendar/sync`)
+- **Twilio receptionist** — voice TwiML + SMS + missed-call recovery; **signature validation** on webhooks
+- **Google / Microsoft calendar** — OAuth + event create; **tenant-scoped tokens + consume-once OAuth state**
 - **Real SMS / invoice send** — approval-gated (`/api/actions/send-sms`, `/api/actions/send-invoice`)
 - **Stripe** — Checkout + portal + webhook (`/api/billing/*`, `/api/webhooks/stripe`)
+- **Identity + tenant data** — invites, password reset, org switch; `/api/projects` + `/api/settings` (permission-gated)
+- **Verify / reliability** — `POST /api/integrations/verify`; `/api/health` → `reliability`
 - Operator UI: `/app/commercial`
 
-Without credentials everything stays in **simulation mode** so demos never break.
+Without credentials everything stays in **simulation mode** so demos never break. See `AGENTS.md` → “Shipped on this branch”.
 
 ## Safety (non-negotiable)
 

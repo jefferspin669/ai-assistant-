@@ -98,8 +98,7 @@ export async function verifyIntegration(
     }
 
     const provider = id === "google_calendar" ? "google" : "microsoft";
-    void organizationId;
-    if (!getConnectedProviders().includes(provider)) {
+    if (!getConnectedProviders(organizationId).includes(provider)) {
       throw new Error(`${provider} calendar is not connected for this organization.`);
     }
     return { detail: `${provider} calendar has an OAuth connection on this server.` };

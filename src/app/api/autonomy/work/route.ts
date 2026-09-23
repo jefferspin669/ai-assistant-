@@ -10,6 +10,8 @@ import {
   submitWork,
 } from "@/lib/autonomy";
 import type { WorkIntent } from "@/lib/autonomy";
+import { isProduction } from "@/lib/ops/environment";
+import { ValidationError } from "@/lib/domain/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +30,9 @@ export async function POST(req: Request) {
     }
 
     if (body.demo === "vendor_payment") {
+      if (isProduction()) {
+        throw new ValidationError("Demo vendor payments are disabled in production.");
+      }
       const submitted = demoVendorPayment(ctx);
       return apiResponse(
         ok({

@@ -126,7 +126,6 @@ import {
   loadGoals,
   loadMessages,
   loadScheduledShifts,
-  loadSignedInEmployee,
   loadTeamMembers,
   loadTeamTasks,
   loadTraining,
@@ -136,8 +135,10 @@ import {
   requestSwap,
   saveEmployeeSession,
   saveScheduledShifts,
+  saveTeamMembers,
   saveTeamTasks,
   saveTraining,
+  seedDemoTeamIfEmpty,
   sendMessage,
   startBreak as apiStartBreak,
   startTask,
@@ -311,59 +312,98 @@ export default function EmployeeDashboardPage() {
   const lastActivityPush = useRef(0);
 
   useEffect(() => {
-    const me = loadSignedInEmployee();
-    if (!me) {
-      hardNavigate("/employee/login");
-      return;
-    }
-    idRef.current = me.id;
-    setEmployee(me);
-    generateRecurringTasks(); // Atlas auto-creates any due recurring responsibilities
-    setTasks(loadTeamTasks().filter((t) => t.memberId === me.id || t.parts.some((p) => p.memberId === me.id)));
-    setHandoffs(handoffsFor(me.id));
-    setMemory(memoryFor(me.id));
-    setRecurring(recurringFor(me.id));
-    setApps(appsFor(me));
-    setOnboarding(onboardingFor(me.id));
-    setAssets(assetsFor(me.id));
-    setServiceReqs(serviceRequestsFor(me.id));
-    setExpenses(expensesFor(me.id));
-    setIncidents(incidentsFor(me.id));
-    setGrants(activeGrantsFor(me.id));
-    const a = loadA11y();
-    setA11y(a);
-    applyA11y(a);
-    setPresence(getPresence(me.id));
-    setShift(getOpenShift(me.id));
-    announcementsForMember(me.id).forEach((a) => markAnnouncementRead(a.id, me.id));
-    setAnnouncements(unacknowledgedFor(me.id));
-    setFeedbackPrompts(loadFeedbackPrompts());
-    setCalEvents(eventsForMember(me.id));
-    setGoals(loadGoals().filter((g) => g.memberId === me.id));
-    const chans = channelsForEmployee(me);
-    setChannels(chans);
-    setChannelId(chans[0]?.id ?? "");
-    setMessages(loadMessages());
-    setAllShifts(loadScheduledShifts());
-    setTraining(trainingForMember(me.id));
-    setCerts(certsForMember(me.id));
-    setDocs(documentsForEmployee(me.id));
-    setRecognitions(recognitionsFor(me.id));
-    setAllMembers(loadTeamMembers());
-    setLayout(loadWidgetLayout());
-    setSidebarMsgs([
-      {
-        role: "ai",
-        text: "Hi — I'm here on every page. Ask me what's due today, to find a document, how to handle a refund, to summarize a project, and more.",
-      },
-    ]);
-    setChat([
-      {
-        role: "ai",
-        text: `Hi ${me.name.split(" ")[0]} — I'm your Atlas assistant. Ask "What do I need to finish today?" or tell me if you're blocked on something.`,
-      },
-    ]);
-    setReady(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/employee/me", { credentials: "include" });
+        if (!res.ok) {
+          hardNavigate("/employee/login");
+          return;
+        }
+        const json = (await res.json()) as {
+          ok?: boolean;
+          data?: { employee?: { id: string; name: string; email: string; role: string; department: string } };
+        };
+        const remote = json.data?.employee;
+        if (!remote || cancelled) {
+          hardNavigate("/employee/login");
+          return;
+        }
+        // Map server employee into the local TeamPerson shape used by the portal UI.
+        seedDemoTeamIfEmpty();
+        const roster = loadTeamMembers();
+        let me = roster.find((m) => m.email.toLowerCase() === remote.email.toLowerCase());
+        if (!me) {
+          me = {
+            id: remote.id,
+            name: remote.name,
+            email: remote.email,
+            role: remote.role,
+            department: remote.department,
+            status: "Available",
+            rating: "—",
+            jobsThisWeek: 0,
+            createdAt: new Date().toISOString(),
+          };
+          saveTeamMembers([me, ...roster]);
+        }
+        const self = me;
+        saveEmployeeSession(self.id);
+        idRef.current = self.id;
+        setEmployee(self);
+        generateRecurringTasks();
+        setTasks(loadTeamTasks().filter((t) => t.memberId === self.id || t.parts.some((p) => p.memberId === self.id)));
+        setHandoffs(handoffsFor(self.id));
+        setMemory(memoryFor(self.id));
+        setRecurring(recurringFor(self.id));
+        setApps(appsFor(self));
+        setOnboarding(onboardingFor(self.id));
+        setAssets(assetsFor(self.id));
+        setServiceReqs(serviceRequestsFor(self.id));
+        setExpenses(expensesFor(self.id));
+        setIncidents(incidentsFor(self.id));
+        setGrants(activeGrantsFor(self.id));
+        const a = loadA11y();
+        setA11y(a);
+        applyA11y(a);
+        setPresence(getPresence(self.id));
+        setShift(getOpenShift(self.id));
+        announcementsForMember(self.id).forEach((ann) => markAnnouncementRead(ann.id, self.id));
+        setAnnouncements(unacknowledgedFor(self.id));
+        setFeedbackPrompts(loadFeedbackPrompts());
+        setCalEvents(eventsForMember(self.id));
+        setGoals(loadGoals().filter((g) => g.memberId === self.id));
+        const chans = channelsForEmployee(self);
+        setChannels(chans);
+        setChannelId(chans[0]?.id ?? "");
+        setMessages(loadMessages());
+        setAllShifts(loadScheduledShifts());
+        setTraining(trainingForMember(self.id));
+        setCerts(certsForMember(self.id));
+        setDocs(documentsForEmployee(self.id));
+        setRecognitions(recognitionsFor(self.id));
+        setAllMembers(loadTeamMembers());
+        setLayout(loadWidgetLayout());
+        setSidebarMsgs([
+          {
+            role: "ai",
+            text: "Hi — I'm here on every page. Ask me what's due today, to find a document, how to handle a refund, to summarize a project, and more.",
+          },
+        ]);
+        setChat([
+          {
+            role: "ai",
+            text: `Hi ${self.name.split(" ")[0]} — I'm your Atlas assistant. Ask "What do I need to finish today?" or tell me if you're blocked on something.`,
+          },
+        ]);
+        setReady(true);
+      } catch {
+        hardNavigate("/employee/login");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

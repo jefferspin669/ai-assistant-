@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SiteLink } from "@/components/SiteLink";
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import type { IntegrationMode } from "@/lib/integrations/config";
 
 type IntegrationStatus = {
   id: string;
   label: string;
   configured: boolean;
-  mode: "live" | "simulation";
+  mode: IntegrationMode;
   detail: string;
 };
 
@@ -42,13 +44,23 @@ export function CommercialStudio() {
   const [invoiceName, setInvoiceName] = useState("Jamie Cole");
   const [invoiceAmount, setInvoiceAmount] = useState("1250");
 
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyNote, setVerifyNote] = useState<string | null>(null);
+
+  const twilioMode =
+    status?.integrations.find((i) => i.id === "twilio")?.mode || ("simulation" as IntegrationMode);
+
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/integrations/status");
+    try {
+      await fetch("/api/session", { credentials: "include" });
+    } catch {
+      /* session mint is best-effort in development */
+    }
+    const res = await fetch("/api/integrations/status", { credentials: "include" });
     const json = (await res.json()) as { ok: boolean; data?: StatusPayload };
     if (json.ok && json.data) setStatus(json.data);
     try {
-      await fetch("/api/session");
-      const auto = (await fetch("/api/autonomy").then((r) => r.json())) as {
+      const auto = (await fetch("/api/autonomy", { credentials: "include" }).then((r) => r.json())) as {
         ok?: boolean;
         data?: {
           policy?: {
@@ -86,6 +98,7 @@ export function CommercialStudio() {
     try {
       const res = await fetch(url, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
@@ -96,6 +109,29 @@ export function CommercialStudio() {
       setNote(error instanceof Error ? error.message : "Request failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function verifySandbox() {
+    setVerifyBusy(true);
+    setVerifyNote(null);
+    try {
+      const res = await fetch("/api/integrations/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integrations: ["brain", "stripe", "twilio", "resend", "google_calendar", "microsoft_calendar"],
+          dryRun: false,
+        }),
+      });
+      const json = await res.json();
+      setVerifyNote(JSON.stringify(json, null, 2));
+      await refresh();
+    } catch (error) {
+      setVerifyNote(error instanceof Error ? error.message : "Verify failed");
+    } finally {
+      setVerifyBusy(false);
     }
   }
 
@@ -141,13 +177,13 @@ export function CommercialStudio() {
         <section className="panel">
           <h2>Commercial stack</h2>
           <p className="panel-lead">
-            Live when credentials exist; simulation otherwise. This is the beachhead — not another
-            mock studio.
+            Every system is labeled Live, Partially connected, Simulation, or Unavailable.
+            Production refuses quiet simulation for Twilio/SMS.
           </p>
           <div className="list">
             {(status?.integrations || []).map((item) => (
               <div className="list-row" key={item.id}>
-                <span className={`badge${item.mode === "live" ? " ok" : " warn"}`}>{item.mode}</span>
+                <ConnectionStatusBadge mode={item.mode} />
                 <div>
                   <p>
                     <strong>{item.label}</strong>
@@ -161,17 +197,35 @@ export function CommercialStudio() {
             <button className="btn btn-outline" type="button" onClick={() => void refresh()} disabled={busy}>
               Refresh status
             </button>
-            <SiteLink className="btn btn-dark" href="/app/autonomous">
+            <button
+              className="btn btn-dark"
+              type="button"
+              onClick={() => void verifySandbox()}
+              disabled={busy || verifyBusy}
+            >
+              {verifyBusy ? "Verifying…" : "Sandbox verify credentials"}
+            </button>
+            <SiteLink className="btn btn-outline" href="/app/autonomous">
               Open autonomy engine
             </SiteLink>
           </div>
+          {verifyNote ? (
+            <pre className="code-block" style={{ marginTop: "0.85rem", whiteSpace: "pre-wrap" }}>
+              {verifyNote}
+            </pre>
+          ) : null}
         </section>
 
         <section className="panel">
           <h2>Receptionist · missed-call recovery</h2>
           <p className="panel-lead">
             Twilio webhooks: <code>/api/webhooks/twilio/voice</code>,{" "}
-            <code>/api/webhooks/twilio/sms</code>. Demo without Twilio below.
+            <code>/api/webhooks/twilio/sms</code>. Requires a signed-in owner session.
+            {twilioMode === "live"
+              ? " Twilio is Live — recovery sends a real SMS."
+              : twilioMode === "unavailable"
+                ? " Unavailable in this environment."
+                : " Development only: may log a simulated SMS when Twilio credentials are unset."}
           </p>
           <div className="train-form">
             <input
@@ -183,10 +237,10 @@ export function CommercialStudio() {
             <button
               className="btn btn-dark"
               type="button"
-              disabled={busy}
+              disabled={busy || twilioMode === "unavailable"}
               onClick={() => void postJson("/api/receptionist/missed-call", { from: phone })}
             >
-              Simulate missed call
+              {twilioMode === "live" ? "Trigger missed-call recovery" : "Dev: trigger recovery (simulation)"}
             </button>
           </div>
           <div className="list" style={{ marginTop: "0.9rem" }}>
@@ -256,8 +310,8 @@ export function CommercialStudio() {
         <section className="panel">
           <h2>Real actions + Stripe</h2>
           <p className="panel-lead">
-            SMS/invoice require <code>approved: true</code> after owner OK. Checkout opens Atlas
-            Business.
+            SMS/invoice stage a server approval first. Client <code>approved</code> flags are
+            ignored — use Approvals, then resend with <code>confirmationId</code>.
           </p>
           <div className="train-form">
             <input
@@ -282,7 +336,6 @@ export function CommercialStudio() {
                   amount: Number(invoiceAmount),
                   customerPhone: phone,
                   memo: "Service visit",
-                  approved: false,
                 })
               }
             >
@@ -298,11 +351,11 @@ export function CommercialStudio() {
                   amount: Number(invoiceAmount),
                   customerPhone: phone,
                   memo: "Service visit",
-                  approved: true,
+                  confirmationId: note?.match(/appr-[a-z0-9-]+/i)?.[0],
                 })
               }
             >
-              Send invoice + SMS
+              Send invoice (with confirmationId)
             </button>
             <button
               className="btn btn-outline"
@@ -312,11 +365,10 @@ export function CommercialStudio() {
                 void postJson("/api/actions/send-sms", {
                   to: phone,
                   body: "Atlas here — your visit is confirmed for tomorrow 9am.",
-                  approved: true,
                 })
               }
             >
-              Send SMS
+              Stage SMS
             </button>
             <button
               className="btn btn-dark"

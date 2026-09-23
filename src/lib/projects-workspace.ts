@@ -112,12 +112,30 @@ export type AtlasProject = {
 const PROJECTS_KEY = "atlas-projects-v2";
 const FOLDERS_KEY = "atlas-project-folders-v1";
 
+export type ProjectsDomainState = {
+  projects: AtlasProject[];
+  folders: ProjectFolder[];
+};
+
+function pushProjectsServer(state: ProjectsDomainState) {
+  if (typeof window === "undefined") return;
+  void fetch("/api/projects", {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  }).catch(() => {
+    /* offline / unauthenticated — local cache remains */
+  });
+}
+
 export function loadProjectFolders(): ProjectFolder[] {
   return loadJson(FOLDERS_KEY, []);
 }
 
 export function saveProjectFolders(folders: ProjectFolder[]) {
   saveJson(FOLDERS_KEY, folders);
+  pushProjectsServer({ projects: loadAtlasProjects(), folders });
 }
 
 export function loadAtlasProjects(): AtlasProject[] {
@@ -126,6 +144,31 @@ export function loadAtlasProjects(): AtlasProject[] {
 
 export function saveAtlasProjects(projects: AtlasProject[]) {
   saveJson(PROJECTS_KEY, projects);
+  pushProjectsServer({ projects, folders: loadProjectFolders() });
+}
+
+/** Pull tenant projects from the server; localStorage is a cache only. */
+export async function hydrateAtlasProjects(): Promise<ProjectsDomainState> {
+  if (typeof window === "undefined") {
+    return { projects: [], folders: [] };
+  }
+  try {
+    const res = await fetch("/api/projects", { cache: "no-store", credentials: "include" });
+    const json = (await res.json()) as {
+      ok?: boolean;
+      data?: ProjectsDomainState;
+    };
+    if (res.ok && json.data) {
+      const projects = Array.isArray(json.data.projects) ? json.data.projects : [];
+      const folders = Array.isArray(json.data.folders) ? json.data.folders : [];
+      saveJson(PROJECTS_KEY, projects);
+      saveJson(FOLDERS_KEY, folders);
+      return { projects, folders };
+    }
+  } catch {
+    /* fall through to local cache */
+  }
+  return { projects: loadAtlasProjects(), folders: loadProjectFolders() };
 }
 
 export function computeProjectProgress(project: AtlasProject): number {

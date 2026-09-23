@@ -16,6 +16,20 @@ Atlas has a large interactive product surface. Much of it is still a **sophistic
 
 API identity comes from the `atlas_session` httpOnly cookie — never from body `userId` / `organizationId`. Home KPIs should label DEMO vs LIVE data honestly.
 
+## Shipped on this branch (production program)
+
+These are **in the tree** (not aspirational):
+
+- **Tenant projects/settings** — `GET`/`PUT /api/projects` and `/api/settings` gated by `workspace.read` / `workspace.write`; localStorage is a cache only. Workspace domains include `projects` and `settings` (mirrored to Postgres `workspace_domains` when `DATABASE_URL` is set).
+- **Employee portal auth** — field login creates a real `atlas_session` via `createSession`; access codes are stored as `accessCodeHash` (scrypt), never plaintext.
+- **Identity** — invitations (`POST /api/invitations`, `/invite`), password reset (`/forgot-password` → `/api/auth/forgot`, `/reset-password` → `/api/auth/reset`), org switch (`GET`/`POST /api/organizations`).
+- **Integrations** — Twilio webhooks require `X-Twilio-Signature` (`src/lib/integrations/twilio-security.ts`); calendar OAuth is tenant-scoped with consume-once state; `POST /api/integrations/verify` for sandbox credential checks; `/api/health` includes a `reliability` snapshot.
+- **Owner→worker loop** — assign tasks with `projectLabel` / assignee, worker completion audits, Brain `mass_sms` stages `SEND_SMS`, approval executes Twilio.
+- **Consolidation** — duplicate studios redirect (see table below + `next.config.ts`); tests in `tests/consolidation.test.ts`.
+- **Tests** — `tests/identity-onboarding.test.ts`, `tests/owner-worker-workflow.test.ts`, `tests/server-projects-settings.test.ts`, `tests/production-boundaries.test.ts`, plus `tests/safety.test.ts` / `tests/beachhead-accounts.test.ts`.
+
+Seed accounts (after `resetDatabase`): owner `demo@atlas.ai` / `atlas-demo`; manager `alex@atlas.ai` / `atlas-manager`; worker `sam@atlas.ai` / `atlas-worker`; field codes MARCUS / SARAH1 / JORDAN.
+
 ## Atlas Brain (Phase 0+)
 
 - Command Center talks to `POST /api/ai/chat`
@@ -33,10 +47,11 @@ API identity comes from the `atlas_session` httpOnly cookie — never from body 
 | System | Live when | Routes |
 | --- | --- | --- |
 | Supabase | `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | store dual-write |
-| Twilio | `TWILIO_ACCOUNT_SID` + token + number | `/api/webhooks/twilio/*` |
-| Google/Microsoft calendar | OAuth client ids/secrets | `/api/calendar/oauth/*` |
+| Twilio | `TWILIO_ACCOUNT_SID` + token + number | `/api/webhooks/twilio/*` (signature + idempotency required) |
+| Google/Microsoft calendar | OAuth client ids/secrets | `/api/calendar/oauth/*` (session + consume-once state) |
 | SMS / invoice | Twilio (+ approval flag) | `/api/actions/*` |
-| Stripe | `STRIPE_SECRET_KEY` (+ price id) | `/api/billing/*` |
+| Stripe | `STRIPE_SECRET_KEY` (+ price id) | `/api/billing/*` (live webhooks need `STRIPE_WEBHOOK_SECRET`) |
+| Verify / status | owner/admin session | `POST /api/integrations/verify`, `GET /api/integrations/status` |
 
 Copy `.env.example` → `.env.local` and fill credentials to go live. Without them, actions run in simulation and write audit trails locally.
 
@@ -55,8 +70,9 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Architecture DB → PostgreSQL when `DATABASE_URL` is set (JSON fallback otherwise)
 - Event bus → `src/lib/events` (`appointment.cancelled`, `call.missed`, `invoice.overdue`, …)
 - Queue → file jobs, or BullMQ `atlas-jobs` when Redis is up
-- Workspace domains → `.data/workspace.json`
-- Open `/app/backend` for health checks; `GET /api/health` reports postgres / redis / queue driver
+- Workspace domains → `.data/workspace.json` (tenant-scoped; includes `projects` / `settings`)
+- Open `/app/backend` for health checks; `GET /api/health` reports postgres / redis / queue driver / **reliability**
+- Tenant APIs: `/api/projects`, `/api/settings`, `/api/organizations`, `/api/invitations`
 
 ## Cursor Cloud specific instructions
 
@@ -68,9 +84,9 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Optional env: copy `.env.example` → `.env.local`. `ATLAS_LLM_API_KEY` for live Brain; `DATABASE_URL` / `REDIS_URL` for Postgres + workers.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.
 - Autonomy: open `/app/autonomous`. Try Level 1 vs 4, kill switch, and “Simulate $18,420 vendor payment”.
-- Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`.
+- Commercial beachhead: open `/app/commercial` to see live vs simulation integrations; `curl http://localhost:3000/api/integrations/status`. Owner/admin: `POST /api/integrations/verify`.
 - Backend smoke: `curl http://localhost:3000/api/health` or `curl -X POST http://localhost:3000/api/ai/chat -H 'content-type: application/json' -d '{"message":"How is business?"}'`.
-- Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo`. Dev `GET /api/session` mints a cookie for the seeded owner.
+- Seed login (after `resetDatabase`): `demo@atlas.ai` / `atlas-demo` (also alex/sam — see “Shipped on this branch”). Dev `GET /api/session` mints a cookie for the seeded owner.
 - Do **not** prioritize new `/app/*` feature studios over Brain / Postgres / receptionist work.
 
 ## Production safety (trust with a real company)
@@ -79,7 +95,8 @@ Automated rails live in `src/lib/safety`, `src/lib/billing/entitlements.ts`, and
 
 - Privacy: `GET`/`DELETE /api/privacy` (export / owner delete)
 - Support snapshot: `GET /api/admin/support` (owner/admin, this org only)
-- Worker heartbeat + dead letters: `GET /api/health`
+- Worker heartbeat + dead letters + reliability snapshot: `GET /api/health` (and org-scoped DLQ on `GET /api/admin/support`)
+- Integration sandbox verify: `POST /api/integrations/verify` (owner/admin; `{ "dryRun": true }` for CI)
 - Backups: `npm run db:backup` / `npm run db:restore` (JSON locally; `pg_dump` when `DATABASE_URL` is set)
 - CI: `.github/workflows/atlas-ci.yml` runs `tsc`, `npm test`, and `npm audit`
 - Environments: `ATLAS_ENV=development|staging|production` (see `docs/PRODUCTION_SAFETY.md`)

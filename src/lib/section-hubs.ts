@@ -15,15 +15,13 @@ export const memoryHub: HubLink[] = [
   { href: "/app/memory", label: "Business Memory", blurb: "One engine — company, leadership, employee, customer, operational." },
   { href: "/app/knowledge", label: "Knowledge Base", blurb: "Handbooks, prices, and policies Atlas can quote." },
   { href: "/app/executive-timeline", label: "Timeline", blurb: "The story of the business across months, not chats." },
-  { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
 ];
 
 export const trustHub: HubLink[] = [
+  { href: "/app/governance", label: "Governance", blurb: "Roles, permissions, and who can approve what." },
   { href: "/app/security-center", label: "Security Center", blurb: "Live defensive monitoring, risk scores, and incident response." },
-  { href: "/app/security", label: "Security", blurb: "Threats, devices, 2FA, and vault health." },
   { href: "/app/risk", label: "Risk", blurb: "Cash, burnout, and compliance warnings before they get expensive." },
   { href: "/app/compliance", label: "Compliance", blurb: "Licenses, insurance, and retention rules." },
-  { href: "/app/governance", label: "Governance", blurb: "Roles, permissions, and who can approve what." },
   { href: "/app/privacy", label: "Privacy", blurb: "What Atlas stores and what it does not." },
   { href: "/app/access", label: "Audit Log", blurb: "Every sensitive action, recorded." },
 ];
@@ -69,7 +67,7 @@ export const agentsHub: HubLink[] = [
   { href: "/app/phone", label: "Phone & Reception", blurb: "Account Assistant — calls, booking, control center." },
   { href: "/app/marketplace?tab=agents", label: "Marketplace agents", blurb: "Install Sales, HR, Legal, and industry specialists." },
   { href: "/app/coach", label: "Live coach", blurb: "On-call help during a job or a sales conversation." },
-  { href: "/app/voice", label: "Voice", blurb: "Talk to Atlas from the truck or the front desk." },
+  { href: "/app/ask?tab=voice", label: "Voice", blurb: "Talk to Atlas from the truck or the front desk." },
 ];
 
 export const automationsHub: HubLink[] = [
@@ -84,7 +82,6 @@ export const knowledgeHub: HubLink[] = [
   { href: "/app/memory", label: "Business Memory", blurb: "One permission-aware memory engine for the company." },
   { href: "/app/documents", label: "Documents", blurb: "Contracts, manuals, and files." },
   { href: "/app/dna", label: "Business DNA", blurb: "Voice, discounts, escalation, and pricing philosophy." },
-  { href: "/app/global-memory", label: "Memory Settings", blurb: "Hours, holidays, tax, currency, and local rules." },
 ];
 
 export const appsHub: HubLink[] = [
@@ -98,7 +95,7 @@ export const settingsHub: HubLink[] = [
   { href: "/app/account", label: "Account", blurb: "You, your business, and who is on the team." },
   { href: "/app/setup", label: "First-time setup", blurb: "Industry, hours, and how Atlas should greet you." },
   { href: "/app/privacy", label: "Privacy", blurb: "What Atlas stores and what it does not." },
-  { href: "/app/security", label: "Security", blurb: "Prototype vault — not production auth yet." },
+  { href: "/app/governance", label: "Security & governance", blurb: "Roles, approvals, and audit." },
   { href: "/app/accessibility", label: "Accessibility", blurb: "Type size, motion, and contrast." },
   { href: "/app/flags", label: "Feature flags", blurb: "Labs surfaces that are not in the main sidebar." },
   { href: "/app/admin", label: "Admin", blurb: "Workspace-level controls." },

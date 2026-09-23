@@ -79,6 +79,16 @@ export const atlasClient = {
     execute: (action: AtlasAction) =>
       request<AtlasActionResult>("/api/ai/actions", { method: "POST", body: JSON.stringify({ action }) }),
   },
+  projects: {
+    get: () => request<{ projects: unknown[]; folders: unknown[] }>("/api/projects", { method: "GET" }),
+    put: (state: { projects: unknown[]; folders: unknown[] }) =>
+      request("/api/projects", { method: "PUT", body: JSON.stringify(state) }),
+  },
+  settings: {
+    get: () => request<Record<string, unknown>>("/api/settings", { method: "GET" }),
+    put: (patch: Record<string, unknown>) =>
+      request("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
+  },
 };
 
 /** @deprecated Prefer atlasClient — kept so existing pages keep compiling. */
