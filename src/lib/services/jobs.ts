@@ -45,26 +45,28 @@ export function processJobs(limit = 10) {
     .filter((job) => job.status === "queued" && !String(job.kind).startsWith("autonomy:"))
     .slice(0, limit);
   if (!queued.length) return { generic: [], autonomy };
-  const doneIds = new Set(queued.map((job) => job.id));
+  // This synchronous ticker has no generic executor. Never claim that a
+  // message, payment, or other side effect happened just because it was queued.
+  const unsupportedIds = new Set(queued.map((job) => job.id));
   saveDatabase({
     ...db,
     jobs: db.jobs.map((job) =>
-      doneIds.has(job.id) ? { ...job, status: "done" as const, run_at: nowIso() } : job,
+      unsupportedIds.has(job.id) ? { ...job, status: "failed" as const, run_at: nowIso() } : job,
     ),
     notifications: [
       ...queued.map((job) => ({
         id: newId("note"),
         userId: String(job.payload.userId || ""),
         organizationId: job.organization_id,
-        title: `Job ${job.kind} finished`,
-        body: "Background work completed.",
+        title: `Job ${job.kind} needs attention`,
+        body: "No verified executor ran this queued job. No completion was recorded.",
         read: false,
         createdAt: nowIso(),
       })),
       ...db.notifications,
     ],
   });
-  return { generic: queued, autonomy };
+  return { generic: [], unsupported: queued.length, autonomy };
 }
 
 export function notify(

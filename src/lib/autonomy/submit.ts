@@ -6,7 +6,7 @@ import { getPolicy } from "@/lib/autonomy/policy";
 import type { AutonomyDecision, AutonomyKind, WorkIntent } from "@/lib/autonomy/types";
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
-import { enqueueJob, notify } from "@/lib/services/jobs";
+import { notify } from "@/lib/services/jobs";
 import { maxAutonomyLevelForPlan, subscriptionForOrg } from "@/lib/billing/entitlements";
 import { isAtlasActor } from "@/lib/safety/guards";
 
@@ -104,12 +104,16 @@ export function submitWork(
 
   if (decision.verdict === "execute") {
     if (options.enqueueOnExecute === false) return { decision };
-    const job = enqueueJob(ctx, `autonomy:${intent.kind}`, {
-      ...intent.payload,
-      userId: ctx.userId,
-      title: intent.title,
-    });
-    return { decision, jobId: job.id };
+    // Do not enqueue a stub job that later gets marked "done" without a real side effect.
+    return {
+      decision: {
+        ...decision,
+        verdict: "blocked",
+        reason:
+          "No verified background executor is connected for this action. Nothing was sent, changed, or paid.",
+        ownerPrompt: "This action cannot run automatically yet.",
+      },
+    };
   }
 
   const approval = {

@@ -162,6 +162,9 @@ export function executeAtlasAction(input: unknown, ctx: SessionContext): AtlasAc
     action.type === "REFUND_CUSTOMER";
   if (gated) {
     const submitted = submitWork(ctx, intentFromAtlasAction(action), { enqueueOnExecute: false });
+    if (submitted.decision.verdict === "blocked") {
+      throw new ValidationError(submitted.decision.reason);
+    }
     if (submitted.decision.verdict !== "execute") {
       return {
         type: action.type,
