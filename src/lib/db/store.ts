@@ -436,31 +436,8 @@ export function seedDatabase(): AtlasDatabase {
       created_at: stamp,
     };
   });
-  if (!calendar_events.length) {
-    const start = new Date();
-    start.setHours(14, 0, 0, 0);
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
-    calendar_events = [
-      {
-        id: newId("evt"),
-        user_id: userId,
-        organization_id: orgId,
-        title: "Johnson Construction consult",
-        description: "Estimate follow-up",
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        timezone: "America/Chicago",
-        category_id: "work",
-        location: "",
-        assignee: null,
-        priority: "normal",
-        reminder_time: null,
-        recurring_rule: null,
-        external_calendar_id: null,
-        created_at: stamp,
-      },
-    ];
-  }
+  // New workspaces start with an empty org calendar — no seeded consults or trips.
+  // Smart Calendar (browser v4) and org events both stay empty until the owner adds real ones.
 
   // Team-ops workflow (projects / assigned tasks) starts empty — no demo projects.
   const projects: DbProject[] = [];

@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createEmptyCalendarState } from "@/lib/smart-calendar";
+import { loadDatabase, resetDatabase } from "@/lib/db/store";
+import { workspaceDashboard } from "@/lib/services/dashboard";
+import type { SessionContext } from "@/lib/domain/types";
 
 describe("calendar and homepage cleanup", () => {
   it("starts a new calendar without sample personal or business records", () => {
@@ -28,5 +31,33 @@ describe("calendar and homepage cleanup", () => {
     expect(shippedText).not.toContain("jb hunt");
     expect(shippedText).not.toContain("johnson construction");
     expect(shippedText).not.toContain("callbackflow");
+  });
+
+  describe("honest homepage KPIs without Postgres", () => {
+    beforeEach(() => {
+      resetDatabase();
+    });
+
+    it("labels file-store dashboard data as DEMO and seeds no org appointments", () => {
+      const db = loadDatabase();
+      const owner = db.users.find((user) => user.email === "demo@atlas.ai");
+      expect(owner).toBeTruthy();
+      const membership = db.organization_members.find((row) => row.user_id === owner!.id);
+      expect(membership).toBeTruthy();
+      expect(db.calendar_events).toEqual([]);
+
+      const ctx: SessionContext = {
+        userId: owner!.id,
+        organizationId: membership!.organization_id,
+        role: membership!.role,
+        sessionId: "sess_test_dashboard_honesty",
+      };
+      const snap = workspaceDashboard(ctx);
+      expect(snap.provenance).toBe("DEMO");
+      expect(snap.kpis.every((kpi) => kpi.source === "DEMO")).toBe(true);
+      expect(snap.findings.some((row) => /johnson/i.test(row.detail) || /johnson/i.test(row.title))).toBe(
+        false,
+      );
+    });
   });
 });
