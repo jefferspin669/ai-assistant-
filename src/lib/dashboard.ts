@@ -4,7 +4,7 @@ import { loadCalendarState, saveCalendarState, createEvent, type CalendarEvent }
 import { loadTasks, taskCounts } from "@/lib/tasks";
 import { loadTaxTransactions } from "@/lib/tax-ledger";
 
-export type Provenance = "LIVE" | "CONNECTED DATA" | "DEMO";
+export type Provenance = "LIVE" | "CONNECTED DATA" | "DEMO" | "NOT CONNECTED";
 export type Stance = "OBSERVE" | "SUGGEST" | "APPROVE" | "AUTOMATE";
 export type OwnerEffectId =
   | "approve_johnson"
