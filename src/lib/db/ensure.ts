@@ -50,8 +50,7 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       loadDatabase();
       const orgId = loadDatabase().organizations[0]?.id;
       if (orgId) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const employees = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+        const employees = await import("@/lib/services/employees");
         if (!employees.listEmployees(orgId).length) {
           employees.resetSeedEmployees(orgId);
         }
@@ -72,8 +71,7 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       }
       const seeded = seedDatabase();
       applyServerDatabase(seeded);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const employees = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+      const employees = await import("@/lib/services/employees");
       if (seeded.organizations[0]?.id) {
         employees.resetSeedEmployees(seeded.organizations[0].id);
       }

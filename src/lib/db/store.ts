@@ -964,6 +964,15 @@ export function enqueueAwaitedSideEffect(work: () => Promise<unknown>) {
 export function resetDatabase() {
   const seeded = seedDatabase();
   saveDatabase(seeded);
+  if (typeof window === "undefined") {
+    const hook = (
+      globalThis as typeof globalThis & {
+        __atlasResetSeedEmployees?: (organizationId: string) => void;
+      }
+    ).__atlasResetSeedEmployees;
+    const orgId = seeded.organizations[0]?.id;
+    if (hook && orgId) hook(orgId);
+  }
   return seeded;
 }
 

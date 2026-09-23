@@ -343,43 +343,45 @@ export default function EmployeeDashboardPage() {
             status: "Available",
             rating: "—",
             jobsThisWeek: 0,
+            createdAt: new Date().toISOString(),
           };
           saveTeamMembers([me, ...roster]);
         }
-        saveEmployeeSession(me.id);
-        idRef.current = me.id;
-        setEmployee(me);
+        const self = me;
+        saveEmployeeSession(self.id);
+        idRef.current = self.id;
+        setEmployee(self);
         generateRecurringTasks();
-        setTasks(loadTeamTasks().filter((t) => t.memberId === me!.id || t.parts.some((p) => p.memberId === me!.id)));
-        setHandoffs(handoffsFor(me.id));
-        setMemory(memoryFor(me.id));
-        setRecurring(recurringFor(me.id));
-        setApps(appsFor(me));
-        setOnboarding(onboardingFor(me.id));
-        setAssets(assetsFor(me.id));
-        setServiceReqs(serviceRequestsFor(me.id));
-        setExpenses(expensesFor(me.id));
-        setIncidents(incidentsFor(me.id));
-        setGrants(activeGrantsFor(me.id));
+        setTasks(loadTeamTasks().filter((t) => t.memberId === self.id || t.parts.some((p) => p.memberId === self.id)));
+        setHandoffs(handoffsFor(self.id));
+        setMemory(memoryFor(self.id));
+        setRecurring(recurringFor(self.id));
+        setApps(appsFor(self));
+        setOnboarding(onboardingFor(self.id));
+        setAssets(assetsFor(self.id));
+        setServiceReqs(serviceRequestsFor(self.id));
+        setExpenses(expensesFor(self.id));
+        setIncidents(incidentsFor(self.id));
+        setGrants(activeGrantsFor(self.id));
         const a = loadA11y();
         setA11y(a);
         applyA11y(a);
-        setPresence(getPresence(me.id));
-        setShift(getOpenShift(me.id));
-        announcementsForMember(me.id).forEach((ann) => markAnnouncementRead(ann.id, me!.id));
-        setAnnouncements(unacknowledgedFor(me.id));
+        setPresence(getPresence(self.id));
+        setShift(getOpenShift(self.id));
+        announcementsForMember(self.id).forEach((ann) => markAnnouncementRead(ann.id, self.id));
+        setAnnouncements(unacknowledgedFor(self.id));
         setFeedbackPrompts(loadFeedbackPrompts());
-        setCalEvents(eventsForMember(me.id));
-        setGoals(loadGoals().filter((g) => g.memberId === me.id));
-        const chans = channelsForEmployee(me);
+        setCalEvents(eventsForMember(self.id));
+        setGoals(loadGoals().filter((g) => g.memberId === self.id));
+        const chans = channelsForEmployee(self);
         setChannels(chans);
         setChannelId(chans[0]?.id ?? "");
         setMessages(loadMessages());
         setAllShifts(loadScheduledShifts());
-        setTraining(trainingForMember(me.id));
-        setCerts(certsForMember(me.id));
-        setDocs(documentsForEmployee(me.id));
-        setRecognitions(recognitionsFor(me.id));
+        setTraining(trainingForMember(self.id));
+        setCerts(certsForMember(self.id));
+        setDocs(documentsForEmployee(self.id));
+        setRecognitions(recognitionsFor(self.id));
         setAllMembers(loadTeamMembers());
         setLayout(loadWidgetLayout());
         setSidebarMsgs([
@@ -391,7 +393,7 @@ export default function EmployeeDashboardPage() {
         setChat([
           {
             role: "ai",
-            text: `Hi ${me.name.split(" ")[0]} — I'm your Atlas assistant. Ask "What do I need to finish today?" or tell me if you're blocked on something.`,
+            text: `Hi ${self.name.split(" ")[0]} — I'm your Atlas assistant. Ask "What do I need to finish today?" or tell me if you're blocked on something.`,
           },
         ]);
         setReady(true);

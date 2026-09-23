@@ -4,6 +4,9 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { searchBusinessContext, buildBusinessContext } from "@/lib/brain/context";
 import { listCapabilities } from "@/lib/capabilities/registry";
 import { planGoal } from "@/lib/orchestrator/planner";
+import { listOrgTransactions } from "@/lib/services/workspace";
+import { loadDatabase } from "@/lib/db/store";
+import { ACTION_SMS, stageActionApproval, stageBrainActionApproval } from "@/lib/services/action-confirmations";
 
 export const BRAIN_TOOLS = [
   {
@@ -339,14 +342,21 @@ export function executeBrainTool(
     const pack = buildBusinessContext(ctx);
     const canReadFinancials = hasPermission(ctx, "payments.read");
     const canReadApprovals = hasPermission(ctx, "audit.read") || ctx.role === "owner" || ctx.role === "admin";
-    const income = pack.facts.find((f) => f.id === "ledger_income");
+    const cutoff = Date.now() - 30 * 86400000;
+    const revenueLast30Days = canReadFinancials
+      ? Math.round(
+          listOrgTransactions(ctx)
+            .filter((t) => t.kind === "income" && new Date(t.date).getTime() >= cutoff)
+            .reduce((sum, t) => sum + t.amount, 0),
+        )
+      : undefined;
     return {
       content: JSON.stringify({
         source: "organization_database",
         organizationId: ctx.organizationId,
         openTasks: pack.facts.find((f) => f.id === "open_tasks")?.value,
         customers: pack.facts.find((f) => f.id === "customers")?.value,
-        revenueLast30Days: canReadFinancials ? income?.value : undefined,
+        revenueLast30Days,
         restricted: { financials: !canReadFinancials, approvals: !canReadApprovals },
         facts: pack.facts,
         missing: pack.missing,
@@ -407,9 +417,45 @@ export function executeBrainTool(
       confirmPrompt,
       doneLabel,
     };
+    let approvalId: string | undefined;
+    if (ctx?.organizationId && ctx.userId) {
+      if (kind === "mass_sms") {
+        const db = loadDatabase();
+        const to =
+          String(args.to || "").trim() ||
+          db.customers.find((c) => c.organization_id === ctx.organizationId && c.phone)?.phone ||
+          "";
+        const body =
+          String(args.body || "").trim() ||
+          proposedAction.summary ||
+          "Quick update from Atlas — reply if you need anything.";
+        if (to) {
+          const approval = stageActionApproval(ctx, ACTION_SMS, {
+            to,
+            body,
+            title: proposedAction.title,
+            source: "atlas_brain",
+            kind,
+          });
+          approvalId = approval.id;
+          return {
+            content: JSON.stringify({
+              status: "awaiting_owner_approval",
+              approvalId,
+              actionType: ACTION_SMS,
+              to,
+              ...proposedAction,
+            }),
+            proposedAction: { ...proposedAction, approvalId },
+          };
+        }
+      }
+      const approval = stageBrainActionApproval(ctx, proposedAction);
+      approvalId = approval.id;
+    }
     return {
-      content: JSON.stringify({ status: "awaiting_owner_approval", ...proposedAction }),
-      proposedAction,
+      content: JSON.stringify({ status: "awaiting_owner_approval", approvalId, ...proposedAction }),
+      proposedAction: { ...proposedAction, approvalId },
     };
   }
   if (name === "run_business_goal") {

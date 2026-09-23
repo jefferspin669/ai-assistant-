@@ -351,7 +351,7 @@ export function CommercialStudio() {
                   amount: Number(invoiceAmount),
                   customerPhone: phone,
                   memo: "Service visit",
-                  confirmationId: note.match(/appr-[a-z0-9-]+/i)?.[0],
+                  confirmationId: note?.match(/appr-[a-z0-9-]+/i)?.[0],
                 })
               }
             >

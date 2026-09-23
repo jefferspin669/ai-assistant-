@@ -6,7 +6,6 @@ import { AppShell } from "@/components/AppShell";
 import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import { useAccount } from "@/components/AccountProvider";
 import { useLanguage } from "@/components/LanguageProvider";
-import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import { atlasApi } from "@/lib/api/atlas-api";
 import { hydrateOrgSettings, saveOrgSettings } from "@/lib/org-settings";
 import { settingsHub } from "@/lib/section-hubs";

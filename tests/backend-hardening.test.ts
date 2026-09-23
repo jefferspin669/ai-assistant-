@@ -10,11 +10,12 @@ import { cookieHeader } from "../src/lib/auth/session";
 
 describe("backend hardening", () => {
   beforeEach(() => {
-    resetDatabase();
     delete process.env.ATLAS_ENV;
+    delete process.env.NODE_ENV;
     delete process.env.ATLAS_TWILIO_ORGANIZATION_ID;
     delete process.env.TRUST_PROXY;
     delete process.env.COOKIE_SECURE;
+    resetDatabase();
   });
 
   it("validates Twilio signatures with the exact webhook URL", () => {
