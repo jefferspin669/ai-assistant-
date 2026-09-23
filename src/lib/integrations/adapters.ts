@@ -122,6 +122,7 @@ export async function invokeAdapter(
       startsAt: String(input.startsAt || input.startTime || new Date().toISOString()),
       endsAt: String(input.endsAt || input.endTime || new Date(Date.now() + 3600_000).toISOString()),
       description: input.description ? String(input.description) : undefined,
+      organizationId: ctx.organizationId,
     });
     return {
       ok: true,

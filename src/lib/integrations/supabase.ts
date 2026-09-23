@@ -1,6 +1,7 @@
 import { requireLive } from "@/lib/integrations/config";
 import { loadDatabase, newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { DbMemory } from "@/lib/db/schema";
+import { requireOrganizationId } from "@/lib/auth/tenant";
 
 type RestResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
@@ -41,7 +42,7 @@ export const atlasStore = {
   },
 
   defaultOrgId() {
-    return loadDatabase().organizations[0]?.id || "org_demo";
+    return requireOrganizationId(loadDatabase().organizations[0]?.id);
   },
 
   async listCustomers(organizationId?: string) {

@@ -278,11 +278,11 @@ function WorkforceStudioInner() {
                 </section>
               );
             })}
-            <Link className="panel audience-card" href="/app/teams">
+            <Link className="panel audience-card" href="/app/workforce?tab=team">
               <h2>+ Invite employee</h2>
               <p>Add people with their own pages and permissions.</p>
             </Link>
-            <Link className="panel audience-card" href="/app/workforce-status">
+            <Link className="panel audience-card" href="/app/workforce">
               <h2>Workforce status</h2>
               <p>See who&apos;s online and what they&apos;re working on.</p>
             </Link>

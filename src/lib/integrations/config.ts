@@ -1,5 +1,7 @@
 /** Commercial integration config — live when credentials exist, otherwise simulation. */
 
+import { isProduction } from "@/lib/ops/environment";
+
 export type IntegrationId =
   | "supabase"
   | "twilio"
@@ -14,11 +16,13 @@ export type IntegrationId =
   | "posthog"
   | "storage";
 
+export type IntegrationMode = "live" | "partial" | "simulation" | "unavailable";
+
 export type IntegrationStatus = {
   id: IntegrationId;
   label: string;
   configured: boolean;
-  mode: "live" | "simulation";
+  mode: IntegrationMode;
   detail: string;
 };
 
@@ -96,9 +100,9 @@ export function integrationStatus(): IntegrationStatus[] {
       id: "postgres",
       label: "PostgreSQL (Drizzle)",
       configured: present("DATABASE_URL"),
-      mode: present("DATABASE_URL") ? "live" : "simulation",
+      mode: present("DATABASE_URL") ? "partial" : "simulation",
       detail: present("DATABASE_URL")
-        ? "Dual-write from JSON store"
+        ? "Whole-DB snapshot dual-write (migrating to row-level repositories)"
         : "Using .data JSON — set DATABASE_URL (local Docker or Supabase)",
     },
     {
@@ -154,4 +158,24 @@ export function integrationStatus(): IntegrationStatus[] {
 
 export function requireLive(id: IntegrationId): boolean {
   return integrationStatus().find((s) => s.id === id)?.mode === "live";
+}
+
+/** Honest connection state for UI badges. */
+export function connectionBadge(mode: IntegrationMode): { label: string; tone: "ok" | "warn" | "danger" | "muted" } {
+  switch (mode) {
+    case "live":
+      return { label: "Live", tone: "ok" };
+    case "partial":
+      return { label: "Partially connected", tone: "warn" };
+    case "simulation":
+      return { label: "Simulation", tone: "muted" };
+    case "unavailable":
+      return { label: "Unavailable", tone: "danger" };
+  }
+}
+
+export function assertLiveOrDevSimulation(id: IntegrationId) {
+  if (requireLive(id)) return "live" as const;
+  if (isProduction()) return "unavailable" as const;
+  return "simulation" as const;
 }

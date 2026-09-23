@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import {
   calendarOAuthConfigured,
+  createCalendarOAuthState,
   getAuthorizeUrl,
   type CalendarProvider,
 } from "@/lib/integrations/calendar";
+import { jsonError, resolveSession } from "@/lib/api/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ provider: string }> },
 ) {
   const { provider: raw } = await ctx.params;
@@ -27,7 +29,11 @@ export async function GET(
       { status: 503 },
     );
   }
-  const state = crypto.randomUUID();
-  const url = getAuthorizeUrl(provider, state);
-  return NextResponse.redirect(url);
+  try {
+    const workspace = await resolveSession(req);
+    const state = createCalendarOAuthState(workspace.organizationId);
+    return NextResponse.redirect(getAuthorizeUrl(provider, state));
+  } catch (error) {
+    return jsonError(error);
+  }
 }

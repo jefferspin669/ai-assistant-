@@ -5,8 +5,8 @@ export type NavGroup = { label: string; items: NavItem[] };
  * Product information architecture.
  * Dashboard = current business status. Mission Control = live Atlas ops.
  * Executive = strategic reports. Board Advisor = strategic AI. Mission = company goals.
- * Duplicate routes (/app/confirmations, /app/app-store, /app/chat, /app/apps) redirect
- * to the kept destination — do not add them back to nav.
+ * Phase 1 consolidation redirects duplicate studios (brain, meetings, missed-calls, etc.)
+ * to the keep-list — do not reintroduce parallel surfaces in nav.
  */
 export const navGroups: NavGroup[] = [
   {
@@ -37,21 +37,18 @@ export const navGroups: NavGroup[] = [
       { href: "/app/memory", label: "Business Memory" },
       { href: "/app/knowledge", label: "Knowledge Base" },
       { href: "/app/executive-timeline", label: "Timeline" },
-      { href: "/app/global-memory", label: "Memory Settings" },
-      { href: "/app/digital-twin", label: "Digital Twin" },
     ],
   },
   {
     label: "Trust & Governance",
     items: [
-      { href: "/app/security", label: "Security" },
+      { href: "/app/governance", label: "Governance" },
+      { href: "/app/security-center", label: "Security Center" },
       { href: "/app/risk", label: "Risk" },
       { href: "/app/compliance", label: "Compliance" },
-      { href: "/app/governance", label: "Governance" },
       { href: "/app/privacy", label: "Privacy" },
       { href: "/app/access", label: "Audit Log" },
       { href: "/app/control-center", label: "Roles & Permissions" },
-      { href: "/app/permission-simulator", label: "Permission Simulator" },
       { href: "/app/approvals", label: "Approvals" },
     ],
   },
@@ -65,7 +62,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/board", label: "Board Advisor" },
       { href: "/app/os", label: "AI Operating System" },
       { href: "/app/computer", label: "AI Computer Control" },
-      { href: "/app/brain", label: "Atlas Brain" },
+      { href: "/app/ask", label: "Atlas Brain" },
     ],
   },
   {
@@ -90,7 +87,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/account", label: "Account Center" },
       { href: "/app/actions", label: "Atlas Actions" },
       { href: "/app/workflows", label: "Automation Builder" },
-      { href: "/app/voice", label: "Voice Everywhere" },
+      { href: "/app/ask?tab=voice", label: "Voice Everywhere" },
     ],
   },
   {
@@ -141,12 +138,12 @@ export const navGroups: NavGroup[] = [
   {
     label: "Executive Suite",
     items: [
-      { href: "/app/capital", label: "Capital Allocation" },
+      { href: "/app/money", label: "Capital Allocation" },
       { href: "/app/ma-intelligence", label: "M&A Intelligence" },
       { href: "/app/boardroom", label: "Boardroom Mode" },
-      { href: "/app/risk-radar", label: "Global Risk Radar" },
+      { href: "/app/risk", label: "Global Risk Radar" },
       { href: "/app/talent-map", label: "Executive Talent Map" },
-      { href: "/app/reputation-command", label: "Reputation Command" },
+      { href: "/app/reviews", label: "Reputation Command" },
       { href: "/app/intel-room", label: "Private Intelligence Room" },
       { href: "/app/succession", label: "Succession Planner" },
       { href: "/app/legacy", label: "Legacy & Long-Term" },
@@ -160,7 +157,7 @@ export const navGroups: NavGroup[] = [
       { href: "/app/documents", label: "Document Builder" },
       { href: "/app/builder", label: "Business Builder" },
       { href: "/app/vision", label: "Atlas Vision" },
-      { href: "/app/meetings", label: "Meeting Intelligence" },
+      { href: "/app/appointments", label: "Meeting Intelligence" },
       { href: "/app/projects", label: "Project Manager" },
       { href: "/app/workflows", label: "Automation Builder" },
       { href: "/app/coach", label: "Live AI Coach" },
@@ -170,11 +167,11 @@ export const navGroups: NavGroup[] = [
     label: "Extensions",
     items: [
       { href: "/app/marketplace", label: "Atlas Marketplace" },
-      { href: "/app/employees", label: "AI Agents" },
+      { href: "/app/workforce?tab=ai-workers", label: "AI Agents" },
       { href: "/app/dna", label: "Business DNA" },
       { href: "/app/developers", label: "Atlas API" },
-      { href: "/app/teams", label: "Teams" },
-      { href: "/app/workforce-map", label: "Workforce Map" },
+      { href: "/app/workforce?tab=team", label: "Teams" },
+      { href: "/app/workforce", label: "Workforce Map" },
     ],
   },
 ];

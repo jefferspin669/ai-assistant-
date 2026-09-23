@@ -362,9 +362,22 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
-    email_verified_at: null,
+    email_verified_at: stamp,
     created_at: stamp,
     updated_at: stamp,
+  };
+
+  const managerCredential: DbUserCredential = {
+    user_id: memberUserId,
+    password_hash: hashPassword("atlas-manager", "seedatlasmgr12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const workerCredential: DbUserCredential = {
+    user_id: invitedUserId,
+    password_hash: hashPassword("atlas-worker", "seedatlaswrk12"),
+    mfa_secret: null,
+    mfa_enabled: false,
   };
 
   const organization_members: DbOrganizationMember[] = [
@@ -389,7 +402,7 @@ export function seedDatabase(): AtlasDatabase {
       organization_id: orgId,
       user_id: invitedUserId,
       role: "employee",
-      status: "invited",
+      status: "active",
       joined_at: stamp,
     },
   ];
@@ -661,7 +674,7 @@ export function seedDatabase(): AtlasDatabase {
 
   return {
     users: [user, teammate, invited],
-    user_credentials: [credential],
+    user_credentials: [credential, managerCredential, workerCredential],
     organizations: [org],
     organization_members,
     calendar_categories,

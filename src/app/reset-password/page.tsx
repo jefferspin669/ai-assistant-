@@ -3,25 +3,37 @@
 import Link from "@/components/SiteLink";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
-import { useAccount } from "@/components/AccountProvider";
 import { hardNavigate, sitePath } from "@/lib/hard-nav";
 
 function ResetForm() {
   const params = useSearchParams();
-  const { resetPassword } = useAccount();
   const [token, setToken] = useState(params.get("token") || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    const result = resetPassword(token, password);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/reset", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok === false) {
+        setError(json.error || "Reset link is invalid or expired.");
+        return;
+      }
+      hardNavigate("/app");
+    } catch {
+      setError("Could not reach Atlas. Try again.");
+    } finally {
+      setBusy(false);
     }
-    hardNavigate("/app/account");
   }
 
   return (
@@ -29,7 +41,12 @@ function ResetForm() {
       <div className="form-grid">
         <label>
           Reset token
-          <input value={token} onChange={(e) => setToken(e.target.value)} required />
+          <input
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            autoComplete="one-time-code"
+            required
+          />
         </label>
         <label>
           New password
@@ -37,16 +54,17 @@ function ResetForm() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="8+ characters with letters and numbers"
+            placeholder="8+ characters"
             autoComplete="new-password"
+            minLength={8}
             required
           />
         </label>
       </div>
       {error ? <p className="auth-error">{error}</p> : null}
       <div className="auth-actions">
-        <button className="btn btn-dark" type="submit">
-          Update password
+        <button className="btn btn-dark" type="submit" disabled={busy}>
+          {busy ? "Updating…" : "Update password"}
         </button>
         <p>
           <a href={sitePath("/login")}>Back to sign in</a>
@@ -65,7 +83,7 @@ export default function ResetPasswordPage() {
             Atlas <span>AI</span>
           </Link>
           <h1>Choose a new password</h1>
-          <p>Paste your reset token and set a strong password.</p>
+          <p>Use the link from your email, then set a strong password.</p>
         </div>
         <Suspense fallback={<div className="panel auth-card">Loading…</div>}>
           <ResetForm />

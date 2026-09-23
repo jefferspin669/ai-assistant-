@@ -115,7 +115,7 @@ function AtlasCalendarStudioInner() {
           <section className="panel">
             <h2>Meetings</h2>
             <p className="panel-lead">Zoom, Teams, and in-person meetings with agendas and recaps.</p>
-            <Link className="btn btn-dark" href="/app/meetings">Open Meeting Intelligence</Link>
+            <Link className="btn btn-dark" href="/app/appointments">Open Calendar</Link>
           </section>
         ) : null}
         {tab === "deadlines" ? (

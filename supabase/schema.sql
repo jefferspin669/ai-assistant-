@@ -29,6 +29,28 @@ create table if not exists organization_members (
   unique (organization_id, user_id)
 );
 
+create table if not exists organization_invites (
+  token text primary key,
+  organization_id uuid not null references organizations(id) on delete cascade,
+  email text not null,
+  role text not null check (role in ('admin', 'manager', 'employee', 'accountant', 'viewer')),
+  invited_by uuid not null references users(id) on delete cascade,
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists organization_invites_org_email_idx
+  on organization_invites (organization_id, email);
+
+create table if not exists workspace_domains (
+  organization_id text not null,
+  domain text not null,
+  data jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (organization_id, domain)
+);
+
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,

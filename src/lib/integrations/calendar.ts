@@ -2,10 +2,13 @@ import { getAppUrl, requireLive } from "@/lib/integrations/config";
 import { writeJsonFile, readJsonFile } from "@/lib/db/file-persist";
 import { atlasStore } from "@/lib/integrations/supabase";
 import { decryptSecret, encryptSecret } from "@/lib/secrets/vault";
+import { requireOrganizationId } from "@/lib/auth/tenant";
+import { isProduction } from "@/lib/ops/environment";
 
 export type CalendarProvider = "google" | "microsoft";
 
 type TokenRecord = {
+  organizationId: string;
   provider: CalendarProvider;
   accessToken: string;
   refreshToken?: string;
@@ -14,12 +17,15 @@ type TokenRecord = {
 };
 
 type TokenStore = { tokens: TokenRecord[] };
+type OAuthStateStore = { states: { value: string; organizationId: string; expiresAt: number }[] };
 
 function loadTokens(): TokenStore {
   const raw = readJsonFile<TokenStore>("calendar-tokens.json") || { tokens: [] };
   return {
     tokens: raw.tokens.map((t) => ({
       ...t,
+      // Legacy unscoped tokens (pre Phase 5/6) stay unusable until reconnected per org.
+      organizationId: t.organizationId || "",
       accessToken: safeDecrypt(t.accessToken),
       refreshToken: t.refreshToken ? safeDecrypt(t.refreshToken) : t.refreshToken,
     })),
@@ -44,6 +50,29 @@ function saveTokens(store: TokenStore) {
   });
 }
 
+export function createCalendarOAuthState(organizationId: string): string {
+  const orgId = requireOrganizationId(organizationId);
+  const store = readJsonFile<OAuthStateStore>("calendar-oauth-states.json") || { states: [] };
+  const value = crypto.randomUUID();
+  const now = Date.now();
+  store.states = [
+    { value, organizationId: orgId, expiresAt: now + 10 * 60_000 },
+    ...store.states.filter((state) => state.expiresAt > now),
+  ].slice(0, 100);
+  writeJsonFile("calendar-oauth-states.json", store);
+  return value;
+}
+
+/** Consume-once OAuth state → organization id. */
+export function consumeCalendarOAuthState(value: string): string | null {
+  const store = readJsonFile<OAuthStateStore>("calendar-oauth-states.json") || { states: [] };
+  const now = Date.now();
+  const match = store.states.find((state) => state.value === value && state.expiresAt > now);
+  store.states = store.states.filter((state) => state.value !== value && state.expiresAt > now);
+  writeJsonFile("calendar-oauth-states.json", store);
+  return match?.organizationId || null;
+}
+
 export function calendarOAuthConfigured(provider: CalendarProvider) {
   return provider === "google"
     ? requireLive("google_calendar")
@@ -62,7 +91,8 @@ export function getAuthorizeUrl(provider: CalendarProvider, state: string) {
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${scope}&state=${encodeURIComponent(state)}`;
 }
 
-export async function exchangeCode(provider: CalendarProvider, code: string) {
+export async function exchangeCode(provider: CalendarProvider, code: string, organizationId: string) {
+  const orgId = requireOrganizationId(organizationId);
   const redirectUri = `${getAppUrl()}/api/calendar/oauth/${provider}/callback`;
   if (provider === "google") {
     const body = new URLSearchParams({
@@ -89,16 +119,17 @@ export async function exchangeCode(provider: CalendarProvider, code: string) {
     const store = loadTokens();
     store.tokens = [
       {
+        organizationId: orgId,
         provider: "google",
         accessToken: json.access_token,
         refreshToken: json.refresh_token,
         expiresAt: Date.now() + (json.expires_in || 3600) * 1000,
       },
-      ...store.tokens.filter((t) => t.provider !== "google"),
+      ...store.tokens.filter((t) => !(t.provider === "google" && t.organizationId === orgId)),
     ];
     saveTokens(store);
     await atlasStore.writeAudit({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId: orgId,
       actor: "Calendar",
       action: "google.connected",
       detail: {},
@@ -130,16 +161,17 @@ export async function exchangeCode(provider: CalendarProvider, code: string) {
   const store = loadTokens();
   store.tokens = [
     {
+      organizationId: orgId,
       provider: "microsoft",
       accessToken: json.access_token,
       refreshToken: json.refresh_token,
       expiresAt: Date.now() + (json.expires_in || 3600) * 1000,
     },
-    ...store.tokens.filter((t) => t.provider !== "microsoft"),
+    ...store.tokens.filter((t) => !(t.provider === "microsoft" && t.organizationId === orgId)),
   ];
   saveTokens(store);
   await atlasStore.writeAudit({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId: orgId,
     actor: "Calendar",
     action: "microsoft.connected",
     detail: {},
@@ -147,8 +179,11 @@ export async function exchangeCode(provider: CalendarProvider, code: string) {
   return store.tokens[0];
 }
 
-export function getConnectedProviders() {
-  return loadTokens().tokens.map((t) => t.provider);
+export function getConnectedProviders(organizationId: string) {
+  const orgId = requireOrganizationId(organizationId);
+  return loadTokens()
+    .tokens.filter((token) => token.organizationId === orgId)
+    .map((token) => token.provider);
 }
 
 async function refreshAccessToken(record: TokenRecord): Promise<TokenRecord> {
@@ -173,7 +208,12 @@ async function refreshAccessToken(record: TokenRecord): Promise<TokenRecord> {
       expiresAt: Date.now() + (json.expires_in || 3600) * 1000,
     };
     const store = loadTokens();
-    store.tokens = [next, ...store.tokens.filter((t) => t.provider !== "google")];
+    store.tokens = [
+      next,
+      ...store.tokens.filter(
+        (t) => !(t.provider === "google" && t.organizationId === record.organizationId),
+      ),
+    ];
     saveTokens(store);
     return next;
   }
@@ -187,7 +227,11 @@ async function refreshAccessToken(record: TokenRecord): Promise<TokenRecord> {
       grant_type: "refresh_token",
     }),
   });
-  const json = (await res.json()) as { access_token?: string; expires_in?: number; refresh_token?: string };
+  const json = (await res.json()) as {
+    access_token?: string;
+    expires_in?: number;
+    refresh_token?: string;
+  };
   if (!res.ok || !json.access_token) return record;
   const next = {
     ...record,
@@ -196,7 +240,12 @@ async function refreshAccessToken(record: TokenRecord): Promise<TokenRecord> {
     expiresAt: Date.now() + (json.expires_in || 3600) * 1000,
   };
   const store = loadTokens();
-  store.tokens = [next, ...store.tokens.filter((t) => t.provider !== "microsoft")];
+  store.tokens = [
+    next,
+    ...store.tokens.filter(
+      (t) => !(t.provider === "microsoft" && t.organizationId === record.organizationId),
+    ),
+  ];
   saveTokens(store);
   return next;
 }
@@ -207,16 +256,24 @@ export async function createExternalEvent(input: {
   startsAt: string;
   endsAt: string;
   description?: string;
+  organizationId?: string;
 }) {
+  const organizationId = requireOrganizationId(input.organizationId);
   const store = loadTokens();
+  const organizationTokens = store.tokens.filter((token) => token.organizationId === organizationId);
   const provider =
     input.provider ||
-    (store.tokens.find((t) => t.provider === "google")?.provider as CalendarProvider | undefined) ||
-    (store.tokens.find((t) => t.provider === "microsoft")?.provider as CalendarProvider | undefined);
+    (organizationTokens.find((t) => t.provider === "google")?.provider as CalendarProvider | undefined) ||
+    (organizationTokens.find((t) => t.provider === "microsoft")?.provider as
+      | CalendarProvider
+      | undefined);
 
   if (!provider) {
+    if (isProduction()) {
+      throw new Error("No calendar connected — refusing to simulate a booking in production.");
+    }
     const local = await atlasStore.createAppointment({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId,
       title: input.title,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
@@ -225,7 +282,7 @@ export async function createExternalEvent(input: {
     return { mode: "simulation" as const, provider: null, result: local };
   }
 
-  const token = await refreshAccessToken(store.tokens.find((t) => t.provider === provider)!);
+  const token = await refreshAccessToken(organizationTokens.find((t) => t.provider === provider)!);
 
   if (provider === "google") {
     const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
@@ -246,7 +303,7 @@ export async function createExternalEvent(input: {
       throw new Error(`Google Calendar error: ${JSON.stringify(json).slice(0, 200)}`);
     }
     await atlasStore.createAppointment({
-      organizationId: atlasStore.defaultOrgId(),
+      organizationId,
       title: input.title,
       startsAt: input.startsAt,
       endsAt: input.endsAt,
@@ -273,7 +330,7 @@ export async function createExternalEvent(input: {
     throw new Error(`Microsoft Calendar error: ${JSON.stringify(json).slice(0, 200)}`);
   }
   await atlasStore.createAppointment({
-    organizationId: atlasStore.defaultOrgId(),
+    organizationId,
     title: input.title,
     startsAt: input.startsAt,
     endsAt: input.endsAt,
@@ -282,10 +339,11 @@ export async function createExternalEvent(input: {
   return { mode: "live" as const, provider, result: json };
 }
 
-export async function refreshConnectedTokens() {
+export async function refreshConnectedTokens(organizationId: string) {
+  const orgId = requireOrganizationId(organizationId);
   const store = loadTokens();
   const next: TokenRecord[] = [];
-  for (const record of store.tokens) {
+  for (const record of store.tokens.filter((token) => token.organizationId === orgId)) {
     next.push(await refreshAccessToken({ ...record, expiresAt: 0 }));
   }
   return next.map((t) => ({ provider: t.provider, expiresAt: t.expiresAt, email: t.email }));
@@ -295,9 +353,9 @@ export function calendarReconnectUrl(provider: CalendarProvider, state: string) 
   return getAuthorizeUrl(provider, state);
 }
 
-export function disconnectCalendar(provider: CalendarProvider) {
+export function disconnectCalendar(organizationId: string, provider: CalendarProvider) {
+  const orgId = requireOrganizationId(organizationId);
   const store = loadTokens();
-  store.tokens = store.tokens.filter((t) => t.provider !== provider);
+  store.tokens = store.tokens.filter((t) => !(t.provider === provider && t.organizationId === orgId));
   saveTokens(store);
 }
-

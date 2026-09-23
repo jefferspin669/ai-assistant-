@@ -192,7 +192,7 @@ export async function runTeamOpsHappyPath(owner: SessionContext, workerEmail: st
     (row) => row.status === "pending" && row.action_type === "SEND_MESSAGE",
   );
   if (!pending) throw new ValidationError("Expected customer notification approval after task complete.");
-  const resolved = resolveApproval(owner, pending.id, "approved");
+  const resolved = await resolveApproval(owner, pending.id, "approved");
   await awaitDatabaseWrites();
   return {
     member: accepted,

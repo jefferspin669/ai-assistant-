@@ -383,7 +383,7 @@ export function loadDashboardSnapshot(): DashboardSnapshot {
       icon: "📞",
       title: pulse.missedFollowUp ? "Missed-call follow-up is in motion" : "4 missed calls weren’t returned",
       detail: pulse.missedFollowUp ? "Live dialing needs a phone connection." : "Potential value: ~$1,100 · DEMO",
-      href: "/app/missed-calls",
+      href: "/app/commercial",
       actionLabel: pulse.missedFollowUp ? "Open missed calls" : "Let Atlas follow up",
       effect: pulse.missedFollowUp ? undefined : "follow_missed_calls",
       stance: pulse.missedFollowUp ? "OBSERVE" : "SUGGEST",

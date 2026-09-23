@@ -11,7 +11,7 @@ export const GET = withAuth(async ({ workspace }) => {
   return apiSuccess({
     storeMode: atlasStore.mode(),
     integrations: integrationStatus(),
-    calendarsConnected: getConnectedProviders(),
+    calendarsConnected: getConnectedProviders(workspace.organizationId),
     missedCalls: listMissedCalls(workspace.organizationId).slice(0, 10),
     organizationId: workspace.organizationId,
   });

@@ -1,13 +1,5 @@
-import { AppShell } from "@/components/AppShell";
-import { TeamsStudio } from "@/components/TeamsStudio";
+﻿import { redirect } from "next/navigation";
 
-export default function TeamsPage() {
-  return (
-    <AppShell
-      title="Teams"
-      subtitle="Employees organized by department — who's working, today's tasks, goals, blockers, meetings, workload, and alerts."
-    >
-      <TeamsStudio />
-    </AppShell>
-  );
+export default function TeamsRedirectPage() {
+  redirect("/app/workforce?tab=team");
 }

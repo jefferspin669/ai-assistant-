@@ -48,6 +48,14 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
         throw new Error("DATABASE_URL is required in production.");
       }
       loadDatabase();
+      const orgId = loadDatabase().organizations[0]?.id;
+      if (orgId) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const employees = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+        if (!employees.listEmployees(orgId).length) {
+          employees.resetSeedEmployees(orgId);
+        }
+      }
       const result: EnsureResult = { driver: "json", source: "json", seeded: false };
       g().__atlasEnsured = result;
       return result;
@@ -64,6 +72,11 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       }
       const seeded = seedDatabase();
       applyServerDatabase(seeded);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const employees = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+      if (seeded.organizations[0]?.id) {
+        employees.resetSeedEmployees(seeded.organizations[0].id);
+      }
       await persistAtlasDatabase(seeded);
       const result: EnsureResult = { driver: "postgres", source: "seeded-once", seeded: true };
       g().__atlasEnsured = result;
