@@ -73,7 +73,9 @@ try {
   parkedMiddleware = park(middlewareFile, middlewarePark);
 
   rmSync(outDir, { recursive: true, force: true });
-  run("npx", ["next", "build"], { GITHUB_PAGES: "true" });
+  // Next.js 16 defaults to Turbopack; this app still needs the webpack
+  // resolve.fallback for Node built-ins in the client graph (see next.config.ts).
+  run("npx", ["next", "build", "--webpack"], { GITHUB_PAGES: "true" });
 
   if (!existsSync(outDir)) {
     throw new Error("Expected ./out after static export");

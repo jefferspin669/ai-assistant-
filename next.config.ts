@@ -12,6 +12,10 @@ const pagesBasePath = "/ai-assistant-";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["postgres", "ioredis", "bullmq", "openai", "twilio", "stripe", "resend"],
+  // Next 16 enables Turbopack by default; keep an empty turbopack block so
+  // configs that still ship a webpack() helper do not fail the build gate.
+  // Static Pages builds explicitly pass --webpack (see build-github-pages.mjs).
+  turbopack: {},
   // Expose basePath to client hard-navigation helpers (auth redirects on Pages).
   env: {
     NEXT_PUBLIC_BASE_PATH: isGitHubPages ? pagesBasePath : "",
