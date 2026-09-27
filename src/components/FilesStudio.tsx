@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { apiGet, apiSend } from "@/lib/backend/client";
@@ -73,10 +74,13 @@ function DocumentPreview({ doc }: { doc: DbDocument }) {
 
   if (mime?.startsWith("image/") && isDataUrl(raw)) {
     return (
-      <img
+      <Image
         src={raw}
         alt={docLabel(doc)}
         className="file-preview-image"
+        width={640}
+        height={480}
+        unoptimized
       />
     );
   }

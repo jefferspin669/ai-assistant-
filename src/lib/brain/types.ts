@@ -1,5 +1,8 @@
 /** Atlas Brain — real LLM path with deterministic keyword fallback. */
 
+import type { SessionContext } from "@/lib/domain/types";
+import { resolveAllowedModel } from "@/lib/integrations/openai";
+
 export type BrainMode = "live" | "simulation";
 
 export type BrainMessage = {
@@ -23,6 +26,23 @@ export type BrainActionProposal = {
   impact: string;
   confirmPrompt: string;
   doneLabel: string;
+  /** Server-side approval id when staged into Approvals. */
+  approvalId?: string;
+};
+
+export type BrainCitation = {
+  entityType: string;
+  entityId: string;
+  href?: string;
+};
+
+export type BrainUsageMetrics = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  latencyMs: number;
+  costUsd: number;
+  steps: number;
 };
 
 export type BrainResult = {
@@ -35,6 +55,12 @@ export type BrainResult = {
   toolCalls?: BrainToolCall[];
   proposedAction?: BrainActionProposal;
   model?: string;
+  citations?: BrainCitation[];
+  clarifyingQuestion?: string;
+  approvalId?: string;
+  evidence?: import("@/lib/brain/context").BrainEvidence[];
+  gaps?: string[];
+  usage?: BrainUsageMetrics;
 };
 
 export type BrainChatInput = {
@@ -43,6 +69,10 @@ export type BrainChatInput = {
   ownerName?: string;
   dnaRules?: string[];
   history?: { role: "user" | "assistant"; content: string }[];
+  /** Injected live context pack for the system prompt. */
+  liveContext?: string;
+  /** Authenticated workspace session — enables strict tools. */
+  session?: SessionContext;
 };
 
 export function brainMode(): BrainMode {
@@ -55,6 +85,6 @@ export function brainConfig() {
   return {
     apiKey: process.env.ATLAS_LLM_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "",
     baseUrl: (process.env.ATLAS_LLM_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, ""),
-    model: process.env.ATLAS_LLM_MODEL || "gpt-4o-mini",
+    model: resolveAllowedModel(),
   };
 }

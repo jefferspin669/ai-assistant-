@@ -27,7 +27,7 @@ async function parseJson<T>(res: Response): Promise<ApiEnvelope<T>> {
 
 export async function apiGet<T>(path: string): Promise<ApiEnvelope<T>> {
   try {
-    const res = await fetch(apiPath(path), { cache: "no-store" });
+    const res = await fetch(apiPath(path), { cache: "no-store", credentials: "include" });
     return parseJson<T>(res);
   } catch {
     return { ok: false, error: "Atlas backend unreachable." };
@@ -42,6 +42,7 @@ export async function apiSend<T>(
   try {
     const res = await fetch(apiPath(path), {
       method,
+      credentials: "include",
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });

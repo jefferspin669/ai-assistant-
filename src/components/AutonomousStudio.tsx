@@ -67,12 +67,12 @@ const MODES: { id: ControlMode; title: string; detail: string }[] = [
   {
     id: "assisted",
     title: "Assisted",
-    detail: "Routine work runs automatically. Higher-impact actions ask first.",
+    detail: "Eligible, connected actions can run; unsupported work does not complete automatically.",
   },
   {
     id: "autonomous",
     title: "Autonomous",
-    detail: "Atlas executes approved categories within limits you set.",
+    detail: "Eligible, connected actions can run; unsupported work does not complete automatically.",
   },
 ];
 
@@ -179,13 +179,21 @@ export function AutonomousStudio() {
   async function decide(id: string, decision: "approved" | "rejected") {
     setBusy(true);
     try {
-      await fetch("/api/approvals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, decision }),
-      });
+      await readOk(
+        await fetch("/api/approvals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, decision }),
+        }),
+      );
       await refresh();
-      setNote(decision === "approved" ? "Approved — Atlas will execute." : "Rejected.");
+      setNote(
+        decision === "approved"
+          ? "Approved. Check the result and audit history for completion."
+          : "Rejected.",
+      );
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "Could not resolve approval.");
     } finally {
       setBusy(false);
     }
@@ -229,7 +237,7 @@ export function AutonomousStudio() {
         <div className="stat">
           <span>Control mode</span>
           <strong>{policy?.levelName || "…"}</strong>
-          <small>{paused ? "Paused — nothing runs automatically" : "Active policy"}</small>
+          <small>{paused ? "Paused — nothing runs automatically" : "Policy enabled"}</small>
         </div>
         <div className="stat">
           <span>Auto-pay limit</span>
@@ -250,7 +258,10 @@ export function AutonomousStudio() {
 
       <section className="panel">
         <h2>Control mode</h2>
-        <p className="panel-lead">Pick how much authority Atlas has before it must ask.</p>
+        <p className="panel-lead">
+          Pick how much authority Atlas has before it must ask. Background execution still needs a
+          connected worker and supported actions.
+        </p>
         <div className="dash-preset-grid">
           {modeCards.map((mode) => (
             <button
@@ -258,7 +269,7 @@ export function AutonomousStudio() {
               type="button"
               className={`dash-preset-card ${mode.active ? "active" : ""}`}
               disabled={busy}
-              onClick={() => void putPolicy({ controlMode: mode.id, killSwitch: false })}
+              onClick={() => void putPolicy({ controlMode: mode.id })}
             >
               <strong>{mode.title}</strong>
               <span className="muted-line">{mode.detail}</span>
@@ -369,7 +380,7 @@ export function AutonomousStudio() {
           <h2>Atlas needs you</h2>
           <p className="panel-lead">Restricted work never gets a blank check — even on Autonomous.</p>
           {pending.length === 0 ? (
-            <p className="muted-line">No exceptions right now. Atlas is within authority.</p>
+            <p className="muted-line">No pending approvals right now.</p>
           ) : (
             <div className="list">
               {pending.map((card) => (

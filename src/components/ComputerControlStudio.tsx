@@ -148,7 +148,7 @@ export function ComputerControlStudio({ auditSignal = 0 }: { auditSignal?: numbe
               <h2>Computer control audit log</h2>
               <p className="panel-lead">Every permission change and desktop step is recorded here.</p>
             </div>
-            <Link className="btn btn-outline" href="/app/security">
+            <Link className="btn btn-outline" href="/app/governance">
               Open Security Center
             </Link>
           </div>

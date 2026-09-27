@@ -12,6 +12,10 @@ const pagesBasePath = "/ai-assistant-";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["postgres", "ioredis", "bullmq", "openai", "twilio", "stripe", "resend"],
+  // Next 16 enables Turbopack by default; keep an empty turbopack block so
+  // configs that still ship a webpack() helper do not fail the build gate.
+  // Static Pages builds explicitly pass --webpack (see build-github-pages.mjs).
+  turbopack: {},
   // Expose basePath to client hard-navigation helpers (auth redirects on Pages).
   env: {
     NEXT_PUBLIC_BASE_PATH: isGitHubPages ? pagesBasePath : "",
@@ -32,6 +36,10 @@ const nextConfig: NextConfig = {
         net: false,
         tls: false,
         dns: false,
+        perf_hooks: false,
+        crypto: false,
+        stream: false,
+        worker_threads: false,
       };
     }
     return config;
@@ -105,6 +113,23 @@ const nextConfig: NextConfig = {
               destination: "/app/setup",
               permanent: false,
             },
+            // Consolidation — one surface per capability
+            { source: "/app/missed-calls", destination: "/app/commercial", permanent: false },
+            { source: "/app/brain", destination: "/app/ask", permanent: false },
+            { source: "/app/voice", destination: "/app/ask?tab=voice", permanent: false },
+            { source: "/app/meetings", destination: "/app/appointments", permanent: false },
+            { source: "/app/meetings/:id", destination: "/app/appointments", permanent: false },
+            { source: "/app/employees", destination: "/app/workforce?tab=ai-workers", permanent: false },
+            { source: "/app/teams", destination: "/app/workforce?tab=team", permanent: false },
+            { source: "/app/workforce-map", destination: "/app/workforce", permanent: false },
+            { source: "/app/workforce-status", destination: "/app/workforce", permanent: false },
+            { source: "/app/security", destination: "/app/governance", permanent: false },
+            { source: "/app/risk-radar", destination: "/app/risk", permanent: false },
+            { source: "/app/global-memory", destination: "/app/memory", permanent: false },
+            { source: "/app/call-summaries", destination: "/app/phone", permanent: false },
+            { source: "/app/digital-twin", destination: "/app/business-engine?tab=simulate", permanent: false },
+            { source: "/app/capital", destination: "/app/money", permanent: false },
+            { source: "/app/reputation-command", destination: "/app/reviews", permanent: false },
           ];
         },
         async headers() {

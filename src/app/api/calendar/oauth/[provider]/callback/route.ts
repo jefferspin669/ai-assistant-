@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { exchangeCode, type CalendarProvider } from "@/lib/integrations/calendar";
+import {
+  consumeCalendarOAuthState,
+  exchangeCode,
+  type CalendarProvider,
+} from "@/lib/integrations/calendar";
 import { getAppUrl } from "@/lib/integrations/config";
+import { resolveSession } from "@/lib/api/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,15 +18,21 @@ export async function GET(
   const provider = raw as CalendarProvider;
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
   const err = url.searchParams.get("error");
   if (err) {
     return NextResponse.redirect(`${getAppUrl()}/app/commercial?calendar=error&reason=${err}`);
   }
-  if (!code || (provider !== "google" && provider !== "microsoft")) {
+  if (!code || !state || (provider !== "google" && provider !== "microsoft")) {
     return NextResponse.redirect(`${getAppUrl()}/app/commercial?calendar=missing_code`);
   }
   try {
-    await exchangeCode(provider, code);
+    const workspace = await resolveSession(req);
+    const stateOrganization = consumeCalendarOAuthState(state);
+    if (!stateOrganization || stateOrganization !== workspace.organizationId) {
+      throw new Error("OAuth state is invalid or expired.");
+    }
+    await exchangeCode(provider, code, workspace.organizationId);
     return NextResponse.redirect(`${getAppUrl()}/app/commercial?calendar=${provider}_connected`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "oauth_failed";

@@ -14,7 +14,11 @@ export {
   getConnectedProviders,
   createExternalEvent,
   calendarOAuthConfigured,
+  createCalendarOAuthState,
+  consumeCalendarOAuthState,
 } from "@/lib/integrations/calendar";
+export { verifyIntegration, VERIFIABLE_INTEGRATIONS } from "@/lib/integrations/health";
+export type { VerifiableIntegration, VerificationResult } from "@/lib/integrations/health";
 export {
   createCheckoutSession,
   createBillingPortalSession,

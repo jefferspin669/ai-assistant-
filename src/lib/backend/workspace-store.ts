@@ -1,4 +1,4 @@
-import { ValidationError } from "@/lib/domain/errors";
+import { PersistenceError, ValidationError } from "@/lib/domain/errors";
 import { fileExists, readJsonFile, writeJsonFile } from "@/lib/db/file-persist";
 import {
   WORKSPACE_DOMAINS,
@@ -65,48 +65,15 @@ function tenantBag(organizationId: string) {
   return getMemory().tenants[organizationId] || {};
 }
 
-/** Best-effort Postgres mirror when DATABASE_URL is set (file remains primary for demos).
- * Failures become visible: lastMirrorError is set and thrown from awaitWorkspaceMirrorFlush.
- */
-let lastMirrorError: Error | null = null;
-let mirrorChain: Promise<void> = Promise.resolve();
-
-export async function awaitWorkspaceMirrorFlush() {
-  await mirrorChain;
-  if (lastMirrorError) {
-    const err = lastMirrorError;
-    lastMirrorError = null;
-    const { PersistenceError } = await import("@/lib/domain/errors");
-    throw new PersistenceError(err.message);
-  }
-}
-
-function mirrorDomainToPostgres(
-  organizationId: string,
-  domain: WorkspaceDomain,
-  data: unknown,
-  updatedAt: string,
-) {
-  mirrorChain = mirrorChain
-    .catch(() => undefined)
-    .then(async () => {
-      const { hasPostgres, getDrizzle } = await import("@/lib/db/postgres");
-      if (!hasPostgres()) return;
-      const { workspaceDomains } = await import("@/lib/db/drizzle-schema");
-      const db = getDrizzle();
-      await db
-        .insert(workspaceDomains)
-        .values({ organizationId, domain, data, updatedAt })
-        .onConflictDoUpdate({
-          target: [workspaceDomains.organizationId, workspaceDomains.domain],
-          set: { data, updatedAt },
-        });
-      lastMirrorError = null;
-    })
-    .catch((error) => {
-      lastMirrorError = error instanceof Error ? error : new Error(String(error));
-      console.error("[atlas:workspace-pg]", lastMirrorError.message);
-    });
+function cacheDomain(organizationId: string, domain: WorkspaceDomain, data: unknown, updatedAt: string) {
+  const store = getMemory();
+  (globalThis as AtlasGlobal).__atlasWorkspace = {
+    updatedAt,
+    tenants: {
+      ...store.tenants,
+      [organizationId]: { ...tenantBag(organizationId), [domain]: data },
+    },
+  };
 }
 
 export function assertPayloadSize(data: unknown) {
@@ -149,18 +116,68 @@ export function putWorkspaceDomain(organizationId: string, domain: WorkspaceDoma
     },
   };
   setMemory(next);
-  mirrorDomainToPostgres(organizationId, domain, data, next.updatedAt);
   return { organizationId, domain, data, updatedAt: next.updatedAt };
 }
 
-export async function putWorkspaceDomainAsync(
+/**
+ * Production read path. PostgreSQL is authoritative whenever DATABASE_URL is
+ * configured; the JSON adapter is used only for local development and tests.
+ */
+export async function getWorkspaceDomainAuthoritative(
+  organizationId: string,
+  domain: WorkspaceDomain,
+) {
+  const { hasPostgres, getDrizzle } = await import("@/lib/db/postgres");
+  if (!hasPostgres()) {
+    const { isProduction } = await import("@/lib/ops/environment");
+    if (isProduction()) throw new PersistenceError("DATABASE_URL is required in production.");
+    return getWorkspaceDomain(organizationId, domain);
+  }
+  try {
+    const { and, eq } = await import("drizzle-orm");
+    const { workspaceDomains } = await import("@/lib/db/drizzle-schema");
+    const rows = await getDrizzle()
+      .select()
+      .from(workspaceDomains)
+      .where(and(eq(workspaceDomains.organizationId, organizationId), eq(workspaceDomains.domain, domain)))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return { organizationId, domain, data: null, updatedAt: null };
+    cacheDomain(organizationId, domain, row.data, row.updatedAt);
+    return { organizationId, domain, data: row.data, updatedAt: row.updatedAt };
+  } catch (error) {
+    throw new PersistenceError(error instanceof Error ? error.message : "Workspace database read failed.");
+  }
+}
+
+/** Awaited write path used by APIs. A failed database write never returns success. */
+export async function putWorkspaceDomainAuthoritative(
   organizationId: string,
   domain: WorkspaceDomain,
   data: unknown,
 ) {
-  const result = putWorkspaceDomain(organizationId, domain, data);
-  await awaitWorkspaceMirrorFlush();
-  return result;
+  assertPayloadSize(data);
+  const { hasPostgres, getDrizzle } = await import("@/lib/db/postgres");
+  if (!hasPostgres()) {
+    const { isProduction } = await import("@/lib/ops/environment");
+    if (isProduction()) throw new PersistenceError("DATABASE_URL is required in production.");
+    return putWorkspaceDomain(organizationId, domain, data);
+  }
+  const updatedAt = new Date().toISOString();
+  try {
+    const { workspaceDomains } = await import("@/lib/db/drizzle-schema");
+    await getDrizzle()
+      .insert(workspaceDomains)
+      .values({ organizationId, domain, data, updatedAt })
+      .onConflictDoUpdate({
+        target: [workspaceDomains.organizationId, workspaceDomains.domain],
+        set: { data, updatedAt },
+      });
+    cacheDomain(organizationId, domain, data, updatedAt);
+    return { organizationId, domain, data, updatedAt };
+  } catch (error) {
+    throw new PersistenceError(error instanceof Error ? error.message : "Workspace database write failed.");
+  }
 }
 
 export function putWorkspaceMany(
@@ -182,7 +199,8 @@ export function putWorkspaceMany(
   setMemory(next);
   for (const [domain, data] of Object.entries(domains)) {
     if (isWorkspaceDomain(domain)) {
-      mirrorDomainToPostgres(organizationId, domain, data, next.updatedAt);
+      void domain;
+      void data;
     }
   }
   return loadWorkspace(organizationId);

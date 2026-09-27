@@ -7,8 +7,7 @@ import { isAtlasError, AuthenticationError } from "@/lib/domain/errors";
 import type { Permission, SessionContext } from "@/lib/domain/types";
 import { requirePermission } from "@/lib/auth/permissions";
 import { ensureServerDatabase } from "@/lib/db/ensure";
-import { flushDatabaseWrites } from "@/lib/db/store";
-import { awaitWorkspaceMirrorFlush } from "@/lib/backend/workspace-store";
+import { awaitDatabaseWrites, flushDatabaseWrites } from "@/lib/db/store";
 import { readCachedSession } from "@/lib/auth/session-cache";
 import {
   provisionAtlasUserFromSupabase,
@@ -58,8 +57,7 @@ export function jsonError(error: unknown) {
 }
 
 async function flushAllPersistence() {
-  await flushDatabaseWrites();
-  await awaitWorkspaceMirrorFlush();
+  await awaitDatabaseWrites();
 }
 
 /**
@@ -143,6 +141,7 @@ type ApiHandler = (ctx: ApiHandlerContext) => Promise<Response> | Response;
 /**
  * Session + JSON body + error conversion. `workspace` is the authenticated org session.
  * Identity never comes from the request body.
+ * Flushes Postgres / queue writes before the response so every write is awaited.
  */
 export function withAuth(handler: ApiHandler) {
   return async (req: Request) => {

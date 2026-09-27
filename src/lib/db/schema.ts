@@ -87,22 +87,34 @@ export type DbCalendarEvent = {
 /** @deprecated Use DbCalendarEvent */
 export type DbEvent = DbCalendarEvent;
 
+export type DbProject = {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string;
+  status: "active" | "paused" | "completed" | "archived";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type DbTask = {
   id: string;
   orgId: string;
   userId: string;
+  /** Owning project — workers may only mutate tasks on projects they are assigned to. */
+  projectId: string | null;
+  /** Assigned worker user id. Employees may only update tasks where assigneeId === their userId. */
+  assigneeId: string | null;
   title: string;
   status: "todo" | "doing" | "done" | "in_progress" | "blocked" | "completed";
   priority: "low" | "normal" | "high";
   dueDate: string | null;
   category: string;
   notes: string;
-  /** Beachhead "project" label for owner→worker assignment. */
-  projectLabel?: string | null;
-  /** Server employee roster id (from /api/employees). */
-  assigneeEmployeeId?: string | null;
-  /** Linked Atlas user id when the worker has signed in. */
-  assigneeUserId?: string | null;
+  customerId: string | null;
+  /** When true, completing the task proposes a customer notification for owner approval. */
+  notifyOnComplete: boolean;
   createdAt: string;
   updatedAt: string;
   /** Optimistic concurrency token. Both adapters carry it so conflicts are
@@ -178,11 +190,33 @@ export type DbConversation = {
 
 export type DbMemory = {
   id: string;
+  /** Tenant boundary — required for unified business memory. */
+  organizationId: string;
   userId: string;
   kind: "preference" | "prompt" | "person" | "project" | "long-term";
+  memoryType: "company" | "leadership" | "employee" | "customer" | "operational" | "project";
   title: string;
   content: string;
+  source: string;
+  authorLabel: string;
+  confidence: number;
+  accessLevel: "owner" | "leadership" | "managers" | "all_staff" | "customer_facing";
+  entityType: string | null;
+  entityId: string | null;
   approved: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DbMemoryOutcome = {
+  id: string;
+  organizationId: string;
+  memoryId: string | null;
+  recommendation: string;
+  status: "accepted" | "rejected" | "edited" | "successful";
+  original: string;
+  edited: string | null;
+  actorUserId: string;
   createdAt: string;
 };
 
@@ -370,12 +404,14 @@ export type AtlasDatabase = {
   organization_members: DbOrganizationMember[];
   calendar_categories: DbCalendarCategory[];
   calendar_events: DbCalendarEvent[];
+  projects: DbProject[];
   tasks: DbTask[];
   customers: DbCustomer[];
   transactions: DbTransaction[];
   taxRecords: DbTaxRecord[];
   conversations: DbConversation[];
   memories: DbMemory[];
+  memory_outcomes: DbMemoryOutcome[];
   documents: DbDocument[];
   subscriptions: DbSubscription[];
   notifications: DbNotification[];
@@ -388,12 +424,12 @@ export type AtlasDatabase = {
   integrations: DbIntegration[];
   login_attempts: DbLoginAttempt[];
   password_resets: DbPasswordReset[];
-  organization_invites: DbOrganizationInvite[];
   mfa_challenges: DbMfaChallenge[];
   quotes: DbQuote[];
   webhook_receipts: DbWebhookReceipt[];
   email_verifications: DbEmailVerification[];
   autonomy_policies: DbAutonomyPolicy[];
+  organization_invites: DbOrganizationInvite[];
 };
 
 export const DB_TABLES = [
@@ -402,6 +438,7 @@ export const DB_TABLES = [
   "Organization Members",
   "Calendar Categories",
   "Calendar Events",
+  "Projects",
   "Customers",
   "Tasks",
   "Transactions",

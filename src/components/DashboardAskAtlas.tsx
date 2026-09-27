@@ -2,16 +2,17 @@
 
 import Link from "@/components/SiteLink";
 import { FormEvent, useState } from "react";
-import { loadTodayAttention } from "@/lib/command-center";
+import { useRouter } from "next/navigation";
 
 export function DashboardAskAtlas() {
-  const [query, setQuery] = useState("What needs my attention today?");
-  const [answered, setAnswered] = useState(false);
-  const attention = loadTodayAttention();
+  const [query, setQuery] = useState("");
+  const router = useRouter();
 
   function onAsk(e: FormEvent) {
     e.preventDefault();
-    setAnswered(true);
+    const prompt = query.trim();
+    if (!prompt) return;
+    router.push(`/app/ask?prompt=${encodeURIComponent(prompt)}`);
   }
 
   return (
@@ -26,19 +27,6 @@ export function DashboardAskAtlas() {
         />
         <button className="btn btn-dark" type="submit">Ask</button>
       </form>
-      {answered || query.toLowerCase().includes("attention") ? (
-        <div className="memory-card" style={{ marginTop: "0.75rem" }}>
-          <div className="label">Atlas · from your workspace</div>
-          <p>{attention.summary}</p>
-          {attention.bullets.length ? (
-            <ul className="plain-list" style={{ marginTop: "0.5rem" }}>
-              {attention.bullets.map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
       <div className="cta-row" style={{ marginTop: "0.75rem" }}>
         <Link className="btn btn-outline" href="/app/ask">Open Talk to Atlas</Link>
       </div>

@@ -22,7 +22,10 @@ export function createApproval(ctx: SessionContext, action: AtlasAction) {
     organization_id: ctx.organizationId,
     requested_by: ctx.userId,
     action_type: action.type,
-    payload: action.payload as Record<string, unknown>,
+    payload: {
+      ...(action.payload as Record<string, unknown>),
+      atlasAction: action,
+    },
     status: "pending" as const,
     created_at: nowIso(),
     resolved_at: null,

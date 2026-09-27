@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { applyServerDatabase, loadDatabase } from "@/lib/db/store";
 import type { AtlasDatabase } from "@/lib/db/schema";
@@ -14,16 +14,14 @@ export function stampName() {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
-/** Copy the JSON adapter (or a live in-memory snapshot) into `.data/backups`. */
+/** Snapshot the live in-memory database into `.data/backups` (authoritative). */
 export function backupJsonDatabase(): string {
   ensureDataDir();
   const dest = resolve(backupDir(), `atlas-db-${stampName()}.json`);
+  writeFileSync(dest, JSON.stringify(loadDatabase(), null, 2), "utf8");
+  // Keep the on-disk adapter in sync when file fallback is active.
   const live = resolve(dataDir(), "atlas-db.json");
-  if (existsSync(live)) {
-    copyFileSync(live, dest);
-  } else {
-    writeFileSync(dest, JSON.stringify(loadDatabase(), null, 2), "utf8");
-  }
+  writeFileSync(live, JSON.stringify(loadDatabase(), null, 2), "utf8");
   return dest;
 }
 

@@ -26,6 +26,7 @@ import { isIntelligenceNavItemActive, intelligenceHubIsActive } from "@/lib/inte
 import { applyAccessibility, loadAccessibility } from "@/lib/accessibility";
 import { refreshOfflineCache } from "@/lib/offline";
 import { DemoWorkspaceBanner } from "@/components/DemoWorkspaceBanner";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import { ensureDailyBackup } from "@/lib/recovery";
 
 function NavLink({
@@ -423,6 +424,7 @@ function AppShellInner({
               </button>
               {accountMenuOpen ? (
                 <div className="account-menu-panel" role="menu">
+                  <OrganizationSwitcher className="org-switcher org-switcher--menu" />
                   <Link
                     href="/app/account"
                     role="menuitem"

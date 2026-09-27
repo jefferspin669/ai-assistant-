@@ -8,5 +8,7 @@ export const GET = withWorkspace(async ({ workspace }) => {
 
 export const POST = withWorkspace(async ({ workspace, body }) => {
   const decision = body.decision === "rejected" ? "rejected" : "approved";
-  return apiSuccess(resolveApproval(workspace, String(body.id || body.approvalId || ""), decision));
+  return apiSuccess(
+    await resolveApproval(workspace, String(body.id || body.approvalId || ""), decision),
+  );
 });

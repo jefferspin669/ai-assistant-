@@ -7,6 +7,8 @@ import {
   sessionFromToken,
 } from "@/lib/auth/session";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { isProduction } from "@/lib/ops/environment";
+import { AuthenticationError } from "@/lib/domain/errors";
 
 export async function GET(req: Request) {
   try {
@@ -15,7 +17,9 @@ export async function GET(req: Request) {
       const ctx = sessionFromToken(readCookie(req));
       return apiResponse(ok(ctx));
     } catch (error) {
-      if (process.env.NODE_ENV === "production") throw error;
+      if (isProduction()) {
+        return jsonError(new AuthenticationError("Sign in required."));
+      }
       const minted = mintDevSession();
       return apiResponse(ok(minted.ctx), { "Set-Cookie": cookieHeader(minted.token) });
     }

@@ -4,6 +4,7 @@ import { defaultPolicy } from "../src/lib/autonomy/defaults";
 import { demoVendorPayment, submitWork } from "../src/lib/autonomy/submit";
 import { patchPolicy } from "../src/lib/autonomy/policy";
 import { processAutonomyQueue } from "../src/lib/autonomy/worker";
+import { enqueueJob, processJobs } from "../src/lib/services/jobs";
 import type { AutonomyLevel, AutonomyPolicy, WorkIntent } from "../src/lib/autonomy/types";
 import { AUTONOMOUS_AUTO_PERMISSIONS, levelToControlMode } from "../src/lib/autonomy/permissions";
 import { resetDatabase } from "../src/lib/db/store";
@@ -113,7 +114,7 @@ describe("Atlas autonomy queue", () => {
 
   function ownerCtx() {
     const db = database();
-    return testSession(db.users[0].id, db.organizations[0].id, "owner");
+    return testSession(db.users[0]!.id, db.organizations[0]!.id, "owner");
   }
 
   it("demo vendor payment creates a pending owner card", () => {
@@ -126,7 +127,7 @@ describe("Atlas autonomy queue", () => {
     expect(pending.some((row) => row.id === submitted.approvalId)).toBe(true);
   });
 
-  it("Level 3 within-limit refunds enqueue instead of asking", () => {
+  it("within-authority work does not enqueue a fake completion job", () => {
     const ctx = ownerCtx();
     patchPolicy(ctx.organizationId, { level: 3 });
     const submitted = submitWork(ctx, {
@@ -135,19 +136,47 @@ describe("Atlas autonomy queue", () => {
       summary: "Goodwill",
       amountCents: 5_000,
     });
-    expect(submitted.decision.verdict).toBe("execute");
-    expect(submitted.jobId).toBeTruthy();
+    expect(submitted.decision.verdict).toBe("blocked");
+    expect(submitted.jobId).toBeUndefined();
+    expect(submitted.decision.reason).toMatch(/executor/i);
     const tick = processAutonomyQueue();
-    expect(tick.processed).toBeGreaterThan(0);
+    expect(tick.processed).toBe(0);
   });
 
   it("kill switch leaves queued autonomy jobs unprocessed", () => {
     const ctx = ownerCtx();
     patchPolicy(ctx.organizationId, { level: 4 });
-    submitWork(ctx, reminder());
+    enqueueJob(ctx, "autonomy:send_reminder", { userId: ctx.userId });
     patchPolicy(ctx.organizationId, { killSwitch: true });
     const tick = processAutonomyQueue();
     expect(tick.processed).toBe(0);
     expect(tick.skippedKillSwitch).toBeGreaterThan(0);
+  });
+
+  it("legacy autonomy jobs fail visibly instead of reporting completion", () => {
+    const ctx = ownerCtx();
+    patchPolicy(ctx.organizationId, { level: 4 });
+    const job = enqueueJob(ctx, "autonomy:send_reminder", { userId: ctx.userId });
+    const tick = processAutonomyQueue();
+    expect(tick.processed).toBe(0);
+    expect(tick.unsupported).toBe(1);
+    expect(database().jobs.find((entry) => entry.id === job.id)?.status).toBe("failed");
+  });
+
+  it("does not report an unexecuted generic job as completed", () => {
+    const ctx = ownerCtx();
+    const job = enqueueJob(ctx, "request_payment", { userId: ctx.userId });
+    const tick = processJobs();
+    expect(tick.unsupported).toBe(1);
+    expect(database().jobs.find((entry) => entry.id === job.id)?.status).toBe("failed");
+    expect(database().notifications.some((item) => item.title.includes("finished"))).toBe(false);
+  });
+
+  it("changing mode does not switch off an existing emergency pause", () => {
+    const ctx = ownerCtx();
+    patchPolicy(ctx.organizationId, { killSwitch: true });
+    const updated = patchPolicy(ctx.organizationId, { controlMode: "autonomous" });
+    expect(updated.killSwitch).toBe(true);
+    expect(decideWork(reminder(), updated).verdict).toBe("ask_owner");
   });
 });

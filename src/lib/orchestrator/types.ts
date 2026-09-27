@@ -36,6 +36,7 @@ export type PlanStepKind =
   | "draft"
   | "evaluate_rules"
   | "approval"
+  | "ask_owner"
   | "invoke"
   | "wait"
   | "check_payment"

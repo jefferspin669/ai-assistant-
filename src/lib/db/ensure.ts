@@ -1,4 +1,9 @@
-import { databaseDriver, postgresLive } from "@/lib/db/driver";
+import {
+  assertProductionPersistence,
+  databaseDriver,
+  fileFallbackAllowed,
+  postgresLive,
+} from "@/lib/db/driver";
 import {
   applyServerDatabase,
   loadDatabase,
@@ -33,11 +38,13 @@ function allowEmptyPgSeed() {
  * Empty databases may be seeded once in non-production (or when ATLAS_SEED_EMPTY_PG=1).
  * Never reseeds when organizations already exist.
  * Hydrate failures are visible and do not silently win with stale JSON unless explicitly allowed.
+ * Production requires DATABASE_URL — file fallback is refused.
  */
 export async function ensureServerDatabase(): Promise<EnsureResult> {
   if (typeof window !== "undefined") {
     return { driver: "json", source: "memory", seeded: false };
   }
+  assertProductionPersistence();
   const existing = g().__atlasEnsured;
   // Retry next request after a hydrate error instead of locking into a dead cache forever.
   if (existing && existing.source !== "error") return existing;
@@ -49,11 +56,13 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
 
   g().__atlasEnsure = (async () => {
     if (!postgresLive()) {
+      if (!fileFallbackAllowed()) {
+        throw new Error("DATABASE_URL is required in production.");
+      }
       loadDatabase();
       const orgId = loadDatabase().organizations[0]?.id;
       if (orgId) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const employees = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+        const employees = await import("@/lib/services/employees");
         if (!employees.listEmployees(orgId).length) {
           employees.resetSeedEmployees(orgId);
         }
@@ -87,8 +96,7 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       }
       const seeded = seedDatabase();
       applyServerDatabase(seeded);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const employees = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+      const employees = await import("@/lib/services/employees");
       if (seeded.organizations[0]?.id) {
         employees.resetSeedEmployees(seeded.organizations[0].id);
       }
@@ -97,6 +105,10 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       g().__atlasEnsured = result;
       return result;
     } catch (error) {
+      // Production: never fall back to JSON after a Postgres failure.
+      if (!fileFallbackAllowed()) {
+        throw error instanceof Error ? error : new Error("postgres hydrate failed");
+      }
       const message = error instanceof Error ? error.message : "postgres hydrate failed";
       const result: EnsureResult = {
         driver: databaseDriver(),

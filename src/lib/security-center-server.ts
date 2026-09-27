@@ -40,7 +40,7 @@ type HealthPayload = {
   redis?: { ok?: boolean };
   deadLetters?: number;
   worker?: { ok?: boolean; stale?: boolean };
-  integrations?: Array<{ id: string; mode?: "live" | "simulation" }>;
+  integrations?: Array<{ id: string; mode?: "live" | "partial" | "simulation" | "unavailable" }>;
 };
 
 /** Build live security signals from Atlas backend health and audit patterns. */

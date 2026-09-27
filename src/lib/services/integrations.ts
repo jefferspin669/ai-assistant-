@@ -5,6 +5,7 @@ import { writeAudit } from "@/lib/services/audit";
 import {
   calendarOAuthConfigured,
   calendarReconnectUrl,
+  createCalendarOAuthState,
   disconnectCalendar,
   refreshConnectedTokens,
   type CalendarProvider,
@@ -101,7 +102,7 @@ export async function reconnectIntegration(ctx: SessionContext, provider: string
   requireOrgMember(db, ctx);
   const cal = calendarProvider(provider);
   if (cal) {
-    disconnectCalendar(cal);
+    disconnectCalendar(ctx.organizationId, cal);
     setIntegrationStatus(ctx, provider === "google" ? "google-calendar" : provider, "disconnected");
     writeAudit(ctx, {
       action: `reconnect ${provider}`,
@@ -109,11 +110,12 @@ export async function reconnectIntegration(ctx: SessionContext, provider: string
       entityId: provider,
     });
     const configured = calendarOAuthConfigured(cal);
+    const state = configured ? createCalendarOAuthState(ctx.organizationId) : null;
     return {
       provider,
       action: "reconnect" as const,
       configured,
-      url: configured ? calendarReconnectUrl(cal, `org:${ctx.organizationId}`) : null,
+      url: configured && state ? calendarReconnectUrl(cal, state) : null,
     };
   }
   setIntegrationStatus(ctx, provider, "expired");
@@ -127,7 +129,7 @@ export async function reconnectIntegration(ctx: SessionContext, provider: string
 
 export async function refreshIntegrationTokens(ctx: SessionContext) {
   requireOrgMember(database(), ctx);
-  const refreshed = await refreshConnectedTokens();
+  const refreshed = await refreshConnectedTokens(ctx.organizationId);
   writeAudit(ctx, {
     action: "refreshed integration tokens",
     entityType: "integration",

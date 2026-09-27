@@ -37,6 +37,21 @@ export async function claimCustomerMessage(input: {
   return { allowed: true, count: next, fingerprint };
 }
 
+/** Exactly-once claim (e.g. task-complete customer notification). */
+export async function claimExactOnce(fingerprint: string): Promise<{ allowed: boolean }> {
+  if (completed.has(fingerprint)) return { allowed: false };
+  if (redisConfigured()) {
+    const raw = await cacheGet(`once:${fingerprint}`);
+    if (raw) {
+      completed.add(fingerprint);
+      return { allowed: false };
+    }
+    await cacheSet(`once:${fingerprint}`, "1", 60 * 60 * 24 * 30);
+  }
+  completed.add(fingerprint);
+  return { allowed: true };
+}
+
 /** Start work. Completed jobs stay skipped; in-flight jobs are not retried in this process. A crash clears in-flight so BullMQ can retry. */
 export function beginJob(jobId: string): "ok" | "duplicate" {
   if (!jobId) return "ok";

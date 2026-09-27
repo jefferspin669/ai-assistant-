@@ -12,3 +12,5 @@ coverage
 !.env.example
 tsconfig.tsbuildinfo
 .data
+dump.rdb
+.data/

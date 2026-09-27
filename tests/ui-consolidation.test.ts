@@ -56,11 +56,10 @@ describe("product consolidation", () => {
   it("exposes Security Center on Trust hub", () => {
     expect(trustHub.map((item) => item.href)).toContain("/app/security-center");
     expect(trustHub.map((item) => item.label)).toEqual([
+      "Governance",
       "Security Center",
-      "Security",
       "Risk",
       "Compliance",
-      "Governance",
       "Privacy",
       "Audit Log",
     ]);

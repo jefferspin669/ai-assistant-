@@ -1,7 +1,7 @@
 import { apiResponse, asRecord, jsonError, readJson, resolveSession } from "@/lib/api/http";
 import { err, ok } from "@/lib/api/types";
 import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
-import { getRun, listRuns, orchestrate, tickRun } from "@/lib/orchestrator";
+import { getRun, listRuns, orchestrate, resumeRun, tickRun } from "@/lib/orchestrator";
 import { getTrace, listTraces } from "@/lib/orchestrator/store";
 import { listCapabilities } from "@/lib/capabilities/registry";
 import { evaluateRules } from "@/lib/rules/engine";
@@ -43,6 +43,9 @@ export async function POST(req: Request) {
     rateLimit(`orchestrator:${clientKey(req)}`, 40, 60_000);
     const ctx = await resolveSession(req);
     const body = asRecord(await readJson(req));
+    if (typeof body.runId === "string" && typeof body.answer === "string") {
+      return apiResponse(ok({ run: await resumeRun(ctx, body.runId, body.answer) }));
+    }
     if (typeof body.runId === "string" && body.tick) {
       const run = getRun(body.runId, ctx.organizationId);
       if (!run) return apiResponse(err("Run not found.", 404));

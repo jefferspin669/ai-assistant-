@@ -5,6 +5,9 @@ import { loadDatabase, saveDatabase } from "@/lib/db/store";
 import { emitEvent } from "@/lib/events/bus";
 import { bindStripeAccount, stripeAccountForOrg } from "@/lib/billing/stripe-accounts";
 import type { DbSubscription } from "@/lib/db/schema";
+import { requireOrganizationId } from "@/lib/auth/tenant";
+import { isProduction } from "@/lib/ops/environment";
+import { ValidationError } from "@/lib/domain/errors";
 
 function stripeKey() {
   return process.env.STRIPE_SECRET_KEY?.trim() || "";
@@ -52,9 +55,12 @@ export async function createCheckoutSession(input: {
   plan?: AtlasPlan;
 }) {
   const price = defaultPriceId(input.plan);
-  const orgId = input.organizationId || atlasStore.defaultOrgId();
+  const orgId = requireOrganizationId(input.organizationId);
 
   if (!requireLive("stripe") || !price) {
+    if (isProduction()) {
+      throw new ValidationError("Stripe is not configured — refusing to activate a simulated subscription in production.");
+    }
     activateOrgSubscription(orgId, "trialing");
     bindStripeAccount(orgId, { priceId: price || "sim_price_business" });
     await atlasStore.writeAudit({
@@ -99,13 +105,17 @@ export async function createCheckoutSession(input: {
 }
 
 export async function createBillingPortalSession(input: { organizationId: string; customerId?: string }) {
-  const bound = stripeAccountForOrg(input.organizationId);
+  const organizationId = requireOrganizationId(input.organizationId);
+  const bound = stripeAccountForOrg(organizationId);
   const customerId = input.customerId || bound?.customerId || "";
   if (!requireLive("stripe")) {
+    if (isProduction()) {
+      throw new ValidationError("Stripe is not configured — billing portal unavailable in production.");
+    }
     return {
       mode: "simulation" as const,
       url: `${getAppUrl()}/app/commercial?portal=simulated`,
-      organizationId: input.organizationId,
+      organizationId,
     };
   }
   if (!customerId) {
@@ -116,7 +126,7 @@ export async function createBillingPortalSession(input: { organizationId: string
     customer: customerId,
     return_url: `${getAppUrl()}/app/commercial`,
   });
-  return { mode: "live" as const, url: session.url, organizationId: input.organizationId };
+  return { mode: "live" as const, url: session.url, organizationId };
 }
 
 function orgIdFromStripeObject(object: Record<string, unknown>, fallback: string) {
@@ -129,6 +139,10 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   let event: { type: string; data: { object: Record<string, unknown> } };
 
+  if (requireLive("stripe") && (!secret || !signature)) {
+    throw new Error("Live Stripe webhooks require STRIPE_WEBHOOK_SECRET and Stripe-Signature.");
+  }
+
   if (secret && signature) {
     const stripe = getStripe();
     const verified = stripe.webhooks.constructEvent(rawBody, signature, secret);
@@ -136,8 +150,6 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
       type: verified.type,
       data: { object: verified.data.object as unknown as Record<string, unknown> },
     };
-  } else if (requireLive("stripe") && secret && !signature) {
-    throw new Error("Missing Stripe-Signature");
   } else {
     event = JSON.parse(rawBody) as typeof event;
   }

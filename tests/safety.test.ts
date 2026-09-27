@@ -93,7 +93,7 @@ describe("Atlas autonomy safety", () => {
     expect(decision.band).toBe("restricted");
   });
 
-  it("cannot approve its own restricted action", () => {
+  it("cannot approve its own restricted action", async () => {
     const ctx = ownerCtx();
     patchPolicy(ctx.organizationId, { level: 4 });
     const submitted = submitWork(ctx, {
@@ -104,7 +104,9 @@ describe("Atlas autonomy safety", () => {
     expect(submitted.approvalId).toBeTruthy();
     const worker = testSession("atlas", ctx.organizationId, "owner");
     worker.sessionId = "worker";
-    expect(() => resolveApproval(worker, submitted.approvalId!, "approved")).toThrow(AuthorizationError);
+    await expect(resolveApproval(worker, submitted.approvalId!, "approved")).rejects.toThrow(
+      AuthorizationError,
+    );
   });
 
   it("records who caused every important autonomy action", () => {

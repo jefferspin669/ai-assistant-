@@ -1,25 +1,30 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/EmptyState";
 import {
-  addBusinessMemory,
-  deleteBusinessMemory,
-  loadBusinessMemories,
-  loadPendingCorrections,
   MEMORY_TYPE_HINTS,
   MEMORY_TYPE_LABELS,
-  memoriesByType,
-  resolvePendingCorrection,
-  updateBusinessMemory,
-  type BusinessMemoryEntry,
   type MemoryPermission,
   type MemoryType,
 } from "@/lib/business-memory";
 import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 const TYPES: MemoryType[] = ["company", "leadership", "employee", "customer", "operational"];
+
+type ServerMemory = {
+  id: string;
+  content: string;
+  title?: string;
+  source: string;
+  authorLabel?: string;
+  confidence: number;
+  accessLevel: MemoryPermission;
+  memoryType: MemoryType;
+  createdAt: string;
+  updatedAt: string;
+};
 
 function formatDate(iso: string) {
   try {
@@ -34,50 +39,127 @@ function BusinessMemoryStudioInner() {
   const typeParam = searchParams.get("type") as MemoryType | null;
   const activeType: MemoryType = TYPES.includes(typeParam as MemoryType) ? (typeParam as MemoryType) : "company";
 
-  const [entries, setEntries] = useState<BusinessMemoryEntry[]>([]);
+  const [entries, setEntries] = useState<ServerMemory[]>([]);
   const [content, setContent] = useState("");
   const [source, setSource] = useState("Manual entry");
   const [permission, setPermission] = useState<MemoryPermission>("all_staff");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [conflicts, setConflicts] = useState<{ id: string; reason: string; content: string }[]>([]);
 
-  function refresh() {
-    setEntries(loadBusinessMemories());
-  }
-
-  useEffect(() => {
-    refresh();
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/memory", { credentials: "include" });
+      const json = await res.json();
+      const rows = (json?.data || json || []) as ServerMemory[];
+      setEntries(Array.isArray(rows) ? rows : []);
+      setError("");
+    } catch {
+      setError("Could not load server memory — sign in and retry.");
+    }
   }, []);
 
-  const pending = loadPendingCorrections();
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
-  function bump() {
-    refresh();
-  }
-
-  const filtered = memoriesByType(activeType);
+  const filtered = entries.filter((m) => m.memoryType === activeType);
   const empty = filtered.length === 0 && !isDemoWorkspace();
 
-  function onAdd(e: FormEvent) {
+  async function onAdd(e: FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
-    addBusinessMemory({
-      type: activeType,
-      content,
-      source,
-      addedBy: "Owner",
-      permission,
+    setConflicts([]);
+    const res = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "remember",
+        content,
+        source,
+        memoryType: activeType,
+        accessLevel: permission,
+      }),
     });
+    const json = await res.json();
+    const data = json?.data || json;
+    if (data?.saved === false && data?.conflicts?.length) {
+      setConflicts(data.conflicts);
+      setStatus("Conflicts found — review below, then force-save or correct the old memory.");
+      return;
+    }
+    if (!res.ok || data?.saved === false) {
+      setError(json?.error || "Could not save memory.");
+      return;
+    }
     setContent("");
-    bump();
+    setStatus("Memory saved to the server.");
+    await refresh();
   }
 
-  function onSaveEdit(e: FormEvent) {
+  async function forceSave() {
+    const res = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "remember",
+        content,
+        source,
+        memoryType: activeType,
+        accessLevel: permission,
+        force: true,
+      }),
+    });
+    if (!res.ok) {
+      setError("Force save failed.");
+      return;
+    }
+    setConflicts([]);
+    setContent("");
+    setStatus("Memory saved (owner override).");
+    await refresh();
+  }
+
+  async function onSaveEdit(e: FormEvent) {
     e.preventDefault();
     if (!editingId) return;
-    updateBusinessMemory(editingId, { content: editContent });
+    const res = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "correct",
+        id: editingId,
+        content: editContent,
+        note: "Owner correction from Memory studio",
+      }),
+    });
+    if (!res.ok) {
+      setError("Correction failed.");
+      return;
+    }
     setEditingId(null);
-    bump();
+    setStatus("Memory corrected.");
+    await refresh();
+  }
+
+  async function onDelete(id: string) {
+    const res = await fetch("/api/memory", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "delete", id }),
+    });
+    if (!res.ok) {
+      setError("Delete failed (owners/admins only).");
+      return;
+    }
+    setStatus("Memory deleted.");
+    await refresh();
   }
 
   return (
@@ -85,36 +167,30 @@ function BusinessMemoryStudioInner() {
       <div className="memory-card">
         <div className="label">One memory engine</div>
         <p>
-          Company, leadership, employee, customer, and operational memory — permission-aware, with source tracking.
-          Phone & Reception and Atlas Assistant read from the same system.
+          Server-backed, permission-aware memory — company, leadership, employees, customers, and operations.
+          Conflicts are detected before write; owners can correct or delete.
         </p>
+        {status ? <p className="auth-success">{status}</p> : null}
+        {error ? <p className="auth-error">{error}</p> : null}
       </div>
 
-      {pending.length ? (
+      {conflicts.length ? (
         <section className="panel">
-          <h2>Pending corrections</h2>
-          {pending.map((p) => (
-            <div key={p.id} className="memory-card" style={{ marginBottom: "0.75rem" }}>
-              <p><strong>Save to Business Memory?</strong></p>
-              <p>{p.content}</p>
-              <div className="cta-row">
-                <button
-                  className="btn btn-dark"
-                  type="button"
-                  onClick={() => { resolvePendingCorrection(p.id, true); bump(); }}
-                >
-                  Save
-                </button>
-                <button
-                  className="btn btn-outline"
-                  type="button"
-                  onClick={() => { resolvePendingCorrection(p.id, false); bump(); }}
-                >
-                  Don&apos;t save
-                </button>
-              </div>
+          <h2>Memory conflicts</h2>
+          {conflicts.map((c) => (
+            <div key={c.id} className="memory-card" style={{ marginBottom: "0.75rem" }}>
+              <p><strong>{c.reason}</strong></p>
+              <p>{c.content}</p>
             </div>
           ))}
+          <div className="cta-row">
+            <button className="btn btn-dark" type="button" onClick={() => void forceSave()}>
+              Save anyway
+            </button>
+            <button className="btn btn-outline" type="button" onClick={() => setConflicts([])}>
+              Cancel
+            </button>
+          </div>
         </section>
       ) : null}
 
@@ -150,16 +226,16 @@ function BusinessMemoryStudioInner() {
             <div key={m.id} className="compliance-row">
               <div style={{ flex: 1 }}>
                 {editingId === m.id ? (
-                  <form onSubmit={onSaveEdit} className="form-grid">
+                  <form onSubmit={(e) => void onSaveEdit(e)} className="form-grid">
                     <textarea rows={2} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
-                    <button className="btn btn-dark" type="submit">Save</button>
+                    <button className="btn btn-dark" type="submit">Save correction</button>
                   </form>
                 ) : (
                   <>
                     <p><strong>{m.content}</strong></p>
                     <p className="muted-line">
-                      Source: {m.source} · Added {formatDate(m.addedAt)} by {m.addedBy} · Confidence {m.confidence}%
-                      · {m.permission} · Updated {formatDate(m.lastUpdated)}
+                      Source: {m.source} · Added {formatDate(m.createdAt)} by {m.authorLabel || "—"} · Confidence {m.confidence}%
+                      · {m.accessLevel} · Updated {formatDate(m.updatedAt)}
                     </p>
                   </>
                 )}
@@ -171,9 +247,9 @@ function BusinessMemoryStudioInner() {
                     className="ghost-link"
                     onClick={() => { setEditingId(m.id); setEditContent(m.content); }}
                   >
-                    Edit
+                    Correct
                   </button>
-                  <button type="button" className="ghost-link" onClick={() => { deleteBusinessMemory(m.id); bump(); }}>
+                  <button type="button" className="ghost-link" onClick={() => void onDelete(m.id)}>
                     Delete
                   </button>
                 </div>
@@ -185,7 +261,7 @@ function BusinessMemoryStudioInner() {
 
       <section className="panel" id="add-memory">
         <h2>+ Add memory</h2>
-        <form className="form-grid" onSubmit={onAdd}>
+        <form className="form-grid" onSubmit={(e) => void onAdd(e)}>
           <label>Memory<input value={content} onChange={(e) => setContent(e.target.value)} placeholder="We no longer offer Sunday appointments." /></label>
           <label>Source<input value={source} onChange={(e) => setSource(e.target.value)} /></label>
           <label>

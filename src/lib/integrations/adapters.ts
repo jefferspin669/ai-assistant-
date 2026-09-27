@@ -86,13 +86,13 @@ export async function invokeAdapter(
   }
 
   if (capabilityId === "stripe_invoice") {
-    const result = await createAndSendInvoice({
+    const result = await createAndSendInvoice(ctx, {
       customerName: String(input.customerName || input.name || "Customer"),
       customerPhone: input.phone ? String(input.phone) : undefined,
       customerEmail: input.email ? String(input.email) : undefined,
       amountCents: Number(input.amountCents || 0),
       memo: input.memo ? String(input.memo) : undefined,
-      approved: Boolean(input.approved),
+      confirmationId: input.confirmationId ? String(input.confirmationId) : undefined,
     });
     return {
       ok: result.status === "sent" || result.status === "needs_approval",
@@ -122,6 +122,7 @@ export async function invokeAdapter(
       startsAt: String(input.startsAt || input.startTime || new Date().toISOString()),
       endsAt: String(input.endsAt || input.endTime || new Date(Date.now() + 3600_000).toISOString()),
       description: input.description ? String(input.description) : undefined,
+      organizationId: ctx.organizationId,
     });
     return {
       ok: true,

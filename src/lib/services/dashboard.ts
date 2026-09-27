@@ -1,4 +1,5 @@
 import { hasPermission } from "@/lib/auth/permissions";
+import { hasPostgres } from "@/lib/db/postgres";
 import { listApprovals } from "@/lib/services/approvals";
 import { listAudit } from "@/lib/services/audit";
 import { database } from "@/lib/services/access";
@@ -24,8 +25,10 @@ export function workspaceDashboard(ctx: SessionContext) {
   const overdue = openTasks.filter((task) => task.dueDate && task.dueDate.slice(0, 10) < today);
   const eventsToday = events.filter((event) => event.startTime.slice(0, 10) === today);
   const income = transactions.filter((row) => row.kind === "income").reduce((sum, row) => sum + row.amount, 0);
+  // File/JSON adapter is demo seed data — never label home KPIs LIVE without Postgres.
   const liveCustomers = customers.filter((row) => row.provenance === "LIVE").length;
-  const provenance = liveCustomers > 0 ? ("LIVE" as const) : ("DEMO" as const);
+  const provenance =
+    hasPostgres() && liveCustomers > 0 ? ("LIVE" as const) : ("DEMO" as const);
   const findings = [
     overdue.length
       ? {

@@ -1,30 +1,42 @@
-import { apiResponse, jsonError, readJson } from "@/lib/api/http";
-import { ok, err } from "@/lib/api/types";
+import { z } from "zod";
+import { apiSuccess, parseBody, withPermission } from "@/lib/api/http";
+import { ValidationError } from "@/lib/domain/errors";
 import { createAndSendInvoice } from "@/lib/integrations/actions";
 import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  try {
-    rateLimit(`invoice:${clientKey(req)}`, 20, 60_000);
-  } catch (error) {
-    return jsonError(error);
-  }
-  const body = await readJson(req);
-  const customerName = String(body.customerName || body.customer || "");
-  const amountCents = Number(body.amountCents ?? Math.round(Number(body.amount || 0) * 100));
+const bodySchema = z.object({
+  customerName: z.string().min(1).max(200).optional(),
+  customer: z.string().min(1).max(200).optional(),
+  amountCents: z.number().optional(),
+  amount: z.number().optional(),
+  customerPhone: z.string().max(40).optional(),
+  customerEmail: z.string().max(200).optional(),
+  memo: z.string().max(500).optional(),
+  confirmationId: z.string().min(1).max(80).optional(),
+  /** Ignored — never trusted from the client. */
+  approved: z.unknown().optional(),
+});
+
+export const POST = withPermission("actions.invoice", async ({ req, workspace, body }) => {
+  rateLimit(`invoice:${workspace.organizationId}:${clientKey(req)}`, 20, 60_000);
+  const parsed = parseBody(bodySchema, body);
+  const customerName = String(parsed.customerName || parsed.customer || "").trim();
+  const amountCents = Number(
+    parsed.amountCents ?? Math.round(Number(parsed.amount || 0) * 100),
+  );
   if (!customerName || !amountCents) {
-    return apiResponse(err("customerName and amountCents required", 422));
+    throw new ValidationError("customerName and amountCents required");
   }
-  const result = await createAndSendInvoice({
+  const result = await createAndSendInvoice(workspace, {
     customerName,
-    customerPhone: body.customerPhone ? String(body.customerPhone) : undefined,
-    customerEmail: body.customerEmail ? String(body.customerEmail) : undefined,
+    customerPhone: parsed.customerPhone ? String(parsed.customerPhone) : undefined,
+    customerEmail: parsed.customerEmail ? String(parsed.customerEmail) : undefined,
     amountCents,
-    memo: body.memo ? String(body.memo) : undefined,
-    approved: Boolean(body.approved),
+    memo: parsed.memo ? String(parsed.memo) : undefined,
+    confirmationId: parsed.confirmationId,
   });
-  return apiResponse(ok(result));
-}
+  return apiSuccess(result);
+});

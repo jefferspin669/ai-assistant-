@@ -2,9 +2,13 @@
  * Business rules — operating policy for a company.
  * Permissions answer "is this person allowed?" Rules answer "does this company allow this action?"
  * Reads existing autonomy policy (discount cap, refund limit, quiet hours) rather than a second DNA store.
+ * Project rules: workers (employees) may only update tasks assigned to them.
  */
 
+import { AuthorizationError } from "@/lib/domain/errors";
 import { getPolicy } from "@/lib/autonomy/policy";
+import type { DbTask } from "@/lib/db/schema";
+import type { OrgRole, SessionContext } from "@/lib/domain/types";
 import type { RuleVerdict } from "@/lib/orchestrator/types";
 
 export type RuleContext = {
@@ -16,6 +20,62 @@ export type RuleContext = {
   at?: Date;
   jobAmountCents?: number;
 };
+
+const MANAGER_PLUS: OrgRole[] = ["owner", "admin", "manager"];
+
+export function isWorkerRole(role: OrgRole): boolean {
+  return role === "employee";
+}
+
+export function canManageProjectTasks(role: OrgRole): boolean {
+  return MANAGER_PLUS.includes(role);
+}
+
+/**
+ * Project-level rule: employees may only mutate tasks assigned to them.
+ * Managers/owners/admins may update any org task.
+ */
+export function assertWorkerCanUpdateTask(ctx: SessionContext, task: DbTask): void {
+  if (canManageProjectTasks(ctx.role)) return;
+  if (isWorkerRole(ctx.role)) {
+    if (task.assigneeId && task.assigneeId === ctx.userId) return;
+    throw new AuthorizationError("Workers can only update tasks assigned to them.");
+  }
+  throw new AuthorizationError("You cannot update this task.");
+}
+
+export function workerCanReadTask(ctx: SessionContext, task: DbTask): boolean {
+  if (canManageProjectTasks(ctx.role) || ctx.role === "viewer" || ctx.role === "accountant") {
+    return true;
+  }
+  if (isWorkerRole(ctx.role)) {
+    return Boolean(task.assigneeId && task.assigneeId === ctx.userId);
+  }
+  return false;
+}
+
+export function evaluateTaskAssignmentRule(
+  ctx: SessionContext,
+  task: Pick<DbTask, "assigneeId">,
+): RuleVerdict {
+  if (canManageProjectTasks(ctx.role)) {
+    return {
+      id: "worker_assigned_task",
+      ok: true,
+      needsApproval: false,
+      reason: "Managers may update any project task.",
+    };
+  }
+  const assigned = Boolean(task.assigneeId && task.assigneeId === ctx.userId);
+  return {
+    id: "worker_assigned_task",
+    ok: assigned,
+    needsApproval: false,
+    reason: assigned
+      ? "Worker is updating their assigned task."
+      : "Workers can only update tasks assigned to them.",
+  };
+}
 
 export function rulesForOrg(organizationId: string) {
   const policy = getPolicy(organizationId);

@@ -22,8 +22,11 @@ import {
   type TeamPerson,
   type TeamTask,
 } from "@/lib/user-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
+import { TeamOpsPanel } from "@/components/TeamOpsPanel";
 
 const TABS = [
+  { id: "ops", label: "Team Ops" },
   { id: "team", label: "Team" },
   { id: "tasks", label: "Assign & Tasks" },
   { id: "ai-workers", label: "AI Workers" },
@@ -65,7 +68,7 @@ function WorkforceStudioInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabParam = searchParams.get("tab");
-  const tab: TabId = isTab(tabParam) ? tabParam : "team";
+  const tab: TabId = isTab(tabParam) ? tabParam : "ops";
 
   const [members, setMembers] = useState<TeamPerson[]>([]);
   const [tasks, setTasks] = useState<TeamTask[]>([]);
@@ -91,7 +94,7 @@ function WorkforceStudioInner() {
   }, []);
 
   useEffect(() => {
-    seedDemoTeamIfEmpty();
+    if (isDemoWorkspace()) seedDemoTeamIfEmpty();
     refresh();
     setReady(true);
   }, [refresh]);
@@ -209,6 +212,8 @@ function WorkforceStudioInner() {
           ))}
         </div>
 
+        {tab === "ops" ? <TeamOpsPanel /> : null}
+
         {tab === "team" ? (
           <>
             {showAddMember ? (
@@ -273,11 +278,11 @@ function WorkforceStudioInner() {
                 </section>
               );
             })}
-            <Link className="panel audience-card" href="/app/teams">
+            <Link className="panel audience-card" href="/app/workforce?tab=team">
               <h2>+ Invite employee</h2>
               <p>Add people with their own pages and permissions.</p>
             </Link>
-            <Link className="panel audience-card" href="/app/workforce-status">
+            <Link className="panel audience-card" href="/app/workforce">
               <h2>Workforce status</h2>
               <p>See who&apos;s online and what they&apos;re working on.</p>
             </Link>

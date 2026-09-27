@@ -99,8 +99,63 @@ export type ConflictInfo = {
   detail: string;
 };
 
-const STORAGE_KEY = "atlas-smart-calendar-v3";
-const LEGACY_KEYS = ["atlas-smart-calendar-v2", "atlas-smart-calendar-v1"];
+export type SharedCalendarMember = {
+  id: string;
+  name: string;
+  role: "owner" | "editor" | "viewer" | "family";
+  calendarLabel: string;
+  status: "active" | "pending";
+};
+
+export type SharedCalendarRequest = {
+  id: string;
+  kind: "availability" | "vacation" | "task" | "deadline";
+  from: string;
+  detail: string;
+  status: "pending" | "approved" | "declined";
+  createdAt: string;
+};
+
+export type LifeEntry = {
+  id: string;
+  kind:
+    | "job"
+    | "trip"
+    | "purchase"
+    | "tax"
+    | "medical"
+    | "launch"
+    | "milestone"
+    | "birthday"
+    | "certification"
+    | "vehicle";
+  title: string;
+  date: string;
+  detail: string;
+  tags: string[];
+};
+
+export type PostponedCalendarTask = {
+  id: string;
+  title: string;
+  postponeCount: number;
+};
+
+export type CalendarState = {
+  categories: CalendarCategory[];
+  events: CalendarEvent[];
+  goals: CalendarGoal[];
+  activeLayers: CalendarLayerId[];
+  sharedMembers: SharedCalendarMember[];
+  sharedRequests: SharedCalendarRequest[];
+  lifeTimeline: LifeEntry[];
+  postponedTasks: PostponedCalendarTask[];
+};
+
+// v4 starts clean. Earlier versions seeded personal-looking demo records into
+// every new calendar, which made an empty workspace look like real user data.
+const STORAGE_KEY = "atlas-smart-calendar-v4";
+const LEGACY_KEYS: string[] = [];
 
 export const CALENDAR_LAYERS: CalendarLayer[] = [
   { id: "personal", label: "Personal", color: "#22c55e" },
@@ -157,14 +212,6 @@ function newId() {
   return `cal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function atDay(base: Date, dayOffset: number, hour: number, minute = 0) {
-  const d = new Date(base);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + dayOffset);
-  d.setHours(hour, minute, 0, 0);
-  return d.toISOString();
-}
-
 function withEventDefaults(
   event: Partial<CalendarEvent> &
     Pick<CalendarEvent, "title" | "categoryId" | "start" | "end">,
@@ -185,287 +232,6 @@ function withEventDefaults(
     pinnedDeadline: Boolean(event.pinnedDeadline),
   };
 }
-
-export function seedEvents(now = new Date()): CalendarEvent[] {
-  return [
-    withEventDefaults({
-      title: "Team standup",
-      categoryId: "meetings",
-      layerId: "team",
-      start: atDay(now, 0, 9, 0),
-      end: atDay(now, 0, 9, 30),
-      location: "Zoom",
-      invitees: ["Alex", "Sam"],
-      notes: "Daily ops sync",
-    }),
-    withEventDefaults({
-      title: "Elena Brooks · drain clearing",
-      categoryId: "work",
-      layerId: "business",
-      start: atDay(now, 0, 10, 0),
-      end: atDay(now, 0, 11, 30),
-      location: "12 Willow St",
-      invitees: ["Alex"],
-      notes: "Bring cable machine",
-      priority: "high",
-      outdoor: true,
-    }),
-    withEventDefaults({
-      title: "CallbackFlow login",
-      categoryId: "high-priority",
-      layerId: "business",
-      start: atDay(now, 0, 8, 0),
-      end: atDay(now, 0, 9, 0),
-      location: "Office",
-      notes: "Finish auth flow before standup",
-      priority: "high",
-    }),
-    withEventDefaults({
-      title: "HomeBase dashboard review",
-      categoryId: "high-priority",
-      layerId: "business",
-      start: atDay(now, 0, 11, 30),
-      end: atDay(now, 0, 12, 30),
-      location: "Office",
-      notes: "Atlas development · UI polish pass",
-      priority: "high",
-    }),
-    withEventDefaults({
-      title: "Pay internet bill",
-      categoryId: "bills",
-      layerId: "finance",
-      start: atDay(now, 0, 12, 45),
-      end: atDay(now, 0, 13, 0),
-      notes: "Due today",
-      pinnedDeadline: true,
-      priority: "high",
-    }),
-    withEventDefaults({
-      title: "CallbackFlow deep work",
-      categoryId: "high-priority",
-      layerId: "business",
-      start: atDay(now, 0, 14, 0),
-      end: atDay(now, 0, 15, 0),
-      location: "Office",
-      notes: "Focus block — protect if possible",
-      priority: "high",
-    }),
-    withEventDefaults({
-      title: "Client status meeting",
-      categoryId: "meetings",
-      layerId: "team",
-      start: atDay(now, 1, 10, 0),
-      end: atDay(now, 1, 10, 45),
-      location: "Zoom",
-      invitees: ["Jamie Cole"],
-      notes: "Tomorrow — good candidate for voice reschedule",
-    }),
-    withEventDefaults({
-      title: "School pickup",
-      categoryId: "family",
-      layerId: "family",
-      start: atDay(now, 0, 15, 30),
-      end: atDay(now, 0, 16, 0),
-      location: "Lincoln Elementary",
-    }),
-    withEventDefaults({
-      title: "Estimate presentation prep",
-      categoryId: "deadlines",
-      layerId: "business",
-      start: atDay(now, 1, 11, 0),
-      end: atDay(now, 1, 12, 0),
-      location: "Office",
-      invitees: ["Jamie Cole"],
-      notes: "Slides still incomplete",
-      priority: "high",
-      pinnedDeadline: true,
-    }),
-    withEventDefaults({
-      title: "Pay vendor invoice",
-      categoryId: "bills",
-      layerId: "finance",
-      start: atDay(now, 2, 9, 0),
-      end: atDay(now, 2, 9, 30),
-      notes: "Due this week",
-      pinnedDeadline: true,
-    }),
-    withEventDefaults({
-      title: "Quarterly estimated taxes",
-      categoryId: "taxes",
-      layerId: "finance",
-      start: atDay(now, 5, 10, 0),
-      end: atDay(now, 5, 11, 0),
-      invitees: ["Accountant"],
-      notes: "Review Atlas Tax draft first",
-      priority: "high",
-      pinnedDeadline: true,
-    }),
-    withEventDefaults({
-      title: "Dentist checkup",
-      categoryId: "personal",
-      layerId: "personal",
-      start: atDay(now, 3, 16, 0),
-      end: atDay(now, 3, 17, 0),
-      location: "Bright Smile Dental",
-      priority: "low",
-    }),
-    withEventDefaults({
-      title: "Drive to regional supply run",
-      categoryId: "travel",
-      layerId: "travel",
-      start: atDay(now, 4, 8, 0),
-      end: atDay(now, 4, 10, 30),
-      location: "Depot → warehouse",
-      invitees: ["Sam"],
-      notes: "Heavy traffic corridor",
-      outdoor: true,
-    }),
-    withEventDefaults({
-      title: "Parent-teacher night",
-      categoryId: "school",
-      layerId: "school",
-      start: atDay(now, 6, 18, 0),
-      end: atDay(now, 6, 19, 30),
-      location: "Lincoln Elementary",
-    }),
-    withEventDefaults({
-      title: "Morning run",
-      categoryId: "fitness",
-      layerId: "fitness",
-      start: atDay(now, 1, 6, 30),
-      end: atDay(now, 1, 7, 15),
-      location: "River trail",
-      outdoor: true,
-    }),
-    withEventDefaults({
-      title: "Roof inspection · outdoor",
-      categoryId: "work",
-      layerId: "business",
-      start: atDay(now, 1, 14, 0),
-      end: atDay(now, 1, 15, 30),
-      location: "88 Cedar Ave",
-      invitees: ["Sam"],
-      outdoor: true,
-      priority: "high",
-    }),
-    withEventDefaults({
-      title: "Mortgage payment",
-      categoryId: "bills",
-      layerId: "finance",
-      start: atDay(now, 8, 9, 0),
-      end: atDay(now, 8, 9, 15),
-      notes: "Auto-pay confirmation",
-      pinnedDeadline: true,
-    }),
-    withEventDefaults({
-      title: "Driver’s license renewal",
-      categoryId: "deadlines",
-      layerId: "personal",
-      start: atDay(now, 20, 10, 0),
-      end: atDay(now, 20, 10, 30),
-      notes: "Bring proof of address",
-      pinnedDeadline: true,
-      priority: "high",
-    }),
-    withEventDefaults({
-      title: "Science fair project due",
-      categoryId: "school",
-      layerId: "school",
-      start: atDay(now, 10, 15, 0),
-      end: atDay(now, 10, 15, 30),
-      pinnedDeadline: true,
-    }),
-  ];
-}
-
-export function seedGoals(now = new Date()): CalendarGoal[] {
-  const paris = new Date(now);
-  paris.setDate(paris.getDate() + 280);
-  const launch = new Date(now);
-  launch.setDate(launch.getDate() + 45);
-  return [
-    {
-      id: newId(),
-      title: "Atlas Project",
-      kind: "progress",
-      progress: 60,
-      targetDate: null,
-      detail: "CallbackFlow + Smart Calendar milestones",
-      layerId: "business",
-    },
-    {
-      id: newId(),
-      title: "Paris Vacation",
-      kind: "countdown",
-      progress: 0,
-      targetDate: paris.toISOString(),
-      detail: "Flights held · lodging shortlist",
-      layerId: "travel",
-    },
-    {
-      id: newId(),
-      title: "Business Launch",
-      kind: "progress",
-      progress: 75,
-      targetDate: launch.toISOString(),
-      detail: "Website, pricing, first 10 customers",
-      layerId: "business",
-    },
-  ];
-}
-
-export type SharedCalendarMember = {
-  id: string;
-  name: string;
-  role: "owner" | "editor" | "viewer" | "family";
-  calendarLabel: string;
-  status: "active" | "pending";
-};
-
-export type SharedCalendarRequest = {
-  id: string;
-  kind: "availability" | "vacation" | "task" | "deadline";
-  from: string;
-  detail: string;
-  status: "pending" | "approved" | "declined";
-  createdAt: string;
-};
-
-export type LifeEntry = {
-  id: string;
-  kind:
-    | "job"
-    | "trip"
-    | "purchase"
-    | "tax"
-    | "medical"
-    | "launch"
-    | "milestone"
-    | "birthday"
-    | "certification"
-    | "vehicle";
-  title: string;
-  date: string;
-  detail: string;
-  tags: string[];
-};
-
-export type PostponedCalendarTask = {
-  id: string;
-  title: string;
-  postponeCount: number;
-};
-
-export type CalendarState = {
-  categories: CalendarCategory[];
-  events: CalendarEvent[];
-  goals: CalendarGoal[];
-  activeLayers: CalendarLayerId[];
-  sharedMembers: SharedCalendarMember[];
-  sharedRequests: SharedCalendarRequest[];
-  lifeTimeline: LifeEntry[];
-  postponedTasks: PostponedCalendarTask[];
-};
 
 function defaultActiveLayers(): CalendarLayerId[] {
   return CALENDAR_LAYERS.map((layer) => layer.id);
@@ -488,225 +254,35 @@ function normalizeEvent(raw: Partial<CalendarEvent>): CalendarEvent {
   });
 }
 
-export function seedSharedMembers(): SharedCalendarMember[] {
-  return [
-    {
-      id: newId(),
-      name: "Kyle",
-      role: "owner",
-      calendarLabel: "Business + Personal",
-      status: "active",
-    },
-    {
-      id: newId(),
-      name: "Alex Rivera",
-      role: "editor",
-      calendarLabel: "Business crew",
-      status: "active",
-    },
-    {
-      id: newId(),
-      name: "Jamie Cole",
-      role: "viewer",
-      calendarLabel: "Project deadlines",
-      status: "active",
-    },
-    {
-      id: newId(),
-      name: "Morgan",
-      role: "family",
-      calendarLabel: "Family",
-      status: "active",
-    },
-    {
-      id: newId(),
-      name: "Sam Patel",
-      role: "editor",
-      calendarLabel: "Field schedule",
-      status: "pending",
-    },
-  ];
-}
-
-export function seedSharedRequests(now = new Date()): SharedCalendarRequest[] {
-  return [
-    {
-      id: newId(),
-      kind: "availability",
-      from: "Jamie Cole",
-      detail: "Can we meet Thursday afternoon for the HomeBase review?",
-      status: "pending",
-      createdAt: now.toISOString(),
-    },
-    {
-      id: newId(),
-      kind: "vacation",
-      from: "Alex Rivera",
-      detail: "Vacation request: Aug 18–22 (field coverage needed).",
-      status: "pending",
-      createdAt: atDay(now, -1, 9, 0),
-    },
-    {
-      id: newId(),
-      kind: "task",
-      from: "Morgan",
-      detail: "Assign Saturday grocery run + kids activities block.",
-      status: "pending",
-      createdAt: atDay(now, -2, 12, 0),
-    },
-    {
-      id: newId(),
-      kind: "deadline",
-      from: "Atlas Projects",
-      detail: "Track CallbackFlow login ship date — still open.",
-      status: "approved",
-      createdAt: atDay(now, -3, 10, 0),
-    },
-  ];
-}
-
-export function seedLifeTimeline(now = new Date()): LifeEntry[] {
-  const y = now.getFullYear();
-  const iso = (year: number, month: number, day: number) =>
-    new Date(year, month - 1, day, 12, 0, 0, 0).toISOString();
-
-  const entries: LifeEntry[] = [
-    {
-      id: newId(),
-      kind: "job",
-      title: "Started at JB Hunt",
-      date: iso(2019, 3, 11),
-      detail: "Operations specialist · logistics ops floor",
-      tags: ["jb hunt", "job", "work", "career"],
-    },
-    {
-      id: newId(),
-      kind: "certification",
-      title: "CDL Class A certification",
-      date: iso(2020, 6, 4),
-      detail: "Passed skills + road test",
-      tags: ["cdl", "certification", "license"],
-    },
-    {
-      id: newId(),
-      kind: "vehicle",
-      title: "Tire rotation · F-150",
-      date: iso(y, 2, 14),
-      detail: "Rotated all four · next due ~6 months",
-      tags: ["tires", "rotated", "vehicle", "maintenance", "truck"],
-    },
-    {
-      id: newId(),
-      kind: "medical",
-      title: "Annual physical",
-      date: iso(y, 1, 22),
-      detail: "Clear labs · follow up in 12 months",
-      tags: ["medical", "doctor", "health"],
-    },
-    {
-      id: newId(),
-      kind: "tax",
-      title: "Filed 2025 business taxes",
-      date: iso(y, 4, 12),
-      detail: "Schedule C + quarterly estimates reconciled",
-      tags: ["tax", "taxes", "filing", "irs"],
-    },
-    {
-      id: newId(),
-      kind: "purchase",
-      title: "Bought pressure washer",
-      date: iso(y, 5, 3),
-      detail: "Commercial unit for field jobs · $1,240",
-      tags: ["purchase", "equipment", "may"],
-    },
-    {
-      id: newId(),
-      kind: "trip",
-      title: "Chicago supply trip",
-      date: iso(y, 5, 16),
-      detail: "Warehouse pickup + overnight",
-      tags: ["trip", "travel", "chicago", "may"],
-    },
-    {
-      id: newId(),
-      kind: "launch",
-      title: "CallbackFlow alpha launch",
-      date: iso(y, 5, 28),
-      detail: "First customer callbacks routed through Atlas",
-      tags: ["launch", "callbackflow", "project", "may"],
-    },
-    {
-      id: newId(),
-      kind: "birthday",
-      title: "Morgan’s birthday",
-      date: iso(y, 7, 9),
-      detail: "Family dinner · gift reserved",
-      tags: ["birthday", "family", "morgan"],
-    },
-    {
-      id: newId(),
-      kind: "milestone",
-      title: "Atlas AI business formed",
-      date: iso(y - 1, 11, 2),
-      detail: "LLC filed · brand + workspace live",
-      tags: ["milestone", "business", "atlas"],
-    },
-    {
-      id: newId(),
-      kind: "vehicle",
-      title: "Oil change · F-150",
-      date: iso(y, 5, 9),
-      detail: "Synthetic 5W-30 · 78,420 miles",
-      tags: ["oil", "vehicle", "maintenance", "may"],
-    },
-    {
-      id: newId(),
-      kind: "job",
-      title: "Left JB Hunt",
-      date: iso(2022, 8, 19),
-      detail: "Transitioned to independent field + software work",
-      tags: ["jb hunt", "job", "career"],
-    },
-  ];
-  return entries.sort((a, b) => +new Date(b.date) - +new Date(a.date));
-}
-
-export function seedPostponedTasks(): PostponedCalendarTask[] {
-  return [
-    { id: newId(), title: "Break down HomeBase dashboard polish", postponeCount: 3 },
-    { id: newId(), title: "Organize garage inventory photos", postponeCount: 2 },
-  ];
-}
-
-function freshState(): CalendarState {
+export function createEmptyCalendarState(): CalendarState {
   return {
     categories: DEFAULT_CATEGORIES,
-    events: seedEvents(),
-    goals: seedGoals(),
+    events: [],
+    goals: [],
     activeLayers: defaultActiveLayers(),
-    sharedMembers: seedSharedMembers(),
-    sharedRequests: seedSharedRequests(),
-    lifeTimeline: seedLifeTimeline(),
-    postponedTasks: seedPostponedTasks(),
+    sharedMembers: [],
+    sharedRequests: [],
+    lifeTimeline: [],
+    postponedTasks: [],
   };
 }
 
 function ensureState(parsed: Partial<CalendarState>): CalendarState {
-  const events = (parsed.events?.length ? parsed.events : seedEvents()).map(normalizeEvent);
+  const events = (Array.isArray(parsed.events) ? parsed.events : []).map(normalizeEvent);
   return {
     categories: parsed.categories?.length ? parsed.categories : DEFAULT_CATEGORIES,
     events,
-    goals: parsed.goals?.length ? parsed.goals : seedGoals(),
+    goals: Array.isArray(parsed.goals) ? parsed.goals : [],
     activeLayers: parsed.activeLayers?.length ? parsed.activeLayers : defaultActiveLayers(),
-    sharedMembers: parsed.sharedMembers?.length ? parsed.sharedMembers : seedSharedMembers(),
-    sharedRequests: parsed.sharedRequests?.length ? parsed.sharedRequests : seedSharedRequests(),
-    lifeTimeline: parsed.lifeTimeline?.length ? parsed.lifeTimeline : seedLifeTimeline(),
-    postponedTasks: parsed.postponedTasks?.length ? parsed.postponedTasks : seedPostponedTasks(),
+    sharedMembers: Array.isArray(parsed.sharedMembers) ? parsed.sharedMembers : [],
+    sharedRequests: Array.isArray(parsed.sharedRequests) ? parsed.sharedRequests : [],
+    lifeTimeline: Array.isArray(parsed.lifeTimeline) ? parsed.lifeTimeline : [],
+    postponedTasks: Array.isArray(parsed.postponedTasks) ? parsed.postponedTasks : [],
   };
 }
 
 export function loadCalendarState(): CalendarState {
-  if (typeof window === "undefined") return freshState();
+  if (typeof window === "undefined") return createEmptyCalendarState();
   try {
     let raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -716,7 +292,7 @@ export function loadCalendarState(): CalendarState {
       }
     }
     if (!raw) {
-      const fresh = freshState();
+      const fresh = createEmptyCalendarState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
       return fresh;
     }
@@ -725,7 +301,7 @@ export function loadCalendarState(): CalendarState {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     return state;
   } catch {
-    return freshState();
+    return createEmptyCalendarState();
   }
 }
 
@@ -736,7 +312,7 @@ export function saveCalendarState(state: CalendarState) {
 }
 
 export async function hydrateCalendarState(): Promise<CalendarState> {
-  if (typeof window === "undefined") return freshState();
+  if (typeof window === "undefined") return createEmptyCalendarState();
   try {
     const { pullWorkspace } = await import("@/lib/backend/client");
     const remote = await pullWorkspace<Partial<CalendarState>>("calendar");
@@ -867,9 +443,9 @@ export function buildSuggestions(events: CalendarEvent[], day: Date): ScheduleSu
     const end = new Date(longGap.start.getTime() + 2 * 60 * 60 * 1000);
     suggestions.push({
       id: newId(),
-      text: `You have a ${Math.round(longGap.minutes / 60)}-hour gap this afternoon. Would you like me to schedule work on the CallbackFlow project?`,
-      actionLabel: "Reserve CallbackFlow block",
-      title: "CallbackFlow focus block",
+      text: `You have a ${Math.round(longGap.minutes / 60)}-hour gap this afternoon. Would you like me to protect it for focused work?`,
+      actionLabel: "Reserve focus block",
+      title: "Focus block",
       categoryId: "high-priority",
       start: longGap.start.toISOString(),
       end: (end < longGap.end ? end : longGap.end).toISOString(),
@@ -1098,7 +674,7 @@ export function analyzeWeek(events: CalendarEvent[], anchor = new Date()): TimeA
     suggestions.push("Driving time is high. Cluster jobs by neighborhood to cut windshield hours.");
   }
   if (buckets[1].hours < 12) {
-    suggestions.push("Deep work is under-protected. Reserve two 90-minute CallbackFlow blocks before lunch.");
+    suggestions.push("Deep work is under-protected. Reserve two 90-minute focus blocks before lunch.");
   }
   if (buckets[3].hours < 4) {
     suggestions.push("Fitness is slipping. Keep the morning run layer on and auto-schedule three short sessions.");

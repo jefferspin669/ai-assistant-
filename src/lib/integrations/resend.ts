@@ -1,8 +1,9 @@
 /**
- * Resend email. Simulation when RESEND_API_KEY is unset.
+ * Resend email. Dev may simulate; production fails closed without a key.
  */
 
 import { Resend } from "resend";
+import { isProduction } from "@/lib/ops/environment";
 
 export function resendConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
@@ -14,10 +15,16 @@ export async function sendEmail(input: {
   text: string;
   html?: string;
   organizationId?: string;
-}): Promise<{ ok: true; id?: string; simulated: boolean } | { ok: false; error: string }> {
+}): Promise<
+  | { ok: true; id?: string; simulated: boolean }
+  | { ok: false; error: string; simulated?: boolean }
+> {
   const key = process.env.RESEND_API_KEY?.trim();
   const from = process.env.RESEND_FROM?.trim() || "Atlas <atlas@example.com>";
   if (!key) {
+    if (isProduction()) {
+      return { ok: false, error: "RESEND_API_KEY is not configured — refusing to simulate email in production." };
+    }
     return { ok: true, simulated: true };
   }
   try {

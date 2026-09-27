@@ -1,26 +1,32 @@
-import { apiResponse, readJson } from "@/lib/api/http";
-import { ok, err } from "@/lib/api/types";
+import { z } from "zod";
+import { apiSuccess, parseBody, withPermission } from "@/lib/api/http";
+import { ValidationError } from "@/lib/domain/errors";
 import { sendCustomerSms } from "@/lib/integrations/actions";
 import { clientKey, rateLimit } from "@/lib/auth/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
-  try {
-    rateLimit(`sms:${clientKey(req)}`, 30, 60_000);
-  } catch (error) {
-    return apiResponse(err(error instanceof Error ? error.message : "Too many requests", 429));
-  }
-  const body = await readJson(req);
-  const to = String(body.to || body.phone || "");
-  const text = String(body.body || body.message || "");
-  if (!to || !text) return apiResponse(err("to and body required", 422));
-  const result = await sendCustomerSms({
+const bodySchema = z.object({
+  to: z.string().min(3).max(40).optional(),
+  phone: z.string().min(3).max(40).optional(),
+  body: z.string().min(1).max(1600).optional(),
+  message: z.string().min(1).max(1600).optional(),
+  confirmationId: z.string().min(1).max(80).optional(),
+  /** Ignored — never trusted from the client. */
+  approved: z.unknown().optional(),
+});
+
+export const POST = withPermission("actions.sms", async ({ req, workspace, body }) => {
+  rateLimit(`sms:${workspace.organizationId}:${clientKey(req)}`, 30, 60_000);
+  const parsed = parseBody(bodySchema, body);
+  const to = String(parsed.to || parsed.phone || "").trim();
+  const text = String(parsed.body || parsed.message || "").trim();
+  if (!to || !text) throw new ValidationError("to and body required");
+  const result = await sendCustomerSms(workspace, {
     to,
     body: text,
-    approved: Boolean(body.approved),
-    confirmationId: body.confirmationId ? String(body.confirmationId) : undefined,
+    confirmationId: parsed.confirmationId,
   });
-  return apiResponse(ok(result));
-}
+  return apiSuccess(result);
+});
