@@ -106,9 +106,33 @@ export function DocumentStudio() {
               <button className="btn btn-outline" type="button" onClick={() => onEdit("shorten")}>Shorten</button>
               <button className="btn btn-outline" type="button" onClick={() => onEdit("professional")}>Make professional</button>
               <button className="btn btn-dark" type="button" onClick={onSaveReady}>Save</button>
-              <button className="btn btn-outline" type="button" onClick={() => setNote("PDF export queued (demo).")}>Download PDF</button>
-              <button className="btn btn-outline" type="button" onClick={() => setNote("Word export queued (demo).")}>Download Word</button>
-              <button className="btn btn-outline" type="button" onClick={() => setNote("Share link copied (demo).")}>Share</button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                disabled
+                title="Export is disabled until Atlas can produce a real downloadable file."
+                onClick={() => setNote("PDF export is not available yet — no file was generated.")}
+              >
+                Download PDF
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                disabled
+                title="Export is disabled until Atlas can produce a real downloadable file."
+                onClick={() => setNote("Word export is not available yet — no file was generated.")}
+              >
+                Download Word
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                disabled
+                title="Share is disabled until Atlas can mint a real share link."
+                onClick={() => setNote("Share is not available yet — no link was created.")}
+              >
+                Share
+              </button>
             </div>
           </section>
           <section className="panel">

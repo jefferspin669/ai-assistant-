@@ -78,7 +78,7 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Atlas",
       needsConfirm: false,
       reply:
-        "Your business is running well. I handled 94 routine tasks overnight. Your top priority today is approving the estimate for Johnson Construction, worth $18,400.",
+        "I can list open approvals and tasks from this workspace when you ask. I have not run overnight work unless those jobs appear in Approvals or the audit log. Open Approvals for anything waiting on you.",
     };
   }
 
@@ -102,10 +102,10 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Atlas Actions",
       needsConfirm: true,
       reply:
-        "That’s an Atlas Action — not a how-to. I’ll create the invoice, email it, arm a 7-day unpaid reminder, and update your books.",
-      confirmPrompt: "Open Atlas Actions and run this end-to-end?",
+        "That’s an invoice outcome. I will not claim it was sent from this chat. Stage it under Invoices & payments so it goes through Approvals, then Stripe delivery, then a signed payment webhook.",
+      confirmPrompt: "Open Invoices & payments to stage this for approval?",
       doneLabel:
-        "Action queued in Atlas Actions. Create → email → remind in 7 days → update books. Same thread on every device.",
+        "Open /app/payments to stage the invoice. Approval, Stripe send, and payment verification are separate steps — nothing was emailed from this reply.",
     };
   }
 
@@ -298,7 +298,7 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Mileage Tracker",
       needsConfirm: false,
       reply:
-        "Marked yesterday’s trip to Chicago as business mileage (412.0 mi). It’s on your exportable mileage report and included in estimated deductions. Open Tax Center → Mileage to review.",
+        "I did not record mileage from this chat. Open Tax to enter a trip yourself, or ask again after a mileage API write succeeds and appears in the ledger.",
     };
   }
 
@@ -362,7 +362,7 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Autonomous Mode",
       needsConfirm: false,
       reply:
-        "Autonomous Mode is on. Overnight I recovered a missed call, booked the job, updated CRM, alerted Sam, queued reminders, and staged a review request. You only need to confirm Sam’s auto-assignment.",
+        "Autonomous Mode only runs what your policy and Approvals allow. I will not invent overnight recoveries here — check /app/autonomous, Approvals, and the audit log for work that actually ran.",
     };
   }
 

@@ -174,8 +174,8 @@ export function resolveConfirmation(
     status: approved ? "approved" : "cancelled",
     resolvedAt: nowIso(),
     resultNote: approved
-      ? `Approved — ${found.title} is complete.`
-      : `Cancelled — Atlas did not ${found.title.toLowerCase()}.`,
+      ? `Approved in this local queue only — ${found.title} was not executed. Use /app/approvals (server) for real actions.`
+      : `Cancelled — Atlas did not run ${found.title.toLowerCase()}.`,
   };
   saveConfirmations(items.map((c) => (c.id === id ? item : c)));
   return { ok: true, item };
