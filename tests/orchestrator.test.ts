@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../src/lib/db/store";
 import { database, testSession } from "../src/lib/services/access";
 import { patchPolicy } from "../src/lib/autonomy/policy";
@@ -14,8 +14,15 @@ import type { OrchestratorRun } from "../src/lib/orchestrator/types";
 
 describe("Atlas orchestrator", () => {
   beforeEach(() => {
+    // Quiet hours (after 21:00 local) force SMS approval and flake CI evening runs.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-15T15:00:00.000Z"));
     resetDatabase();
     resetOrchestratorForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function owner() {

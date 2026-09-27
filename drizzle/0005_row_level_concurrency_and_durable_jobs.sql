@@ -17,6 +17,7 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at text;
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS updated_at text;
 ALTER TABLE workspace_domains ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
 
 -- Durable background jobs -----------------------------------------------------
 
