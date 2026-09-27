@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDatabase } from "../src/lib/db/store";
 import { database, testSession } from "../src/lib/services/access";
-import { authenticate } from "../src/lib/auth/password";
+import { authenticate } from "../src/lib/auth/session";
 import {
   inviteWorker,
   teamOpsSnapshot,
