@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[6071],{56071:(s,e,t)=>{t.d(e,{PersistenceError:()=>a});class r extends Error{constructor(s,e,t){super(s),this.name=new.target.name,this.status=e,this.code=t}}class a extends r{constructor(s="Database write failed."){super(s,503,"PERSISTENCE")}}}}]);
