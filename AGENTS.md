@@ -9,6 +9,7 @@ Atlas has a large interactive product surface. Much of it is still a **sophistic
 - Keyword Brain fallback in `src/lib/commands.ts` when no LLM key is set
 - **Backend V1:** `DATABASE_URL` makes PostgreSQL (Drizzle) the source of truth — hydrate once, write-through, no per-request demo reseed
 - Without `DATABASE_URL`, `.data/*.json` remains the adapter so demos/tests still run
+- Empty workspaces do **not** auto-seed sample orgs/transactions; set `ATLAS_SEED_DEMO=1` for local demos (never in production). See `docs/LIVE_DATA_STATUS.md`.
 - `REDIS_URL` → BullMQ workers + session cache; Supabase Auth when URL + anon key are set
 - Many studios mock phone/calendar/invoices unless integration env vars are set
 
