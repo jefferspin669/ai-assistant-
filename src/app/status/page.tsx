@@ -9,6 +9,10 @@ const components = [
   { name: "Billing provider", status: "operational" as const, detail: "Local plan simulation" },
 ];
 
+const buildLabel =
+  process.env.NEXT_PUBLIC_ATLAS_BUILD?.trim() ||
+  (process.env.GITHUB_PAGES === "true" ? "pages-static" : "dev");
+
 export default function StatusPage() {
   return (
     <div className="auth-page">
@@ -34,6 +38,9 @@ export default function StatusPage() {
               </li>
             ))}
           </ul>
+          <p className="account-hint">
+            Deploy build: <code>{buildLabel}</code>
+          </p>
           <p className="account-hint">
             <Link href="/app/account">Back to Account Center</Link> ·{" "}
             <Link href="/">Home</Link>
