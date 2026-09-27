@@ -3,7 +3,7 @@ name: Deploy Next.js site to Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "cursor/user-accounts-profiles-407e"]
   workflow_dispatch:
 
 permissions:
