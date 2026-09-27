@@ -1,12 +1,15 @@
 import { moneyHub } from "@/lib/section-hubs";
 import { SectionHub } from "@/components/SectionHub";
+import { MoneyWorkspace } from "@/components/MoneyWorkspace";
 
 export default function MoneyPage() {
   return (
     <SectionHub
       title="Money"
-      subtitle="Banking, invoices, payments, tax, and accountant — one system. Figures from sample ledgers are labeled DEMO until a bank is connected."
+      subtitle="Connect your bank, record real income and expenses, and review taxes in one place."
       items={moneyHub}
-    />
+    >
+      <MoneyWorkspace view="money" />
+    </SectionHub>
   );
 }

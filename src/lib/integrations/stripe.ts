@@ -19,6 +19,49 @@ function getStripe() {
   return new Stripe(key);
 }
 
+/** Create and email a Stripe invoice. Payment is recorded only after a signed invoice.paid webhook. */
+export async function sendStripeInvoice(input: {
+  organizationId: string;
+  customerName: string;
+  customerEmail: string;
+  amountCents: number;
+  memo?: string;
+  idempotencyKey: string;
+}) {
+  const stripe = getStripe();
+  const customer = await stripe.customers.create(
+    {
+      name: input.customerName,
+      email: input.customerEmail,
+      metadata: { atlasOrganizationId: input.organizationId },
+    },
+    { idempotencyKey: `atlas-customer-${input.idempotencyKey}` },
+  );
+  const invoice = await stripe.invoices.create(
+    {
+      customer: customer.id,
+      collection_method: "send_invoice",
+      days_until_due: 30,
+      metadata: { organization_id: input.organizationId },
+    },
+    { idempotencyKey: `atlas-invoice-${input.idempotencyKey}` },
+  );
+  await stripe.invoiceItems.create(
+    {
+      customer: customer.id,
+      invoice: invoice.id,
+      amount: input.amountCents,
+      currency: "usd",
+      description: input.memo || "Services",
+    },
+    { idempotencyKey: `atlas-item-${input.idempotencyKey}` },
+  );
+  const sent = await stripe.invoices.sendInvoice(invoice.id, {}, {
+    idempotencyKey: `atlas-send-${input.idempotencyKey}`,
+  });
+  return { id: sent.id, hostedInvoiceUrl: sent.hosted_invoice_url };
+}
+
 export type AtlasPlan = "business_monthly";
 
 export function defaultPriceId(plan: AtlasPlan = "business_monthly") {
@@ -189,6 +232,55 @@ export async function handleStripeWebhook(rawBody: string, signature: string | n
         s.orgId === orgId ? { ...s, status: "canceled" as const, plan: "free" as const } : s,
       ),
     });
+  }
+
+  if (event.type === "invoice.paid") {
+    if (!secret || !signature) {
+      throw new Error("Invoice payments require a verified Stripe signature.");
+    }
+    const object = event.data.object;
+    const orgId = String(
+      (object.metadata as Record<string, unknown> | undefined)?.organization_id || "",
+    );
+    const invoiceId = String(object.id || "");
+    const amountCents = Number(object.amount_paid || 0);
+    const db = loadDatabase();
+    const document = db.documents.find(
+      (row) => row.orgId === orgId && row.title === `Invoice ${invoiceId}`,
+    );
+    let expectedAmount = 0;
+    try {
+      expectedAmount = Number(JSON.parse(document?.content || "{}").amountCents);
+    } catch {
+      /* not a verified invoice */
+    }
+    if (
+      document &&
+      Number.isSafeInteger(amountCents) &&
+      amountCents > 0 &&
+      amountCents === expectedAmount &&
+      !db.transactions.some((row) => row.orgId === orgId && row.id === `paid_${invoiceId}`)
+    ) {
+      saveDatabase({
+        ...db,
+        transactions: [
+          {
+            id: `paid_${invoiceId}`,
+            orgId,
+            userId: document.userId,
+            kind: "income",
+            label: `Paid invoice ${invoiceId}`,
+            amount: amountCents / 100,
+            category: "invoice_payment",
+            date: new Date().toISOString().slice(0, 10),
+            receiptName: null,
+            createdAt: new Date().toISOString(),
+            provenance: "LIVE",
+          },
+          ...db.transactions,
+        ],
+      });
+    }
   }
 
   return { received: true, type: event.type };

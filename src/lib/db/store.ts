@@ -492,6 +492,7 @@ export function seedDatabase(): AtlasDatabase {
       date: row.date,
       receiptName: row.receiptName,
       createdAt: row.createdAt,
+      provenance: "DEMO" as const,
     })),
     {
       id: newId("txn"),
@@ -504,6 +505,7 @@ export function seedDatabase(): AtlasDatabase {
       date: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
       receiptName: null,
       createdAt: stamp,
+      provenance: "DEMO" as const,
     },
   ];
 
