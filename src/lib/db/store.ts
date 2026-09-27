@@ -66,9 +66,13 @@ function getServerDb() {
     g.__atlasServerDb = seedDatabase();
     writeJsonFile(DB_FILE, g.__atlasServerDb);
     if (typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { resetSeedEmployees } = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
-      resetSeedEmployees(g.__atlasServerDb.organizations[0].id);
+      const hook = (
+        globalThis as typeof globalThis & {
+          __atlasResetSeedEmployees?: (organizationId: string) => void;
+        }
+      ).__atlasResetSeedEmployees;
+      const orgId = g.__atlasServerDb.organizations[0].id;
+      if (hook) hook(orgId);
     }
   }
   return g.__atlasServerDb;
