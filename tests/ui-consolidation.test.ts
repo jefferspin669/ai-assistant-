@@ -70,7 +70,6 @@ describe("product consolidation", () => {
       "/app/finance",
       "/app/payments",
       "/app/tax",
-      "/app/accountant",
     ]);
     expect(memoryHub.some((item) => item.href === "/app/memory")).toBe(true);
     expect(memoryHub.some((item) => item.href === "/app/ceo-memory")).toBe(false);

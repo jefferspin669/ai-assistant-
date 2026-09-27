@@ -119,7 +119,24 @@ export function toTransaction(row: DbTransaction): Transaction {
     category: row.category ?? undefined,
     date: row.date,
     createdAt: row.createdAt,
+    provenance: row.provenance ?? (isLegacySampleTransaction(row.label) ? "DEMO" : "LIVE"),
   };
+}
+
+const sampleLabels = new Set([
+  "Johnson Construction · invoice #1042",
+  "HomeBase pilot deposit",
+  "Parts · Apex Supply",
+  "Internet & phone",
+  "Truck fuel",
+  "CallbackFlow consulting hours",
+  "Software subscriptions",
+  "Home office supplies",
+  "Invoice · Johnson Construction (overdue)",
+]);
+
+function isLegacySampleTransaction(label: string) {
+  return sampleLabels.has(label);
 }
 
 export function toConversation(row: DbConversation): Conversation {

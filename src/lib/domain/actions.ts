@@ -17,7 +17,7 @@ import { enqueueAwaitedSideEffect, newId, nowIso, saveDatabase } from "@/lib/db/
 import { database, requireCustomer } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
 import { hasPermission, requirePermission } from "@/lib/auth/permissions";
-import { ACTION_SMS, smsPayloadSchema } from "@/lib/services/action-confirmations";
+import { ACTION_INVOICE, ACTION_SMS, smsPayloadSchema } from "@/lib/services/action-confirmations";
 import { sendSms } from "@/lib/integrations/twilio";
 
 export type AtlasActionResult =
@@ -221,6 +221,12 @@ export async function resolveApproval(
     entityId: row.id,
   });
   if (decision === "rejected") return { approval: { ...row, status: decision }, result: null };
+
+  // Invoice approval alone is not delivery — sender must consume confirmation via send-invoice.
+  if (row.action_type === ACTION_INVOICE) {
+    return { approval: { ...row, status: decision }, result: { awaitingSend: true } };
+  }
+
   emitEvent({
     type: "approval.granted",
     organizationId: ctx.organizationId,

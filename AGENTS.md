@@ -49,9 +49,11 @@ Seed accounts (after `resetDatabase`): owner `demo@atlas.ai` / `atlas-demo`; man
 | Supabase | `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | store dual-write |
 | Twilio | `TWILIO_ACCOUNT_SID` + token + number | `/api/webhooks/twilio/*` (signature + idempotency required) |
 | Google/Microsoft calendar | OAuth client ids/secrets | `/api/calendar/oauth/*` (session + consume-once state) |
-| SMS / invoice | Twilio (+ approval flag) | `/api/actions/*` |
-| Stripe | `STRIPE_SECRET_KEY` (+ price id) | `/api/billing/*` (live webhooks need `STRIPE_WEBHOOK_SECRET`) |
+| SMS / invoice | Twilio (+ approval flag); Stripe invoice + signed `invoice.paid` | `/api/actions/*`, `/api/invoices`, `/api/webhooks/stripe` |
+| Stripe | `STRIPE_SECRET_KEY` (+ publishable key + price id) | `/api/billing/*`, `/api/banking/connect` (Financial Connections) |
 | Verify / status | owner/admin session | `POST /api/integrations/verify`, `GET /api/integrations/status` |
+
+Money beachhead UI: `/app/money` (and Banking / Invoices / Tax) via `MoneyWorkspace`. Setup notes: `docs/MONEY_SERVER_SETUP.md`.
 
 Copy `.env.example` → `.env.local` and fill credentials to go live. Without them, actions run in simulation and write audit trails locally.
 

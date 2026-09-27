@@ -164,6 +164,8 @@ export type DbTransaction = {
   date: string;
   receiptName: string | null;
   createdAt: string;
+  /** DEMO seed rows vs LIVE recorded / Stripe-settled entries. */
+  provenance?: "DEMO" | "LIVE";
 };
 
 export type DbTaxRecord = {
