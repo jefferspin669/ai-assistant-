@@ -1,13 +1,15 @@
 import { AppShell } from "@/components/AppShell";
 import { ApprovalInboxStudio } from "@/components/ApprovalInboxStudio";
+import { ConfirmationStudio } from "@/components/ConfirmationStudio";
 
 export default function ApprovalsPage() {
   return (
     <AppShell
-      title="Approval Inbox"
-      subtitle="Everything waiting on you — prioritized by Atlas — with Approve, Reject, and Ask a Question in one place."
+      title="Approvals"
+      subtitle="Everything waiting on you — live exceptions, inbox requests, and risky actions Atlas will not run until you confirm."
     >
       <ApprovalInboxStudio />
+      <ConfirmationStudio embedded />
     </AppShell>
   );
 }

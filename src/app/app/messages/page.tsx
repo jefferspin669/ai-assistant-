@@ -4,8 +4,8 @@ import { MessagesStudio } from "@/components/MessagesStudio";
 export default function MessagesPage() {
   return (
     <AppShell
-      title="Messages & Announcements"
-      subtitle="Direct messages, team chats, project channels, and company announcements — delivered to each employee's portal."
+      title="Messages"
+      subtitle="Direct messages, team and project chats, announcements, and AI summaries — one system for workplace communication."
     >
       <MessagesStudio />
     </AppShell>

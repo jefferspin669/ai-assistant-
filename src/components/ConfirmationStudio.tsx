@@ -17,7 +17,7 @@ import {
 } from "@/lib/confirmations";
 import { setSyncStatus } from "@/lib/sync-status";
 
-export function ConfirmationStudio() {
+export function ConfirmationStudio({ embedded = false }: { embedded?: boolean }) {
   const [items, setItems] = useState<PendingConfirmation[]>([]);
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<PendingConfirmation | null>(null);
@@ -85,11 +85,10 @@ export function ConfirmationStudio() {
 
   const pending = items.filter((i) => i.status === "pending");
 
-  return (
-    <AppShell
-      title="Confirmation system"
-      subtitle="Atlas never runs risky actions immediately — review, confirm, cancel, or add your own checks."
-    >
+  const body = (
+    <>
+      <h2>Risky actions</h2>
+      <p className="panel-lead">Atlas never runs these immediately — confirm, cancel, or add your own checks.</p>
       <div className="stat-grid metrics-dense">
         <div className="stat">
           <span>Pending</span>
@@ -269,6 +268,17 @@ export function ConfirmationStudio() {
       </section>
 
       {message ? <p className="auth-success">{message}</p> : null}
+    </>
+  );
+
+  if (embedded) return <div className="training-studio">{body}</div>;
+
+  return (
+    <AppShell
+      title="Approvals"
+      subtitle="Atlas never runs risky actions immediately — review, confirm, cancel, or add your own checks."
+    >
+      {body}
     </AppShell>
   );
 }

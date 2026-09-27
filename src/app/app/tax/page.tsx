@@ -1,17 +1,15 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { TaxCenterStudio } from "@/components/TaxCenterStudio";
-import { TaxLedgerPanel } from "@/components/TaxLedgerPanel";
+import { TaxCenter } from "@/components/TaxCenter";
 
 export default function TaxCenterPage() {
   return (
     <AppShell
-      title="Atlas Tax Center"
-      subtitle="Track income and expenses, get a basic estimate, then use the full Tax Center for reviews and filing states."
+      title="Tax"
+      subtitle="One Tax Center — overview, ledger, estimates, documents, and settings. Figures from sample ledgers are labeled DEMO until a tax product is connected."
     >
-      <TaxLedgerPanel />
-      <TaxCenterStudio />
+      <TaxCenter />
     </AppShell>
   );
 }

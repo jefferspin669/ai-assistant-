@@ -2,13 +2,15 @@
 
 import { AppShell } from "@/components/AppShell";
 import { SetupWizard } from "@/components/SetupWizard";
+import { WorkspaceActivationWizard } from "@/components/WorkspaceActivationWizard";
 
 export default function SetupPage() {
   return (
     <AppShell
-      title="First-time setup"
-      subtitle="Personalize Atlas — then get a starter dashboard built for your goals."
+      title="Workspace setup"
+      subtitle="Preview Atlas, create your company, connect data, add team — then activate production mode."
     >
+      <WorkspaceActivationWizard />
       <SetupWizard />
     </AppShell>
   );

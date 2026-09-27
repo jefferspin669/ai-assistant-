@@ -140,7 +140,7 @@ export function AppStoreStudio() {
             />
           </label>
           <button className="btn btn-dark" type="submit">
-            Add to App Store
+            Publish module
           </button>
         </form>
       </section>
@@ -160,7 +160,7 @@ export function AppStoreStudio() {
 
       <div className="split">
         <section className="panel">
-          <h2>Atlas App Store</h2>
+          <h2>Workspace modules</h2>
           {!ready ? <p className="muted-line">Loading…</p> : null}
           {ready && filtered.length === 0 ? (
             <p className="muted-line">

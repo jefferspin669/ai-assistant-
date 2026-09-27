@@ -1,93 +1,95 @@
 "use client";
 
-import { useState } from "react";
-import { salesCoachCalls } from "@/lib/atlas-platform";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  assignCoachingGoal,
+  coachingInsightsForEmployee,
+  loadCoachingGoals,
+  teamCoachingSummary,
+  type CoachingGoal,
+} from "@/lib/sales-coach-workspace";
+import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 
 export function SalesCoachStudio() {
-  const [callId, setCallId] = useState(salesCoachCalls[0].id);
-  const call = salesCoachCalls.find((item) => item.id === callId) ?? salesCoachCalls[0];
+  const [employeeId, setEmployeeId] = useState("");
+  const [goals, setGoals] = useState<CoachingGoal[]>([]);
+  const [goalText, setGoalText] = useState("Improve follow-up speed");
+  const [target, setTarget] = useState("Under 8 hours");
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    seedDemoTeamIfEmpty();
+    const members = loadTeamMembers();
+    setEmployeeId(members[0]?.id ?? "");
+    setGoals(loadCoachingGoals());
+  }, []);
+
+  const insights = employeeId ? coachingInsightsForEmployee(employeeId) : [];
+  const team = teamCoachingSummary();
+  const member = loadTeamMembers().find((m) => m.id === employeeId);
+
+  function onAssign(e: FormEvent) {
+    e.preventDefault();
+    if (!member) return;
+    assignCoachingGoal(employeeId, member.name, goalText, target, "Manager");
+    setGoals(loadCoachingGoals());
+    setNote(`Coaching goal assigned to ${member.name}.`);
+  }
 
   return (
     <div className="training-studio">
-      <div className="hub-employee-row" role="group" aria-label="Choose sales call">
-        {salesCoachCalls.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={callId === item.id ? "hub-employee active" : "hub-employee"}
-            onClick={() => setCallId(item.id)}
-          >
-            <strong>{item.title}</strong>
-            <span>{item.duration}</span>
-          </button>
-        ))}
-      </div>
+      {note ? (
+        <div className="memory-card">
+          <div className="label">Atlas</div>
+          <p>{note}</p>
+        </div>
+      ) : null}
 
-      <div className="stat-grid metrics-dense">
-        <div className="stat">
-          <span>Talk / listen</span>
-          <strong>{call.talkListen}</strong>
-          <small>Target near 45/55</small>
+      <section className="panel">
+        <h2>Team signals</h2>
+        <div className="list">
+          {team.map((ins) => (
+            <div key={ins.id} className="list-row">
+              <span className="badge warn">{ins.employeeName}</span>
+              <p><strong>{ins.message}</strong><span className="muted-line">{ins.detail}</span></p>
+            </div>
+          ))}
         </div>
-        <div className="stat">
-          <span>Closing probability</span>
-          <strong>{call.closingProbability}</strong>
-          <small>Model score</small>
-        </div>
-        <div className="stat">
-          <span>Objections</span>
-          <strong>{call.objections.length}</strong>
-          <small>Detected</small>
-        </div>
-        <div className="stat">
-          <span>Missed plays</span>
-          <strong>{call.missed.length}</strong>
-          <small>To coach</small>
-        </div>
-      </div>
+      </section>
 
       <div className="split">
         <section className="panel">
-          <h2>Call analysis</h2>
-          <h3>Objection handling</h3>
-          <div className="list">
-            {call.objections.map((item) => (
-              <div className="list-row" key={item}>
-                <span className="badge warn">Objection</span>
-                <p>{item}</p>
-              </div>
-            ))}
-          </div>
-          <h3 style={{ marginTop: "1rem" }}>Missed opportunities</h3>
-          <div className="list">
-            {call.missed.map((item) => (
-              <div className="list-row" key={item}>
-                <span className="badge">Missed</span>
-                <p>{item}</p>
+          <h2>Employee coaching</h2>
+          <label>
+            Employee
+            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+              {loadTeamMembers().map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+          <div className="list" style={{ marginTop: "1rem" }}>
+            {insights.map((ins) => (
+              <div key={ins.id} className="list-row">
+                <span className={ins.severity === "warn" ? "badge warn" : "badge ok"}>{ins.kind}</span>
+                <p><strong>{ins.message}</strong><span className="muted-line">{ins.detail}</span></p>
               </div>
             ))}
           </div>
         </section>
 
         <section className="panel">
-          <h2>Coaching suggestions</h2>
-          <div className="list">
-            {call.suggestions.map((item) => (
-              <div className="list-row" key={item}>
-                <span className="badge ok">Coach</span>
-                <p>{item}</p>
-              </div>
-            ))}
-          </div>
-          <h3 style={{ marginTop: "1rem" }}>Snippet</h3>
-          <div className="chat-mock">
-            {call.transcript.map((line, index) => (
-              <div
-                key={`${line.speaker}-${index}`}
-                className={`bubble ${line.speaker === "Rep" ? "bubble-user" : "bubble-ai"}`}
-              >
-                <div className="agent-tag">{line.speaker}</div>
-                {line.text}
+          <h2>Manager goals</h2>
+          <form className="form-grid" onSubmit={onAssign}>
+            <label>Goal<input value={goalText} onChange={(e) => setGoalText(e.target.value)} /></label>
+            <label>Target<input value={target} onChange={(e) => setTarget(e.target.value)} /></label>
+            <button className="btn btn-dark" type="submit">Assign goal</button>
+          </form>
+          <div className="list" style={{ marginTop: "1rem" }}>
+            {goals.map((g) => (
+              <div key={g.id} className="list-row">
+                <span className="badge">{g.employeeName}</span>
+                <p>{g.goal} — target {g.target} ({g.progress})</p>
               </div>
             ))}
           </div>

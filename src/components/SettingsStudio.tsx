@@ -3,9 +3,12 @@
 import Link from "@/components/SiteLink";
 import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
 import { useAccount } from "@/components/AccountProvider";
 import { useLanguage } from "@/components/LanguageProvider";
 import { atlasApi } from "@/lib/api/atlas-api";
+import { hydrateOrgSettings, saveOrgSettings } from "@/lib/org-settings";
+import { settingsHub } from "@/lib/section-hubs";
 import type {
   DbOrganization,
   DbOrganizationMember,
@@ -56,28 +59,60 @@ export function SettingsStudio() {
   const [flash, setFlash] = useState("");
 
   function loadRows() {
-    const listed = atlasApi.users.list();
-    if (listed.ok && listed.data[0]) {
-      const row = listed.data[0];
-      setUser(row);
-      setFullName(row.full_name);
-      setEmail(row.email);
-      setTimezone(row.timezone);
-      setLanguage(row.preferred_language);
-      setProfileImage(row.profile_image);
-    }
-    const orgs = atlasApi.businesses.list();
-    if (orgs.ok && orgs.data[0]) {
-      const row = orgs.data[0];
-      setOrg(row);
-      setBusinessNameField(row.business_name);
-      setBusinessType(row.business_type);
-      setTaxStructure(row.tax_structure);
-      setOrgState(row.state);
-      setLogoUrl(row.logo_url);
-      const memberRows = atlasApi.organizationMembers.list(row.id);
-      if (memberRows.ok) setMembers(memberRows.data);
-    }
+    void (async () => {
+      try {
+        const profileRes = await fetch("/api/user/profile", { credentials: "include", cache: "no-store" });
+        const profileJson = (await profileRes.json()) as { ok?: boolean; data?: DbUser };
+        if (profileRes.ok && profileJson.data) {
+          const row = profileJson.data;
+          setUser(row);
+          setFullName(row.full_name);
+          setEmail(row.email);
+          setTimezone(row.timezone);
+          setLanguage(row.preferred_language);
+          setProfileImage(row.profile_image);
+        }
+      } catch {
+        /* fall through to local atlasApi */
+        const listed = atlasApi.users.list();
+        if (listed.ok && listed.data[0]) {
+          const row = listed.data[0];
+          setUser(row);
+          setFullName(row.full_name);
+          setEmail(row.email);
+          setTimezone(row.timezone);
+          setLanguage(row.preferred_language);
+          setProfileImage(row.profile_image);
+        }
+      }
+
+      const settings = await hydrateOrgSettings();
+      setBusinessNameField(settings.businessName);
+      setBusinessType(settings.businessType);
+      setTaxStructure(settings.taxStructure);
+      setOrgState(settings.state);
+      setLogoUrl(settings.logoUrl);
+      setTimezone((prev) => settings.timezone || prev);
+      setLanguage((prev) => settings.preferredLanguage || prev);
+      setOrg({
+        id: "session-org",
+        owner_id: "",
+        business_name: settings.businessName,
+        logo_url: settings.logoUrl,
+        business_type: settings.businessType,
+        tax_structure: settings.taxStructure,
+        state: settings.state,
+        created_at: settings.updatedAt,
+      });
+
+      const orgs = atlasApi.businesses.list();
+      if (orgs.ok && orgs.data[0]) {
+        const row = orgs.data[0];
+        setOrg(row);
+        const memberRows = atlasApi.organizationMembers.list(row.id);
+        if (memberRows.ok) setMembers(memberRows.data);
+      }
+    })();
   }
 
   function userLabel(userId: string) {
@@ -95,10 +130,35 @@ export function SettingsStudio() {
     if (n.ok) setNotes(n.data.filter((item) => !item.read).length);
   }, []);
 
-  function onSaveProfile(e: FormEvent) {
+  async function onSaveProfile(e: FormEvent) {
     e.preventDefault();
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName,
+          email,
+          timezone,
+          preferred_language: language,
+          profile_image: profileImage,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string; data?: DbUser };
+      if (!res.ok || json.ok === false || !json.data) {
+        setFlash(json.error || "Could not update profile.");
+        return;
+      }
+      setUser(json.data);
+      setUiLanguage(language);
+      setFlash("Profile saved to server session.");
+      return;
+    } catch {
+      /* fall through */
+    }
     if (!user) {
-      setFlash("No users row yet — open Architecture and re-seed the database.");
+      setFlash("No users row yet — open Admin and re-seed the database.");
       return;
     }
     const result = atlasApi.users.update(user.id, {
@@ -120,8 +180,25 @@ export function SettingsStudio() {
   return (
     <AppShell
       title="Settings"
-      subtitle="users + organizations rows — profile, business_name, tax_structure, state, and more."
+      subtitle="Workspace settings sync to the tenant server (/api/settings). Profile uses session auth."
     >
+      <div className="tax-safety-banner" style={{ marginBottom: "1rem" }}>
+        <div className="tax-safety-banner-head">
+          <strong>LIVE settings path</strong>
+          <span>
+            Organization settings write through `/api/settings` into the session org (and Postgres when
+            `DATABASE_URL` is set). localStorage is only a cache.
+          </span>
+        </div>
+      </div>
+      <div className="hub-grid" style={{ marginBottom: "1.25rem" }}>
+        {settingsHub.map((item) => (
+          <Link className="hub-card" href={item.href} key={item.href}>
+            <h3>{item.label}</h3>
+            <p>{item.blurb}</p>
+          </Link>
+        ))}
+      </div>
       {flash ? (
         <p className={flash.toLowerCase().includes("no users") || flash.toLowerCase().includes("not found") ? "auth-error" : "auth-success"}>
           {flash}
@@ -235,27 +312,39 @@ export function SettingsStudio() {
             {org ? ` · ${org.id}` : ""}.
             {org ? ` owner_id ${org.owner_id}` : ""}
           </p>
+          <OrganizationSwitcher />
           <form
             className="form-grid"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!org) {
-                setFlash("No organizations row yet — open Architecture and re-seed the database.");
-                return;
-              }
-              const result = atlasApi.businesses.update(org.id, {
-                business_name: businessNameField,
-                business_type: businessType,
-                tax_structure: taxStructure,
-                state: orgState,
-                logo_url: logoUrl,
-              });
-              if (!result.ok) {
-                setFlash(result.error);
-                return;
-              }
-              setOrg(result.data);
-              setFlash("organizations row updated.");
+              void (async () => {
+                const result = await saveOrgSettings({
+                  businessName: businessNameField,
+                  businessType,
+                  taxStructure,
+                  state: orgState,
+                  logoUrl,
+                  timezone,
+                  preferredLanguage: language,
+                });
+                if (!result.ok) {
+                  setFlash(result.error);
+                  return;
+                }
+                setOrg((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        business_name: result.data.businessName,
+                        business_type: result.data.businessType,
+                        tax_structure: result.data.taxStructure,
+                        state: result.data.state,
+                        logo_url: result.data.logoUrl,
+                      }
+                    : prev,
+                );
+                setFlash("Organization settings saved to tenant server.");
+              })();
             }}
           >
             <label>
@@ -406,18 +495,36 @@ export function SettingsStudio() {
               setFlash("No organization to invite into.");
               return;
             }
-            const result = atlasApi.organizationMembers.invite({
-              organization_id: org.id,
-              email: inviteEmail,
-              role: inviteRole,
-            });
-            if (!result.ok) {
-              setFlash(result.error);
-              return;
-            }
-            setInviteEmail("");
-            setMembers((prev) => [result.data, ...prev]);
-            setFlash("Member invited.");
+            void (async () => {
+              try {
+                const res = await fetch("/api/invitations", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    email: inviteEmail,
+                    role: inviteRole === "owner" ? "employee" : inviteRole,
+                  }),
+                });
+                const json = (await res.json()) as {
+                  ok?: boolean;
+                  error?: string;
+                  data?: { acceptUrl?: string; invite?: { email: string; role: string } };
+                };
+                if (!res.ok || json.ok === false) {
+                  setFlash(json.error || "Invite failed.");
+                  return;
+                }
+                setInviteEmail("");
+                setFlash(
+                  json.data?.acceptUrl
+                    ? `Invite emailed (dev link: ${json.data.acceptUrl}).`
+                    : `Invite sent to ${inviteEmail}.`,
+                );
+              } catch {
+                setFlash("Could not reach invite API.");
+              }
+            })();
           }}
         >
           <label>
@@ -456,6 +563,7 @@ export function SettingsStudio() {
               ? `${ownerName} · ${businessName}`
               : "Guest mode — register to sync Account Center with Authentication."}
           </p>
+          <OrganizationSwitcher />
           <div className="cta-row">
             <Link className="btn btn-dark" href="/app/account">
               Open Account Center
@@ -514,10 +622,10 @@ export function SettingsStudio() {
         </section>
 
         <section className="panel">
-          <h2>Architecture</h2>
-          <p className="panel-lead">Inspect Frontend · Backend API · Database wiring.</p>
-          <Link className="btn btn-dark" href="/app/architecture">
-            Open architecture map
+          <h2>Workspace setup</h2>
+          <p className="panel-lead">Industry, integrations, and how Atlas should greet you.</p>
+          <Link className="btn btn-dark" href="/app/setup">
+            Open setup
           </Link>
         </section>
       </div>

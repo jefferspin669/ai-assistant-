@@ -1,13 +1,5 @@
-import { AppShell } from "@/components/AppShell";
-import { TaskAssignmentStudio } from "@/components/TaskAssignmentStudio";
+import { redirect } from "next/navigation";
 
-export default function AssignTasksPage() {
-  return (
-    <AppShell
-      title="Assign Tasks"
-      subtitle="Create detailed tasks for any employee — they appear instantly on that person's own page."
-    >
-      <TaskAssignmentStudio />
-    </AppShell>
-  );
+export default function AssignTasksRedirectPage() {
+  redirect("/app/workforce?tab=tasks");
 }

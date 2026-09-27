@@ -1,13 +1,5 @@
-import { AppShell } from "@/components/AppShell";
-import { CommunicationsStudio } from "@/components/CommunicationsStudio";
+import { redirect } from "next/navigation";
 
 export default function CommunicationsPage() {
-  return (
-    <AppShell
-      title="Atlas Communications"
-      subtitle="Message anyone from one employee to the whole company — with audience targeting, priority, scheduling, read/acknowledge tracking, AI drafting, and anonymous feedback."
-    >
-      <CommunicationsStudio />
-    </AppShell>
-  );
+  redirect("/app/messages");
 }

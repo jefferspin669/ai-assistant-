@@ -1,140 +1,107 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "@/components/SiteLink";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  getPresence,
-  loadTeamMembers,
-  seedDemoTeamIfEmpty,
-  workforceAssistantReply,
-  workforceByLocation,
-  type EmployeePresence,
-  type TeamPerson,
-  type WorkforceAnswer,
-} from "@/lib/user-workspace";
-
-type ChatMsg = { role: "user" | "ai"; text: string; items?: string[] };
-
-const PROMPTS = [
-  "Who's working right now?",
-  "Who has too much work?",
-  "Which tasks are late?",
-  "Who can take another customer?",
-  "Which employees need training?",
-  "Who is available Saturday?",
-];
+  addWorkLocation,
+  employeeLocationViews,
+  loadWorkLocations,
+  type WorkLocation,
+} from "@/lib/workforce-locations";
+import { loadTeamMembers, seedDemoTeamIfEmpty } from "@/lib/user-workspace";
 
 export function WorkforceMapStudio() {
-  const [members, setMembers] = useState<TeamPerson[]>([]);
-  const [presence, setPresence] = useState<Record<string, EmployeePresence>>({});
-  const [now, setNow] = useState(() => Date.now());
-  const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "ai", text: "Ask me anything about your workforce — I use the live employee and task system." },
-  ]);
-  const [ask, setAsk] = useState("");
+  const [locations, setLocations] = useState<WorkLocation[]>([]);
+  const [views, setViews] = useState(employeeLocationViews());
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<WorkLocation["kind"]>("office");
+  const [address, setAddress] = useState("");
 
   const refresh = useCallback(() => {
-    const people = loadTeamMembers();
-    const map: Record<string, EmployeePresence> = {};
-    for (const m of people) map[m.id] = getPresence(m.id);
-    setMembers(people);
-    setPresence(map);
-    setNow(Date.now());
+    seedDemoTeamIfEmpty();
+    setLocations(loadWorkLocations());
+    setViews(employeeLocationViews());
   }, []);
 
   useEffect(() => {
-    seedDemoTeamIfEmpty();
     refresh();
-    const interval = window.setInterval(refresh, 5000);
-    return () => window.clearInterval(interval);
   }, [refresh]);
 
-  const locations = useMemo(() => workforceByLocation(members, presence, now), [members, presence, now]);
-  const totals = useMemo(
-    () =>
-      locations.reduce(
-        (acc, l) => ({ working: acc.working + l.working, onBreak: acc.onBreak + l.onBreak, offline: acc.offline + l.offline }),
-        { working: 0, onBreak: 0, offline: 0 },
-      ),
-    [locations],
-  );
-
-  function run(q: string) {
-    const reply: WorkforceAnswer = workforceAssistantReply(q, Date.now());
-    setChat((prev) => [...prev, { role: "user", text: q }, { role: "ai", text: reply.text, items: reply.items }]);
-  }
-  function onAsk(e: FormEvent) {
+  function onAddLocation(e: FormEvent) {
     e.preventDefault();
-    if (!ask.trim()) return;
-    run(ask.trim());
-    setAsk("");
+    if (!name.trim()) return;
+    addWorkLocation(name, kind, address);
+    setName("");
+    setAddress("");
+    refresh();
   }
 
   return (
     <div className="training-studio">
-      <div className="stat-grid metrics-dense">
-        <div className="stat">
-          <span>🟢 Working</span>
-          <strong>{totals.working}</strong>
-          <small>Company-wide</small>
-        </div>
-        <div className="stat">
-          <span>🟡 On break</span>
-          <strong>{totals.onBreak}</strong>
-          <small>Company-wide</small>
-        </div>
-        <div className="stat">
-          <span>🔴 Offline</span>
-          <strong>{totals.offline}</strong>
-          <small>Company-wide</small>
-        </div>
-        <div className="stat">
-          <span>Locations</span>
-          <strong>{locations.length}</strong>
-          <small>Sites</small>
-        </div>
-      </div>
-
-      <section className="panel">
-        <h2>By location</h2>
-        <div className="pack-grid dense" style={{ marginTop: "1rem" }}>
-          {locations.map((l) => (
-            <div className="domain-card" key={l.location}>
-              <strong>{l.location}</strong>
-              <span>🟢 {l.working} working</span>
-              <span>🟡 {l.onBreak} break</span>
-              <span>🔴 {l.offline} offline</span>
-            </div>
-          ))}
+      <section className="panel employee-hero-card">
+        <div>
+          <p className="briefing-kicker">Workforce map</p>
+          <h2>Real locations and assignments — not fake pre-populated staff.</h2>
+          <p style={{ color: "rgba(244,248,247,0.8)" }}>
+            Offices, stores, warehouses, and job sites from your data. Status shows assigned location and today&apos;s work —
+            not constant GPS unless you enable field tracking with disclosure.
+          </p>
         </div>
       </section>
 
-      <section className="panel command-panel">
-        <h2>Ask Atlas about your workforce</h2>
-        <div className="cta-row" style={{ marginBottom: "0.6rem" }}>
-          {PROMPTS.map((p) => (
-            <button key={p} type="button" className="btn btn-outline" onClick={() => run(p)}>
-              {p}
-            </button>
-          ))}
-        </div>
-        <div className="command-thread">
-          {chat.map((m, i) => (
-            <div key={i} className={`bubble ${m.role === "ai" ? "bubble-ai" : "bubble-user"}`}>
-              {m.text}
-              {m.items && m.items.length ? (
-                <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.1rem" }}>
-                  {m.items.map((it) => (
-                    <li key={it}>{it}</li>
-                  ))}
-                </ul>
-              ) : null}
+      <section className="panel">
+        <h2>Add location</h2>
+        <form className="form-grid" onSubmit={onAddLocation}>
+          <label>Name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Chicago Office" /></label>
+          <label>
+            Type
+            <select value={kind} onChange={(e) => setKind(e.target.value as WorkLocation["kind"])}>
+              <option value="office">Office</option>
+              <option value="store">Store</option>
+              <option value="warehouse">Warehouse</option>
+              <option value="jobsite">Job site</option>
+              <option value="territory">Territory</option>
+            </select>
+          </label>
+          <label>Address<input value={address} onChange={(e) => setAddress(e.target.value)} /></label>
+          <button className="btn btn-dark" type="submit">+ Add location</button>
+        </form>
+      </section>
+
+      {locations.length ? (
+        <section className="panel">
+          <h2>Sites</h2>
+          <div className="pack-grid dense">
+            {locations.map((l) => (
+              <div className="domain-card" key={l.id}>
+                <strong>{l.name}</strong>
+                <span className="badge ok">{l.kind}</span>
+                {l.address ? <small className="muted-line">{l.address}</small> : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <p className="muted-line">Add offices, stores, or job sites — employees appear when assigned from Workforce.</p>
+      )}
+
+      <section className="panel">
+        <h2>Employees</h2>
+        <div className="list">
+          {views.map((v) => (
+            <div className="compliance-row" key={v.member.id}>
+              <div>
+                <p><strong>{v.member.name}</strong></p>
+                <p className="muted-line">Assigned: {v.assignedLocation}</p>
+                <p className="muted-line">Today: {v.todayJobSite}</p>
+                <p>Status: {v.statusLabel}</p>
+              </div>
+              <Link className="btn btn-outline" href={`/app/messages?to=${encodeURIComponent(v.member.id)}`}>
+                Message
+              </Link>
             </div>
           ))}
         </div>
-        <form className="command-form" onSubmit={onAsk}>
-          <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="e.g. Who has too much work?" />
-          <button className="btn btn-dark" type="submit">Ask</button>
-        </form>
       </section>
     </div>
   );

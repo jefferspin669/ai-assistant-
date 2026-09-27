@@ -1,7 +1,5 @@
-"use client";
-
-import { SmartCalendarStudio } from "@/components/SmartCalendarStudio";
+import { AtlasCalendarStudio } from "@/components/AtlasCalendarStudio";
 
 export default function AppointmentsPage() {
-  return <SmartCalendarStudio />;
+  return <AtlasCalendarStudio />;
 }

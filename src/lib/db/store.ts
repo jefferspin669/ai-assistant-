@@ -1,3 +1,10 @@
+import {
+  assertProductionPersistence,
+  fileFallbackAllowed,
+  jsonMirrorEnabled,
+  postgresLive,
+} from "@/lib/db/driver";
+import { hashPassword } from "@/lib/secure-store";
 import { computeTaxEstimate, loadTaxTransactions } from "@/lib/tax-ledger";
 import { loadTasks } from "@/lib/tasks";
 import { loadCalendarState } from "@/lib/smart-calendar";
@@ -8,10 +15,12 @@ import type {
   DbDocument,
   DbCalendarCategory,
   DbCalendarEvent,
+  DbCustomer,
   DbMemory,
   DbNotification,
   DbOrganization,
   DbOrganizationMember,
+  DbProject,
   DbSubscription,
   DbTask,
   DbTaxRecord,
@@ -30,20 +39,47 @@ const LEGACY_DB_KEYS = [
 ];
 
 /** Process-local DB for Next.js API routes (shared across route modules). */
-type AtlasGlobal = typeof globalThis & { __atlasServerDb?: AtlasDatabase };
+type AtlasGlobal = typeof globalThis & {
+  __atlasServerDb?: AtlasDatabase;
+  __atlasPersistChain?: Promise<void>;
+  __atlasQueueChain?: Promise<void>;
+};
 
 function getServerDb() {
+  assertProductionPersistence();
   const g = globalThis as AtlasGlobal;
-  if (!g.__atlasServerDb) {
-    const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
-    if (fromDisk) {
-      g.__atlasServerDb = fromDisk;
-    } else {
-      g.__atlasServerDb = seedDatabase();
-      writeJsonFile(DB_FILE, g.__atlasServerDb);
+  if (g.__atlasServerDb) {
+    return g.__atlasServerDb;
+  }
+  if (postgresLive()) {
+    // Real adapter: wait for ensureServerDatabase() to hydrate. Do not seed JSON.
+    g.__atlasServerDb = emptyDb();
+    return g.__atlasServerDb;
+  }
+  if (!fileFallbackAllowed()) {
+    throw new Error("File JSON fallback is disabled in production.");
+  }
+  const fromDisk = readJsonFile<AtlasDatabase>(DB_FILE);
+  if (fromDisk) {
+    g.__atlasServerDb = hydrateDatabase(fromDisk);
+  } else {
+    g.__atlasServerDb = seedDatabase();
+    writeJsonFile(DB_FILE, g.__atlasServerDb);
+    if (typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
+      const hook = (
+        globalThis as typeof globalThis & {
+          __atlasResetSeedEmployees?: (organizationId: string) => void;
+        }
+      ).__atlasResetSeedEmployees;
+      const orgId = g.__atlasServerDb.organizations[0].id;
+      if (hook) hook(orgId);
     }
   }
   return g.__atlasServerDb;
+}
+
+export function applyServerDatabase(db: AtlasDatabase) {
+  setServerDb(hydrateDatabase(db));
 }
 
 function setServerDb(db: AtlasDatabase) {
@@ -81,14 +117,130 @@ function emptyDb(): AtlasDatabase {
     organization_members: [],
     calendar_categories: [],
     calendar_events: [],
+    projects: [],
     tasks: [],
+    customers: [],
     transactions: [],
     taxRecords: [],
     conversations: [],
     memories: [],
+    memory_outcomes: [],
     documents: [],
     subscriptions: [],
     notifications: [],
+    agents: [],
+    automations: [],
+    sessions: [],
+    audit_logs: [],
+    approvals: [],
+    jobs: [],
+    integrations: [],
+    login_attempts: [],
+    password_resets: [],
+    mfa_challenges: [],
+    quotes: [],
+    webhook_receipts: [],
+    email_verifications: [],
+    autonomy_policies: [],
+    organization_invites: [],
+  };
+}
+
+function hydrateDatabase(raw: Partial<AtlasDatabase>): AtlasDatabase {
+  const base = emptyDb();
+  return {
+    ...base,
+    ...raw,
+    users: (raw.users || []).map((user) => normalizeUser(user)),
+    user_credentials: (raw.user_credentials || []).map((row) => ({
+      user_id: row.user_id,
+      password_hash: row.password_hash,
+      mfa_secret: row.mfa_secret ?? null,
+      mfa_enabled: Boolean(row.mfa_enabled),
+    })),
+    sessions: raw.sessions || [],
+    audit_logs: raw.audit_logs || [],
+    approvals: raw.approvals || [],
+    jobs: raw.jobs || [],
+    integrations: raw.integrations || [],
+    login_attempts: raw.login_attempts || [],
+    password_resets: raw.password_resets || [],
+    mfa_challenges: raw.mfa_challenges || [],
+    quotes: raw.quotes || [],
+    webhook_receipts: raw.webhook_receipts || [],
+    email_verifications: raw.email_verifications || [],
+    autonomy_policies: raw.autonomy_policies || [],
+    organization_invites: raw.organization_invites || [],
+    notifications: raw.notifications || [],
+    agents: raw.agents || [],
+    automations: raw.automations || [],
+    customers: raw.customers || [],
+    projects: (raw.projects || []).map((project) => normalizeProject(project)),
+    tasks: (raw.tasks || []).map((task) => normalizeTask(task)),
+    transactions: raw.transactions || [],
+    memories: (raw.memories || []).map((row) => normalizeMemory(row)),
+    memory_outcomes: raw.memory_outcomes || [],
+  };
+}
+
+function normalizeMemory(raw: Partial<DbMemory> & { organization_id?: string }): DbMemory {
+  const stamp = nowIso();
+  const kind = raw.kind || "long-term";
+  const memoryType =
+    raw.memoryType ||
+    (kind === "person" ? "employee" : kind === "project" ? "project" : kind === "preference" ? "leadership" : "operational");
+  return {
+    id: raw.id || newId("mem"),
+    organizationId: raw.organizationId || raw.organization_id || "",
+    userId: raw.userId || "",
+    kind,
+    memoryType,
+    title: raw.title || "Memory",
+    content: raw.content || "",
+    source: raw.source || "system",
+    authorLabel: raw.authorLabel || "Atlas",
+    confidence: typeof raw.confidence === "number" ? raw.confidence : 80,
+    accessLevel: raw.accessLevel || "all_staff",
+    entityType: raw.entityType ?? null,
+    entityId: raw.entityId ?? null,
+    approved: raw.approved ?? true,
+    createdAt: raw.createdAt || stamp,
+    updatedAt: raw.updatedAt || stamp,
+  };
+}
+
+function normalizeProject(raw: Partial<DbProject>): DbProject {
+  const stamp = nowIso();
+  return {
+    id: raw.id || newId("proj"),
+    orgId: raw.orgId || "",
+    name: raw.name || "Untitled project",
+    description: raw.description || "",
+    status: raw.status || "active",
+    createdBy: raw.createdBy || "",
+    createdAt: raw.createdAt || stamp,
+    updatedAt: raw.updatedAt || stamp,
+  };
+}
+
+function normalizeTask(raw: Partial<DbTask>): DbTask {
+  const stamp = nowIso();
+  return {
+    id: raw.id || newId("task"),
+    orgId: raw.orgId || "",
+    userId: raw.userId || "",
+    projectId: raw.projectId ?? null,
+    assigneeId: raw.assigneeId ?? null,
+    title: raw.title || "Untitled task",
+    status: raw.status || "todo",
+    priority: raw.priority || "normal",
+    dueDate: raw.dueDate ?? null,
+    category: raw.category || "General",
+    notes: raw.notes || "",
+    customerId: raw.customerId ?? null,
+    notifyOnComplete: Boolean(raw.notifyOnComplete),
+    createdAt: raw.createdAt || stamp,
+    updatedAt: raw.updatedAt || stamp,
   };
 }
 
@@ -101,6 +253,7 @@ function normalizeUser(raw: Partial<DbUser> & { name?: string; createdAt?: strin
     profile_image: raw.profile_image ?? null,
     timezone: raw.timezone || "America/Chicago",
     preferred_language: raw.preferred_language || "en",
+    email_verified_at: raw.email_verified_at ?? null,
     created_at: raw.created_at || raw.createdAt || stamp,
     updated_at: raw.updated_at || raw.updatedAt || stamp,
   };
@@ -165,6 +318,8 @@ function normalizeCalendarEvent(
 /** Seed a demo workspace so the architecture map and APIs have data. */
 export function seedDatabase(): AtlasDatabase {
   const userId = newId("user");
+  const memberUserId = newId("user");
+  const invitedUserId = newId("user");
   const orgId = newId("org");
   const stamp = nowIso();
 
@@ -175,13 +330,51 @@ export function seedDatabase(): AtlasDatabase {
     profile_image: null,
     timezone: "America/Chicago",
     preferred_language: "en",
+    email_verified_at: stamp,
+    created_at: stamp,
+    updated_at: stamp,
+  };
+
+  const teammate: DbUser = {
+    id: memberUserId,
+    email: "alex@atlas.ai",
+    full_name: "Alex Rivera",
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    email_verified_at: stamp,
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  const invited: DbUser = {
+    id: invitedUserId,
+    email: "sam@atlas.ai",
+    full_name: "Sam Patel",
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    email_verified_at: stamp,
     created_at: stamp,
     updated_at: stamp,
   };
 
   const credential: DbUserCredential = {
     user_id: userId,
-    password_hash: "v1$seed$demo", // demo placeholder — signup/login write real hashes
+    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const managerCredential: DbUserCredential = {
+    user_id: memberUserId,
+    password_hash: hashPassword("atlas-manager", "seedatlasmgr12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  const workerCredential: DbUserCredential = {
+    user_id: invitedUserId,
+    password_hash: hashPassword("atlas-worker", "seedatlaswrk12"),
+    mfa_secret: null,
+    mfa_enabled: false,
   };
 
   const org: DbOrganization = {
@@ -193,29 +386,6 @@ export function seedDatabase(): AtlasDatabase {
     tax_structure: "LLC",
     state: "TX",
     created_at: stamp,
-  };
-
-  const memberUserId = newId("user");
-  const invitedUserId = newId("user");
-  const teammate: DbUser = {
-    id: memberUserId,
-    email: "alex@atlas.ai",
-    full_name: "Alex Rivera",
-    profile_image: null,
-    timezone: "America/Chicago",
-    preferred_language: "en",
-    created_at: stamp,
-    updated_at: stamp,
-  };
-  const invited: DbUser = {
-    id: invitedUserId,
-    email: "sam@atlas.ai",
-    full_name: "Sam Patel",
-    profile_image: null,
-    timezone: "America/Chicago",
-    preferred_language: "en",
-    created_at: stamp,
-    updated_at: stamp,
   };
 
   const organization_members: DbOrganizationMember[] = [
@@ -240,7 +410,7 @@ export function seedDatabase(): AtlasDatabase {
       organization_id: orgId,
       user_id: invitedUserId,
       role: "employee",
-      status: "invited",
+      status: "active",
       joined_at: stamp,
     },
   ];
@@ -266,7 +436,7 @@ export function seedDatabase(): AtlasDatabase {
     icon: CATEGORY_ICONS[category.id] || "tag",
   }));
 
-  const calendar_events: DbCalendarEvent[] = (calendar?.events || []).slice(0, 12).map((event) => {
+  let calendar_events: DbCalendarEvent[] = (calendar?.events || []).slice(0, 12).map((event) => {
     const startMs = new Date(event.start).getTime();
     const reminder = new Date(startMs - 30 * 60000).toISOString();
     return {
@@ -287,33 +457,55 @@ export function seedDatabase(): AtlasDatabase {
       created_at: stamp,
     };
   });
+  // New workspaces start with an empty org calendar — no seeded consults or trips.
+  // Smart Calendar (browser v4) and org events both stay empty until the owner adds real ones.
 
+  // Team-ops workflow (projects / assigned tasks) starts empty — no demo projects.
+  const projects: DbProject[] = [];
   const tasks: DbTask[] = loadTasks().map((task) => ({
     id: task.id,
     orgId,
     userId,
+    projectId: null,
+    assigneeId: null,
     title: task.title,
     status: task.status,
     priority: task.priority,
     dueDate: task.dueDate,
     category: task.category,
     notes: task.notes,
+    customerId: null,
+    notifyOnComplete: false,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   }));
 
-  const transactions: DbTransaction[] = loadTaxTransactions().map((row) => ({
-    id: row.id,
-    orgId,
-    userId,
-    kind: row.kind,
-    label: row.label,
-    amount: row.amount,
-    category: row.category,
-    date: row.date,
-    receiptName: row.receiptName,
-    createdAt: row.createdAt,
-  }));
+  const transactions: DbTransaction[] = [
+    ...loadTaxTransactions().map((row) => ({
+      id: row.id,
+      orgId,
+      userId,
+      kind: row.kind,
+      label: row.label,
+      amount: row.amount,
+      category: row.category,
+      date: row.date,
+      receiptName: row.receiptName,
+      createdAt: row.createdAt,
+    })),
+    {
+      id: newId("txn"),
+      orgId,
+      userId,
+      kind: "income" as const,
+      label: "Invoice · Johnson Construction (overdue)",
+      amount: 4280,
+      category: "invoice",
+      date: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
+      receiptName: null,
+      createdAt: stamp,
+    },
+  ];
 
   const estimate = computeTaxEstimate(
     transactions.map((t) => ({
@@ -321,7 +513,7 @@ export function seedDatabase(): AtlasDatabase {
       kind: t.kind,
       label: t.label,
       amount: t.amount,
-      category: t.category,
+      category: t.category || "",
       date: t.date,
       notes: "",
       receiptName: t.receiptName,
@@ -361,12 +553,39 @@ export function seedDatabase(): AtlasDatabase {
   const memories: DbMemory[] = [
     {
       id: newId("mem"),
+      organizationId: orgId,
       userId,
       kind: "preference",
+      memoryType: "leadership",
       title: "Morning summaries",
       content: "Prefer short morning summaries with dollars first.",
+      source: "Owner setup",
+      authorLabel: "Owner",
+      confidence: 100,
+      accessLevel: "leadership",
+      entityType: null,
+      entityId: null,
       approved: true,
       createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: newId("mem"),
+      organizationId: orgId,
+      userId,
+      kind: "long-term",
+      memoryType: "company",
+      title: "Diagnostic fee",
+      content: "Approved diagnostic fee: $89. Discounts over 10% require owner approval.",
+      source: "Pricing policy",
+      authorLabel: "Owner",
+      confidence: 95,
+      accessLevel: "customer_facing",
+      entityType: null,
+      entityId: null,
+      approved: true,
+      createdAt: stamp,
+      updatedAt: stamp,
     },
   ];
 
@@ -387,10 +606,43 @@ export function seedDatabase(): AtlasDatabase {
     {
       id: newId("sub"),
       orgId,
-      plan: "pro",
+      plan: "business",
       status: "active",
       renewsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 28).toISOString(),
       seats: 5,
+    },
+  ];
+
+  const customers: DbCustomer[] = [
+    {
+      id: newId("cust"),
+      organization_id: orgId,
+      name: "Jamie Cole",
+      email: "jamie@email.com",
+      phone: "(555) 882-1100",
+      status: "active",
+      created_at: stamp,
+      provenance: "DEMO",
+    },
+    {
+      id: newId("cust"),
+      organization_id: orgId,
+      name: "Marcus Nguyen",
+      email: "marcus@email.com",
+      phone: "(555) 204-1182",
+      status: "lead",
+      created_at: stamp,
+      provenance: "DEMO",
+    },
+    {
+      id: newId("cust"),
+      organization_id: orgId,
+      name: "Johnson Construction",
+      email: "ap@johnsonconstruction.example",
+      phone: "(555) 441-2200",
+      status: "active",
+      created_at: stamp,
+      provenance: "DEMO",
     },
   ];
 
@@ -407,25 +659,113 @@ export function seedDatabase(): AtlasDatabase {
 
   return {
     users: [user, teammate, invited],
-    user_credentials: [credential],
+    user_credentials: [credential, managerCredential, workerCredential],
     organizations: [org],
     organization_members,
     calendar_categories,
     calendar_events,
+    projects,
     tasks,
+    customers,
     transactions,
     taxRecords,
     conversations,
     memories,
+    memory_outcomes: [],
     documents,
     subscriptions,
     notifications,
+    agents: [
+      {
+        id: newId("agent"),
+        organization_id: orgId,
+        name: "Atlas",
+        role: "Owner cockpit",
+        status: "active",
+      },
+      {
+        id: newId("agent"),
+        organization_id: orgId,
+        name: "Receptionist",
+        role: "Front desk",
+        status: "active",
+      },
+    ],
+    automations: [
+      {
+        id: newId("auto"),
+        organization_id: orgId,
+        name: "Missed-call follow-up",
+        enabled: false,
+        trigger: "missed_call",
+        created_at: stamp,
+      },
+    ],
+    sessions: [],
+    audit_logs: [],
+    approvals: [],
+    jobs: [],
+    autonomy_policies: [
+      {
+        organization_id: orgId,
+        level: 1,
+        kill_switch: false,
+        auto_payment_limit_cents: 500_000,
+        refund_limit_cents: 10_000,
+        discount_cap_percent: 10,
+        marketing_budget_cents: 150_000,
+        earliest_schedule_hour: 8,
+        wake_only_emergencies: true,
+        standing_orders: [
+          "Never discount more than 10% without approval.",
+          "Do not schedule before 8:00 AM without approval.",
+          "Wake the owner only for true emergencies.",
+        ],
+        updated_at: stamp,
+      },
+    ],
+    integrations: [
+      {
+        id: "gmail",
+        organization_id: orgId,
+        provider: "gmail",
+        status: "disconnected",
+        account_label: null,
+        last_error: null,
+        updated_at: stamp,
+      },
+      {
+        id: "google-calendar",
+        organization_id: orgId,
+        provider: "google-calendar",
+        status: "disconnected",
+        account_label: null,
+        last_error: null,
+        updated_at: stamp,
+      },
+      {
+        id: "stripe",
+        organization_id: orgId,
+        provider: "stripe",
+        status: "disconnected",
+        account_label: null,
+        last_error: null,
+        updated_at: stamp,
+      },
+    ],
+    login_attempts: [],
+    password_resets: [],
+    mfa_challenges: [],
+    quotes: [],
+    webhook_receipts: [],
+    email_verifications: [],
+    organization_invites: [],
   };
 }
 
 export function loadDatabase(): AtlasDatabase {
   if (typeof window === "undefined") {
-    return getServerDb();
+    return hydrateDatabase(getServerDb());
   }
   try {
     let raw = localStorage.getItem(DB_KEY);
@@ -458,6 +798,8 @@ export function loadDatabase(): AtlasDatabase {
       .map((user) => ({
         user_id: user.id,
         password_hash: user.passwordHash,
+        mfa_secret: null,
+        mfa_enabled: false,
       }));
     type LegacyOrg = Partial<DbOrganization> & {
       ownerUserId?: string;
@@ -473,7 +815,7 @@ export function loadDatabase(): AtlasDatabase {
       organization_members = organizations.map((org) => ({
         id: newId("om"),
         organization_id: org.id,
-        user_id: org.owner_id || users[0].id,
+        user_id: org.owner_id || users[0]?.id || "",
         role: "owner" as const,
         status: "active" as const,
         joined_at: org.created_at,
@@ -519,6 +861,7 @@ export function loadDatabase(): AtlasDatabase {
       calendar_categories,
       calendar_events,
       tasks: parsed.tasks || [],
+      customers: parsed.customers || [],
       transactions: parsed.transactions || [],
       taxRecords: parsed.taxRecords || [],
       conversations: parsed.conversations || [],
@@ -526,6 +869,21 @@ export function loadDatabase(): AtlasDatabase {
       documents: parsed.documents || [],
       subscriptions: parsed.subscriptions || [],
       notifications: parsed.notifications || [],
+      agents: parsed.agents || [],
+      automations: parsed.automations || [],
+      sessions: parsed.sessions || [],
+      audit_logs: parsed.audit_logs || [],
+      approvals: parsed.approvals || [],
+      jobs: parsed.jobs || [],
+      integrations: parsed.integrations || [],
+      login_attempts: parsed.login_attempts || [],
+      password_resets: parsed.password_resets || [],
+      mfa_challenges: parsed.mfa_challenges || [],
+      quotes: parsed.quotes || [],
+      webhook_receipts: parsed.webhook_receipts || [],
+      email_verifications: parsed.email_verifications || [],
+      autonomy_policies: parsed.autonomy_policies || [],
+      organization_invites: parsed.organization_invites || [],
     };
     localStorage.setItem(DB_KEY, JSON.stringify(state));
     return state;
@@ -535,18 +893,171 @@ export function loadDatabase(): AtlasDatabase {
 }
 
 export function saveDatabase(db: AtlasDatabase) {
+  assertProductionPersistence();
+  const next = hydrateDatabase(db);
   if (typeof window === "undefined") {
-    setServerDb(db);
-    writeJsonFile(DB_FILE, db);
+    setServerDb(next);
+    if (jsonMirrorEnabled()) {
+      writeJsonFile(DB_FILE, next);
+    }
+    if (postgresLive()) {
+      enqueuePostgresPersist(next);
+    }
     return;
   }
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  localStorage.setItem(DB_KEY, JSON.stringify(next));
+}
+
+/**
+ * Await every queued Postgres write (and BullMQ enqueue). API handlers flush
+ * before responding so PostgreSQL is authoritative — no fire-and-forget.
+ * Failed writes surface as PersistenceError (503), never quiet success.
+ */
+export async function awaitDatabaseWrites(): Promise<void> {
+  if (typeof window !== "undefined") return;
+  const g = globalThis as AtlasGlobal;
+  try {
+    if (g.__atlasPersistChain) await g.__atlasPersistChain;
+  } catch (error) {
+    lastPersistError = error instanceof Error ? error : new Error(String(error));
+  }
+  if (g.__atlasQueueChain) await g.__atlasQueueChain;
+  if (lastPersistError) {
+    const err = lastPersistError;
+    lastPersistError = null;
+    const { PersistenceError } = await import("@/lib/domain/errors");
+    throw new PersistenceError(err.message);
+  }
+}
+
+/** Alias used by Twilio webhooks and other side-effect routes. */
+export const flushDatabaseWrites = awaitDatabaseWrites;
+
+/** Test-only: simulate a failed Postgres write that flush must surface. */
+export function __setLastPersistErrorForTests(error: Error | null) {
+  lastPersistError = error;
+}
+
+/** Memory + JSON immediately; Postgres is awaited before returning. */
+export async function saveDatabaseAsync(db: AtlasDatabase) {
+  saveDatabase(db);
+  await flushDatabaseWrites();
+}
+
+let lastPersistError: Error | null = null;
+
+function enqueuePostgresPersist(next: AtlasDatabase) {
+  const g = globalThis as AtlasGlobal;
+  const prior = g.__atlasPersistChain || Promise.resolve();
+  g.__atlasPersistChain = prior
+    .then(async () => {
+      // Static specifier so Turbopack/webpack can resolve the module (Next 16+).
+      const mod = await import("@/lib/db/postgres");
+      await mod.persistAtlasDatabase(next);
+      lastPersistError = null;
+    })
+    .catch((error) => {
+      lastPersistError = error instanceof Error ? error : new Error(String(error));
+      console.error("[atlas:pg]", lastPersistError.message);
+      throw error;
+    });
+}
+
+/** Enqueue a side-effect that must complete before the HTTP response (e.g. BullMQ). */
+export function enqueueAwaitedSideEffect(work: () => Promise<unknown>) {
+  if (typeof window !== "undefined") return;
+  const g = globalThis as AtlasGlobal;
+  const prior = g.__atlasQueueChain || Promise.resolve();
+  g.__atlasQueueChain = prior.then(() => work()).then(() => undefined);
 }
 
 export function resetDatabase() {
   const seeded = seedDatabase();
   saveDatabase(seeded);
+  if (typeof window === "undefined") {
+    const hook = (
+      globalThis as typeof globalThis & {
+        __atlasResetSeedEmployees?: (organizationId: string) => void;
+      }
+    ).__atlasResetSeedEmployees;
+    const orgId = seeded.organizations[0]?.id;
+    if (hook && orgId) hook(orgId);
+  }
   return seeded;
+}
+
+/**
+ * Create a second empty business for multi-tenant tests (no demo customers/tasks).
+ */
+export function createEmptyOrganization(input: {
+  businessName: string;
+  ownerEmail: string;
+  ownerName: string;
+  password?: string;
+}): { orgId: string; userId: string } {
+  const db = loadDatabase();
+  const stamp = nowIso();
+  const userId = newId("user");
+  const orgId = newId("org");
+  const user: DbUser = {
+    id: userId,
+    email: input.ownerEmail.trim().toLowerCase(),
+    full_name: input.ownerName,
+    profile_image: null,
+    timezone: "America/Chicago",
+    preferred_language: "en",
+    email_verified_at: stamp,
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  const org: DbOrganization = {
+    id: orgId,
+    owner_id: userId,
+    business_name: input.businessName,
+    logo_url: null,
+    business_type: "service",
+    tax_structure: "LLC",
+    state: "TX",
+    created_at: stamp,
+  };
+  const member: DbOrganizationMember = {
+    id: newId("om"),
+    organization_id: orgId,
+    user_id: userId,
+    role: "owner",
+    status: "active",
+    joined_at: stamp,
+  };
+  const credential: DbUserCredential = {
+    user_id: userId,
+    password_hash: hashPassword(input.password || "atlas-demo"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
+  saveDatabase({
+    ...db,
+    users: [user, ...db.users],
+    user_credentials: [credential, ...db.user_credentials],
+    organizations: [org, ...db.organizations],
+    organization_members: [member, ...db.organization_members],
+    autonomy_policies: [
+      {
+        organization_id: orgId,
+        level: 1,
+        kill_switch: false,
+        auto_payment_limit_cents: 500_000,
+        refund_limit_cents: 10_000,
+        discount_cap_percent: 10,
+        marketing_budget_cents: 150_000,
+        earliest_schedule_hour: 8,
+        wake_only_emergencies: true,
+        standing_orders: [],
+        updated_at: stamp,
+      },
+      ...db.autonomy_policies,
+    ],
+  });
+  return { orgId, userId };
 }
 
 export function databaseStats(db: AtlasDatabase) {
@@ -556,6 +1067,7 @@ export function databaseStats(db: AtlasDatabase) {
     "Organization Members": db.organization_members.length,
     "Calendar Categories": db.calendar_categories.length,
     "Calendar Events": db.calendar_events.length,
+    Customers: db.customers.length,
     Tasks: db.tasks.length,
     Transactions: db.transactions.length,
     "Tax Records": db.taxRecords.length,
@@ -568,8 +1080,10 @@ export function databaseStats(db: AtlasDatabase) {
 
 export function serverPersistenceInfo() {
   return {
+    driver: postgresLive() ? "postgres" : "json",
     file: DB_FILE,
     present: typeof window === "undefined" ? fileExists(DB_FILE) : false,
+    jsonMirror: jsonMirrorEnabled(),
   };
 }
 

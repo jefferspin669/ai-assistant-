@@ -1,7 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { AiChatStudio } from "@/components/AiChatStudio";
-
-export default function AiChatPage() {
-  return <AiChatStudio />;
+export default function ChatRedirectPage() {
+  redirect("/app/ask");
 }

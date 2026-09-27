@@ -1,0 +1,283 @@
+import { parseAtlasAction, type AtlasAction } from "@/lib/domain/schemas";
+import { NotFoundError, ValidationError } from "@/lib/domain/errors";
+import { assertHumanApproval } from "@/lib/safety/guards";
+import type { CalendarEvent, Customer, SessionContext, Task } from "@/lib/domain/types";
+import {
+  createCustomer,
+  createCustomerScopedEvent,
+  createOrgTask,
+  moveOrgEvent,
+  updateOrgTask,
+} from "@/lib/services/workspace";
+import { createApproval, listApprovals, requiresApproval } from "@/lib/services/approvals";
+import { intentFromAtlasAction, submitWork } from "@/lib/autonomy/submit";
+import { enqueueJob } from "@/lib/services/jobs";
+import { emitEvent } from "@/lib/events/bus";
+import { enqueueAwaitedSideEffect, newId, nowIso, saveDatabase } from "@/lib/db/store";
+import { database, requireCustomer } from "@/lib/services/access";
+import { writeAudit } from "@/lib/services/audit";
+import { hasPermission, requirePermission } from "@/lib/auth/permissions";
+import { ACTION_SMS, smsPayloadSchema } from "@/lib/services/action-confirmations";
+import { sendSms } from "@/lib/integrations/twilio";
+
+export type AtlasActionResult =
+  | { type: "CREATE_TASK"; task: Task; requiresApproval?: false }
+  | { type: "UPDATE_TASK"; task: Task; requiresApproval?: false }
+  | { type: "CREATE_APPOINTMENT"; event: CalendarEvent; requiresApproval?: false }
+  | { type: "MOVE_APPOINTMENT"; event: CalendarEvent; requiresApproval?: false }
+  | { type: "CREATE_CUSTOMER"; customer: Customer; requiresApproval?: false }
+  | {
+      type: "SEND_MESSAGE" | "CREATE_QUOTE" | "REQUEST_PAYMENT" | "REFUND_CUSTOMER";
+      queued: true;
+      requiresApproval: true;
+      approvalId: string;
+    };
+
+export function decodeAtlasAction(input: unknown): AtlasAction {
+  try {
+    return parseAtlasAction(input);
+  } catch {
+    throw new ValidationError("Atlas cannot execute unknown or malformed actions.");
+  }
+}
+
+export function executeApprovedAction(action: AtlasAction, ctx: SessionContext): AtlasActionResult {
+  switch (action.type) {
+    case "CREATE_TASK":
+      requirePermission(ctx, "tasks.write");
+      return {
+        type: "CREATE_TASK",
+        task: createOrgTask(ctx, {
+          title: action.payload.title,
+          dueDate: action.payload.dueDate ?? null,
+        }),
+      };
+    case "UPDATE_TASK":
+      requirePermission(ctx, "tasks.write");
+      return {
+        type: "UPDATE_TASK",
+        task: updateOrgTask(ctx, action.payload.taskId, {
+          title: action.payload.title,
+          status: action.payload.status,
+          dueDate: action.payload.dueDate,
+        }),
+      };
+    case "CREATE_APPOINTMENT":
+      requirePermission(ctx, "calendar.write");
+      return {
+        type: "CREATE_APPOINTMENT",
+        event: createCustomerScopedEvent(ctx, action.payload),
+      };
+    case "MOVE_APPOINTMENT":
+      requirePermission(ctx, "calendar.write");
+      return {
+        type: "MOVE_APPOINTMENT",
+        event: moveOrgEvent(ctx, action.payload),
+      };
+    case "CREATE_CUSTOMER":
+      requirePermission(ctx, "customers.write");
+      return { type: "CREATE_CUSTOMER", customer: createCustomer(ctx, action.payload) };
+    case "SEND_MESSAGE": {
+      const db = database();
+      const customer = requireCustomer(db, ctx, action.payload.customerId);
+      const to = customer.phone || customer.email || "";
+      const job = enqueueJob(ctx, "send_message", {
+        ...action.payload,
+        userId: ctx.userId,
+        to,
+        phone: customer.phone,
+        email: customer.email,
+        body: action.payload.message,
+        taskId: action.payload.taskId,
+      });
+      writeAudit(ctx, {
+        action: "Atlas queued customer message",
+        entityType: "customer",
+        entityId: action.payload.customerId,
+      });
+      // Run immediately when no Redis worker — still goes through idempotent handler.
+      if (typeof window === "undefined" && !process.env.REDIS_URL?.trim()) {
+        enqueueAwaitedSideEffect(async () => {
+          const { handleQueuedWork } = await import("@/lib/queue/handlers");
+          await handleQueuedWork("send_message", {
+            jobId: job.id,
+            organizationId: ctx.organizationId,
+            userId: ctx.userId,
+            payload: job.payload,
+          });
+        });
+      }
+      return {
+        type: "SEND_MESSAGE",
+        queued: true,
+        requiresApproval: true,
+        approvalId: "executed",
+      };
+    }
+    case "CREATE_QUOTE": {
+      const db = database();
+      requireCustomer(db, ctx, action.payload.customerId);
+      const quote = {
+        id: newId("quote"),
+        organization_id: ctx.organizationId,
+        customer_id: action.payload.customerId,
+        amount: action.payload.amount,
+        status: "draft" as const,
+        created_at: nowIso(),
+      };
+      saveDatabase({ ...db, quotes: [quote, ...db.quotes] });
+      writeAudit(ctx, { action: "created quote", entityType: "quote", entityId: quote.id });
+      return {
+        type: "CREATE_QUOTE",
+        queued: true,
+        requiresApproval: true,
+        approvalId: quote.id,
+      };
+    }
+    case "REQUEST_PAYMENT":
+    case "REFUND_CUSTOMER": {
+      requirePermission(ctx, "payments.refund");
+      requireCustomer(database(), ctx, action.payload.customerId);
+      enqueueJob(ctx, action.type.toLowerCase(), { ...action.payload, userId: ctx.userId });
+      writeAudit(ctx, {
+        action: action.type === "REFUND_CUSTOMER" ? "refunded customer" : "requested payment",
+        entityType: "customer",
+        entityId: action.payload.customerId,
+      });
+      return {
+        type: action.type,
+        queued: true,
+        requiresApproval: true,
+        approvalId: "executed",
+      };
+    }
+  }
+}
+
+export function executeAtlasAction(input: unknown, ctx: SessionContext): AtlasActionResult {
+  const action = decodeAtlasAction(input);
+  const gated =
+    action.type === "SEND_MESSAGE" ||
+    action.type === "REQUEST_PAYMENT" ||
+    action.type === "REFUND_CUSTOMER";
+  if (gated) {
+    const submitted = submitWork(ctx, intentFromAtlasAction(action), { enqueueOnExecute: false });
+    if (submitted.decision.verdict === "blocked") {
+      throw new ValidationError(submitted.decision.reason);
+    }
+    if (submitted.decision.verdict !== "execute") {
+      return {
+        type: action.type,
+        queued: true,
+        requiresApproval: true,
+        approvalId: submitted.approvalId || "",
+      };
+    }
+    return executeApprovedAction(action, ctx);
+  }
+  if (requiresApproval(action.type, ctx)) {
+    const approval = createApproval(ctx, action);
+    return {
+      type: action.type as "SEND_MESSAGE" | "CREATE_QUOTE" | "REQUEST_PAYMENT" | "REFUND_CUSTOMER",
+      queued: true,
+      requiresApproval: true,
+      approvalId: approval.id,
+    };
+  }
+  return executeApprovedAction(action, ctx);
+}
+
+export async function resolveApproval(
+  ctx: SessionContext,
+  approvalId: string,
+  decision: "approved" | "rejected",
+) {
+  assertHumanApproval(ctx);
+  const db = database();
+  const row = db.approvals.find(
+    (item) => item.id === approvalId && item.organization_id === ctx.organizationId,
+  );
+  if (!row) throw new NotFoundError("Approval not found.");
+  if (row.status !== "pending") throw new ValidationError("Approval already resolved.");
+
+  // Owners/admins approve money; SMS/invoice can also be approved with action permissions.
+  if (row.action_type === ACTION_SMS) {
+    if (!hasPermission(ctx, "actions.sms") && !hasPermission(ctx, "payments.refund")) {
+      requirePermission(ctx, "actions.sms");
+    }
+  } else {
+    requirePermission(ctx, "payments.refund");
+  }
+
+  saveDatabase({
+    ...db,
+    approvals: db.approvals.map((item) =>
+      item.id === approvalId ? { ...item, status: decision, resolved_at: nowIso() } : item,
+    ),
+  });
+  writeAudit(ctx, {
+    action: `${decision} ${row.action_type}`,
+    entityType: "approval",
+    entityId: row.id,
+  });
+  if (decision === "rejected") return { approval: { ...row, status: decision }, result: null };
+  emitEvent({
+    type: "approval.granted",
+    organizationId: ctx.organizationId,
+    actorId: ctx.userId,
+    payload: { id: row.id, actionType: row.action_type },
+  });
+
+  if (row.action_type === ACTION_SMS) {
+    const payload = smsPayloadSchema.parse(row.payload);
+    const sms = await sendSms({
+      to: payload.to,
+      body: payload.body,
+      organizationId: ctx.organizationId,
+    });
+    const latest = database();
+    saveDatabase({
+      ...latest,
+      approvals: latest.approvals.map((item) =>
+        item.id === approvalId
+          ? {
+              ...item,
+              payload: {
+                ...item.payload,
+                consumedAt: nowIso(),
+                consumedBy: ctx.userId,
+                execution: sms,
+              },
+            }
+          : item,
+      ),
+    });
+    writeAudit(ctx, {
+      action: sms.ok ? `executed ${ACTION_SMS} via Twilio (${sms.mode})` : `failed ${ACTION_SMS}: ${sms.error || "unknown"}`,
+      entityType: "approval",
+      entityId: row.id,
+    });
+    return {
+      approval: { ...row, status: decision as "approved" },
+      result: {
+        executed: ACTION_SMS,
+        integration: "twilio",
+        ok: sms.ok,
+        mode: sms.mode,
+        sid: sms.sid,
+        error: sms.error,
+        to: payload.to,
+      },
+    };
+  }
+
+  const atlasAction = row.payload.atlasAction;
+  if (atlasAction) {
+    const action = decodeAtlasAction(atlasAction);
+    return { approval: { ...row, status: decision }, result: executeApprovedAction(action, ctx) };
+  }
+  enqueueJob(ctx, `autonomy:${row.action_type}`, { ...row.payload, userId: ctx.userId });
+  return { approval: { ...row, status: decision }, result: { queued: true, type: row.action_type } };
+}
+
+export { listApprovals };

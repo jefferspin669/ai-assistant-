@@ -1,4 +1,7 @@
-/** Atlas Database schema — mirrors the product architecture tree. */
+/** Atlas Database schema — mirrors the product architecture tree.
+ * Column-shaped records for the JSON adapter. Postgres lives in `drizzle-schema.ts`;
+ * public types live in `lib/domain/types.ts`. Do not fork a third Customer type here.
+ */
 
 /** `users` table */
 export type DbUser = {
@@ -8,6 +11,7 @@ export type DbUser = {
   profile_image: string | null;
   timezone: string;
   preferred_language: string;
+  email_verified_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -16,6 +20,8 @@ export type DbUser = {
 export type DbUserCredential = {
   user_id: string;
   password_hash: string;
+  mfa_secret: string | null;
+  mfa_enabled: boolean;
 };
 
 /** `organizations` table */
@@ -30,7 +36,7 @@ export type DbOrganization = {
   created_at: string;
 };
 
-export type OrgMemberRole = "owner" | "admin" | "manager" | "employee" | "viewer";
+export type OrgMemberRole = "owner" | "admin" | "manager" | "employee" | "accountant" | "viewer";
 export type OrgMemberStatus = "active" | "invited" | "suspended" | "removed";
 
 /** `organization_members` table */
@@ -67,28 +73,84 @@ export type DbCalendarEvent = {
   timezone: string;
   category_id: string;
   location: string;
+  assignee?: string | null;
   priority: EventPriority;
   reminder_time: string | null;
   recurring_rule: string | null;
   external_calendar_id: string | null;
   created_at: string;
+  updated_at?: string | null;
+  /** Optimistic concurrency token. */
+  version?: number;
 };
 
 /** @deprecated Use DbCalendarEvent */
 export type DbEvent = DbCalendarEvent;
 
+export type DbProject = {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string;
+  status: "active" | "paused" | "completed" | "archived";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type DbTask = {
   id: string;
   orgId: string;
   userId: string;
+  /** Owning project — workers may only mutate tasks on projects they are assigned to. */
+  projectId: string | null;
+  /** Assigned worker user id. Employees may only update tasks where assigneeId === their userId. */
+  assigneeId: string | null;
   title: string;
-  status: "todo" | "doing" | "done";
+  status: "todo" | "doing" | "done" | "in_progress" | "blocked" | "completed";
   priority: "low" | "normal" | "high";
   dueDate: string | null;
   category: string;
   notes: string;
+  customerId: string | null;
+  /** When true, completing the task proposes a customer notification for owner approval. */
+  notifyOnComplete: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Optimistic concurrency token. Both adapters carry it so conflicts are
+   * reproducible without Postgres. See `src/lib/db/repo/concurrency.ts`. */
+  version?: number;
+};
+
+export type DbCustomer = {
+  id: string;
+  organization_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  status: "lead" | "active" | "inactive";
+  created_at: string;
+  updated_at?: string | null;
+  provenance?: "DEMO" | "LIVE" | "CONNECTED DATA";
+  /** Optimistic concurrency token. */
+  version?: number;
+};
+
+export type DbAgent = {
+  id: string;
+  organization_id: string;
+  name: string;
+  role: string;
+  status: "active" | "paused";
+};
+
+export type DbAutomation = {
+  id: string;
+  organization_id: string;
+  name: string;
+  enabled: boolean;
+  trigger: string;
+  created_at: string;
 };
 
 export type DbTransaction = {
@@ -98,7 +160,7 @@ export type DbTransaction = {
   kind: "income" | "expense";
   label: string;
   amount: number;
-  category: string;
+  category: string | null;
   date: string;
   receiptName: string | null;
   createdAt: string;
@@ -128,11 +190,33 @@ export type DbConversation = {
 
 export type DbMemory = {
   id: string;
+  /** Tenant boundary — required for unified business memory. */
+  organizationId: string;
   userId: string;
   kind: "preference" | "prompt" | "person" | "project" | "long-term";
+  memoryType: "company" | "leadership" | "employee" | "customer" | "operational" | "project";
   title: string;
   content: string;
+  source: string;
+  authorLabel: string;
+  confidence: number;
+  accessLevel: "owner" | "leadership" | "managers" | "all_staff" | "customer_facing";
+  entityType: string | null;
+  entityId: string | null;
   approved: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DbMemoryOutcome = {
+  id: string;
+  organizationId: string;
+  memoryId: string | null;
+  recommendation: string;
+  status: "accepted" | "rejected" | "edited" | "successful";
+  original: string;
+  edited: string | null;
+  actorUserId: string;
   createdAt: string;
 };
 
@@ -143,6 +227,9 @@ export type DbDocument = {
   title: string;
   kind: "file" | "document" | "conversation" | "template";
   content: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -159,10 +246,155 @@ export type DbSubscription = {
 export type DbNotification = {
   id: string;
   userId: string;
+  organizationId?: string;
   title: string;
   body: string;
   read: boolean;
   createdAt: string;
+};
+
+export type DbSession = {
+  id: string;
+  token: string;
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  /** Absolute expiry — a session can never outlive this, even if it stays busy. */
+  expires_at: string;
+  revoked_at: string | null;
+  device_name: string;
+  /** Rolling/idle window: last authenticated request on this session. */
+  last_seen_at?: string | null;
+  /** Why the session was revoked (logout, password_reset, role_change, employee_removed…). */
+  revoked_reason?: string | null;
+  /** Last time the holder re-proved identity (password or MFA) for a privileged action. */
+  reauth_at?: string | null;
+};
+
+export type DbAuditLog = {
+  id: string;
+  organization_id: string;
+  actor_user_id: string | null;
+  actor_label: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  created_at: string;
+};
+
+export type DbApproval = {
+  id: string;
+  organization_id: string;
+  requested_by: string;
+  action_type: string;
+  payload: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  resolved_at: string | null;
+};
+
+export type DbJob = {
+  id: string;
+  organization_id: string;
+  kind: string;
+  payload: Record<string, unknown>;
+  status: "queued" | "running" | "done" | "failed";
+  created_at: string;
+  run_at: string | null;
+};
+
+export type DbIntegration = {
+  id: string;
+  organization_id: string;
+  provider: string;
+  status: "connected" | "expired" | "error" | "disconnected";
+  account_label: string | null;
+  last_error: string | null;
+  updated_at: string;
+};
+
+export type DbLoginAttempt = {
+  id: string;
+  email: string;
+  success: boolean;
+  at: string;
+  ip: string;
+};
+
+/** `token` stores a SHA-256 hash of the emailed token — never the raw link value. */
+export type DbPasswordReset = {
+  token: string;
+  user_id: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at?: string;
+};
+
+/** Owner-issued invite to join an organization (email token link). Single use. */
+export type DbOrganizationInvite = {
+  token: string;
+  organization_id: string;
+  email: string;
+  role: OrgMemberRole;
+  invited_by: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+  /** Revoked/cancelled by an owner or admin — the link stops working immediately. */
+  revoked_at?: string | null;
+  revoked_by?: string | null;
+  /** Resend rotates the token; these track the latest resend. */
+  resent_at?: string | null;
+  resent_count?: number;
+};
+
+/** Short-lived MFA challenge — not a full session. */
+export type DbMfaChallenge = {
+  id: string;
+  token: string;
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  expires_at: string;
+  consumed_at: string | null;
+};
+
+export type DbQuote = {
+  id: string;
+  organization_id: string;
+  customer_id: string;
+  amount: number;
+  status: "draft" | "sent" | "accepted";
+  created_at: string;
+};
+
+export type DbWebhookReceipt = {
+  id: string;
+  organization_id: string;
+  received_at: string;
+};
+
+export type DbEmailVerification = {
+  token: string;
+  user_id: string;
+  expires_at: string;
+  used_at: string | null;
+};
+
+export type DbAutonomyPolicy = {
+  organization_id: string;
+  level: 1 | 2 | 3 | 4;
+  control_mode?: "manual" | "assisted" | "autonomous";
+  auto_permissions?: Record<string, boolean>;
+  kill_switch: boolean;
+  auto_payment_limit_cents: number;
+  refund_limit_cents: number;
+  discount_cap_percent: number;
+  marketing_budget_cents: number;
+  earliest_schedule_hour: number;
+  wake_only_emergencies: boolean;
+  standing_orders: string[];
+  updated_at: string;
 };
 
 export type AtlasDatabase = {
@@ -172,14 +404,32 @@ export type AtlasDatabase = {
   organization_members: DbOrganizationMember[];
   calendar_categories: DbCalendarCategory[];
   calendar_events: DbCalendarEvent[];
+  projects: DbProject[];
   tasks: DbTask[];
+  customers: DbCustomer[];
   transactions: DbTransaction[];
   taxRecords: DbTaxRecord[];
   conversations: DbConversation[];
   memories: DbMemory[];
+  memory_outcomes: DbMemoryOutcome[];
   documents: DbDocument[];
   subscriptions: DbSubscription[];
   notifications: DbNotification[];
+  agents: DbAgent[];
+  automations: DbAutomation[];
+  sessions: DbSession[];
+  audit_logs: DbAuditLog[];
+  approvals: DbApproval[];
+  jobs: DbJob[];
+  integrations: DbIntegration[];
+  login_attempts: DbLoginAttempt[];
+  password_resets: DbPasswordReset[];
+  mfa_challenges: DbMfaChallenge[];
+  quotes: DbQuote[];
+  webhook_receipts: DbWebhookReceipt[];
+  email_verifications: DbEmailVerification[];
+  autonomy_policies: DbAutonomyPolicy[];
+  organization_invites: DbOrganizationInvite[];
 };
 
 export const DB_TABLES = [
@@ -188,6 +438,8 @@ export const DB_TABLES = [
   "Organization Members",
   "Calendar Categories",
   "Calendar Events",
+  "Projects",
+  "Customers",
   "Tasks",
   "Transactions",
   "Tax Records",
@@ -195,4 +447,14 @@ export const DB_TABLES = [
   "Memories",
   "Documents",
   "Subscriptions",
+  "Agents",
+  "Automations",
+  "Sessions",
+  "Audit Logs",
+  "Approvals",
+  "Jobs",
+  "Integrations",
+  "Quotes",
+  "Webhook Receipts",
+  "Autonomy Policies",
 ] as const;

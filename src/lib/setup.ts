@@ -160,9 +160,9 @@ function widgetForGoal(goal: string): StarterWidget | null {
     },
     "Talk to Atlas daily": {
       id: "chat",
-      title: "AI Chat",
+      title: "Ask Atlas",
       detail: "Ask Atlas about the business anytime.",
-      href: "/app/chat",
+      href: "/app/ask",
     },
     "Organize files and notes": {
       id: "files",

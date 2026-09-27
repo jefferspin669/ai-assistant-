@@ -1,5 +1,5 @@
 import { customEmployee, owner } from "@/lib/data";
-import { hashPassword, isHashedPassword, verifyPassword } from "@/lib/secure-store";
+import { hashPassword, isHashedPassword, needsClientPasswordRehash, verifyPassword } from "@/lib/secure-store";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -1005,7 +1005,7 @@ function passwordMatches(account: UserAccount, plain: string) {
 
 function withUpgradedPassword(account: UserAccount, plain: string): UserAccount {
   if (!plain.trim()) return account;
-  if (isHashedPassword(account.password)) return account;
+  if (!needsClientPasswordRehash(account.password)) return account;
   return { ...account, password: sealPassword(plain) };
 }
 

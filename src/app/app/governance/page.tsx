@@ -1,5 +1,6 @@
 import Link from "@/components/SiteLink";
 import { AppShell } from "@/components/AppShell";
+import { trustHub } from "@/lib/section-hubs";
 
 const AREAS: { emoji: string; title: string; blurb: string; href: string }[] = [
   { emoji: "👤", title: "Roles", blurb: "Presets and custom roles like Regional Manager.", href: "/app/control-center" },
@@ -18,13 +19,25 @@ const AREAS: { emoji: string; title: string; blurb: string; href: string }[] = [
 export default function GovernancePage() {
   return (
     <AppShell
-      title="Atlas Governance"
-      subtitle="Leadership stays in control — even as AI and automation do more of the work."
+      title="Trust & Governance"
+      subtitle="Security, risk, compliance, privacy, and audit live here — leadership stays in control even as Atlas does more of the work."
     >
       <div className="training-studio">
         <section className="panel">
+          <h2>Trust & Governance</h2>
+          <p className="panel-lead">One parent for the enterprise controls. Capability is unchanged — the map is simpler.</p>
+          <div className="hub-grid">
+            {trustHub.map((item) => (
+              <Link className="hub-card" href={item.href} key={item.href}>
+                <h3>{item.label}</h3>
+                <p>{item.blurb}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+        <section className="panel">
           <h2>Governance areas</h2>
-          <p className="panel-lead">One home for roles, permissions, approvals, and audit — everything that keeps access safe.</p>
+          <p className="panel-lead">Roles, permissions, approvals, and audit — everything that keeps access safe.</p>
           <div className="pack-grid">
             {AREAS.map((a) => (
               <Link key={a.title} href={a.href} className="pack-card" style={{ textAlign: "left", textDecoration: "none" }}>

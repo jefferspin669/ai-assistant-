@@ -4,8 +4,8 @@ import { TimeOffStudio } from "@/components/TimeOffStudio";
 export default function TimeOffPage() {
   return (
     <AppShell
-      title="Time-Off Requests"
-      subtitle="Review PTO requests with automatic staffing checks before you approve."
+      title="Time off"
+      subtitle="Employee requests, manager approvals, coverage planning, and schedule impact — connected to Workforce scheduling."
     >
       <TimeOffStudio />
     </AppShell>

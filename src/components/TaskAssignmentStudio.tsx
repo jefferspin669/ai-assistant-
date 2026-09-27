@@ -24,6 +24,7 @@ import {
   type TeamPerson,
   type TeamTask,
 } from "@/lib/user-workspace";
+import { isDemoWorkspace } from "@/lib/workspace-mode";
 
 const recurrences: { id: TaskRecurrence; label: string }[] = [
   { id: "one-time", label: "One-time" },
@@ -64,7 +65,7 @@ export function TaskAssignmentStudio() {
   }, []);
 
   useEffect(() => {
-    seedDemoTeamIfEmpty();
+    if (isDemoWorkspace()) seedDemoTeamIfEmpty();
     refresh();
     setMemberId((prev) => prev || loadTeamMembers()[0]?.id || "");
     setReady(true);
@@ -422,7 +423,9 @@ export function TaskAssignmentStudio() {
           )}
 
           <p className="muted-line" style={{ marginTop: "1rem" }}>
-            See who&apos;s online on the <Link href="/app/workforce-status">Workforce Status</Link> page.
+            <Link className="btn btn-outline" href="/app/workforce">
+              Workforce status
+            </Link>
           </p>
         </section>
       </div>

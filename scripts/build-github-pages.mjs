@@ -11,6 +11,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -73,15 +74,29 @@ try {
   parkedMiddleware = park(middlewareFile, middlewarePark);
 
   rmSync(outDir, { recursive: true, force: true });
-  run("npx", ["next", "build"], { GITHUB_PAGES: "true" });
+  // Next.js 16 defaults to Turbopack; this app still needs the webpack
+  // resolve.fallback for Node built-ins in the client graph (see next.config.ts).
+  run("npx", ["next", "build", "--webpack"], { GITHUB_PAGES: "true" });
 
   if (!existsSync(outDir)) {
     throw new Error("Expected ./out after static export");
   }
 
+  // Preserve markdown docs that live alongside the static export in ./docs.
+  const preservedDocs = [];
+  for (const name of ["NORTH_STAR.md", "PRODUCTION_SAFETY.md"]) {
+    const path = join(docsDir, name);
+    if (existsSync(path)) {
+      preservedDocs.push({ name, body: readFileSync(path) });
+    }
+  }
+
   rmSync(docsDir, { recursive: true, force: true });
   mkdirSync(docsDir, { recursive: true });
   cpSync(outDir, docsDir, { recursive: true });
+  for (const { name, body } of preservedDocs) {
+    writeFileSync(join(docsDir, name), body);
+  }
   // Prevent Jekyll from ignoring the `_next` asset folder on GitHub Pages.
   writeFileSync(join(docsDir, ".nojekyll"), "");
   console.log("GitHub Pages build ready in ./docs");

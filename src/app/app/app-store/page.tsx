@@ -1,13 +1,6 @@
-import { AppShell } from "@/components/AppShell";
-import { AppStoreStudio } from "@/components/AppStoreStudio";
+import { redirect } from "next/navigation";
 
-export default function AppStorePage() {
-  return (
-    <AppShell
-      title="Atlas App Store"
-      subtitle="Third-party developers publish modules — businesses install only what they need."
-    >
-      <AppStoreStudio />
-    </AppShell>
-  );
+/** App Store merged into Atlas Marketplace. */
+export default function AppStoreRedirectPage() {
+  redirect("/app/marketplace?tab=developer");
 }

@@ -1,0 +1,90 @@
+import { newId, nowIso, saveDatabase, enqueueAwaitedSideEffect } from "@/lib/db/store";
+import type { SessionContext } from "@/lib/domain/types";
+import { database } from "@/lib/services/access";
+import { writeAudit } from "@/lib/services/audit";
+import { processAutonomyQueue } from "@/lib/autonomy/worker";
+
+export function enqueueJob(
+  ctx: SessionContext,
+  kind: string,
+  payload: Record<string, unknown>,
+) {
+  const db = database();
+  const job = {
+    id: newId("job"),
+    organization_id: ctx.organizationId,
+    kind,
+    payload,
+    status: "queued" as const,
+    created_at: nowIso(),
+    run_at: null,
+  };
+  saveDatabase({ ...db, jobs: [job, ...db.jobs] });
+  if (typeof window === "undefined" && process.env.REDIS_URL?.trim()) {
+    enqueueAwaitedSideEffect(() =>
+      import("@/lib/queue/bullmq").then((mod) =>
+        mod.addBullJob(kind, {
+          jobId: job.id,
+          organizationId: ctx.organizationId,
+          userId: ctx.userId,
+          payload: job.payload,
+        }),
+      ),
+    );
+  }
+  return job;
+}
+
+export function processJobs(limit = 10) {
+  const autonomy = processAutonomyQueue(limit);
+  if (typeof window === "undefined") {
+    void import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns()).catch(() => undefined);
+  }
+  const db = database();
+  const queued = db.jobs
+    .filter((job) => job.status === "queued" && !String(job.kind).startsWith("autonomy:"))
+    .slice(0, limit);
+  if (!queued.length) return { generic: [], autonomy };
+  // This synchronous ticker has no generic executor. Never claim that a
+  // message, payment, or other side effect happened just because it was queued.
+  const unsupportedIds = new Set(queued.map((job) => job.id));
+  saveDatabase({
+    ...db,
+    jobs: db.jobs.map((job) =>
+      unsupportedIds.has(job.id) ? { ...job, status: "failed" as const, run_at: nowIso() } : job,
+    ),
+    notifications: [
+      ...queued.map((job) => ({
+        id: newId("note"),
+        userId: String(job.payload.userId || ""),
+        organizationId: job.organization_id,
+        title: `Job ${job.kind} needs attention`,
+        body: "No verified executor ran this queued job. No completion was recorded.",
+        read: false,
+        createdAt: nowIso(),
+      })),
+      ...db.notifications,
+    ],
+  });
+  return { generic: [], unsupported: queued.length, autonomy };
+}
+
+export function notify(
+  ctx: SessionContext,
+  title: string,
+  body: string,
+) {
+  const db = database();
+  const row = {
+    id: newId("note"),
+    userId: ctx.userId,
+    organizationId: ctx.organizationId,
+    title,
+    body,
+    read: false,
+    createdAt: nowIso(),
+  };
+  saveDatabase({ ...db, notifications: [row, ...db.notifications] });
+  writeAudit(ctx, { action: `notification:${title}`, entityType: "notification", entityId: row.id });
+  return row;
+}

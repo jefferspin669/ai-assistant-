@@ -3,6 +3,7 @@
 import Link from "@/components/SiteLink";
 import { FormEvent, useEffect, useState } from "react";
 import {
+  addMeetingToCalendar,
   createMeeting,
   endMeetingCapture,
   loadMeetings,
@@ -56,7 +57,14 @@ export function MeetingStudio({
     persist(next, created.id);
     setShowForm(false);
     setTitle("");
-    setNote(`Meeting “${created.title}” created. Open its page to start.`);
+    setNote(`Meeting “${created.title}” created. Add to Calendar?`);
+  }
+
+  function confirmCalendar() {
+    if (!meeting) return;
+    const updated = addMeetingToCalendar(meeting);
+    persist(meetings.map((m) => (m.id === meeting.id ? updated : m)), updated.id);
+    setNote(`“${updated.title}” added to Atlas Calendar with reminders (1 day, 1 hour, 15 min, and start).`);
   }
 
   function startMeeting() {
@@ -194,6 +202,12 @@ export function MeetingStudio({
                 Stop recording
               </button>
             )}
+            {!meeting.calendarAdded ? (
+              <button className="btn btn-dark" type="button" onClick={confirmCalendar}>Add to Calendar</button>
+            ) : (
+              <span className="badge ok">On calendar</span>
+            )}
+            <a className="btn btn-outline" href={meeting.joinUrl} target="_blank" rel="noreferrer">Join meeting</a>
             <Link className="btn btn-outline" href={`/app/meetings/${meeting.id}`}>
               Open meeting page
             </Link>

@@ -1,34 +1,20 @@
-import { FeatureView } from "@/components/FeatureView";
-import { purchasingCompares } from "@/lib/atlas-platform";
+import { AppShell } from "@/components/AppShell";
+import { ExpensesStudio } from "@/components/ExpensesStudio";
+import Link from "@/components/SiteLink";
 
 export default function PurchasingPage() {
   return (
-    <FeatureView
-      title="Purchasing AI"
-      subtitle="Compare suppliers, find cheaper prices, track deliveries, and predict shortages."
-      sections={[
-        {
-          type: "table",
-          title: "Supplier compare",
-          headers: ["Part", "Supplier", "Price", "ETA", "Pick"],
-          rows: purchasingCompares.map((row) => [
-            row.part,
-            row.supplier,
-            row.price,
-            row.eta,
-            row.pick ? "Recommended" : "—",
-          ]),
-        },
-        {
-          type: "panel",
-          title: "Automation",
-          list: [
-            { badge: "Auto", badgeTone: "ok", text: "Draft POs when stock hits reorder point" },
-            { badge: "Track", text: "Delivery ETAs synced to job schedules" },
-            { badge: "Watch", badgeTone: "warn", text: "Flag price spikes above 8%" },
-          ],
-        },
-      ]}
-    />
+    <AppShell
+      title="Expenses & Purchases"
+      subtitle="Scan receipts, match company-card transactions, assign projects, and route approvals."
+      action={
+        <div className="cta-row">
+          <Link className="btn btn-outline" href="/app/purchasing?tab=scan">Scan receipt</Link>
+          <Link className="btn btn-outline" href="/app/purchasing?tab=rules">Approval rules</Link>
+        </div>
+      }
+    >
+      <ExpensesStudio />
+    </AppShell>
   );
 }

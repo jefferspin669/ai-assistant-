@@ -31,8 +31,8 @@ export default function OnboardingPage() {
   }, [ready, aiName, aiPersonality, account]);
 
   const nextHref = useMemo(() => {
-    if (audience === "events") return "/app/events";
-    if (audience === "individual" || audience === "family" || audience === "school") return "/app/personal";
+    if (audience === "events") return "/app/appointments?tab=events";
+    if (audience === "individual" || audience === "family" || audience === "school") return "/app/ask?tab=personal";
     if (audience === "nonprofit") return "/app/marketplace";
     return account ? "/app/account" : "/app";
   }, [audience, account]);

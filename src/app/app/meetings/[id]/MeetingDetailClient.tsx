@@ -5,12 +5,14 @@ import { FormEvent, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import {
+  addMeetingToCalendar,
   endMeetingCapture,
   loadMeetings,
   saveMeetings,
   startMeetingCapture,
   type UserMeeting,
 } from "@/lib/surface-workspace";
+import { createTeamTasksFromMeeting } from "@/lib/user-workspace";
 
 type Mode = "summary" | "notes" | "decisions" | "tasks" | "deadlines";
 
@@ -114,6 +116,18 @@ export function MeetingDetailClient() {
     setDeadlineDraft("");
   }
 
+  function addToCalendar() {
+    if (!meeting) return;
+    persist(addMeetingToCalendar(meeting));
+    setFlash("Meeting added to Atlas Calendar — reminders at 1 day, 1 hour, 15 minutes, and start.");
+  }
+
+  function pushTasks() {
+    if (!meeting) return;
+    const count = createTeamTasksFromMeeting(meeting);
+    setFlash(`Atlas created ${count} task${count === 1 ? "" : "s"} in Workforce from this meeting.`);
+  }
+
   return (
     <AppShell
       title="Meeting Intelligence"
@@ -150,6 +164,15 @@ export function MeetingDetailClient() {
             <button className="btn btn-outline" type="button" onClick={sendRecap}>
               {meeting.recapSent ? "Recap sent" : "Email meeting recap"}
             </button>
+            {!meeting.calendarAdded ? (
+              <button className="btn btn-dark" type="button" onClick={addToCalendar}>Add to Calendar</button>
+            ) : (
+              <span className="badge ok">On calendar</span>
+            )}
+            <a className="btn btn-outline" href={meeting.joinUrl} target="_blank" rel="noreferrer">Join meeting</a>
+            {meeting.status === "ended" && meeting.tasks.length > 0 ? (
+              <button className="btn btn-dark" type="button" onClick={pushTasks}>Create tasks</button>
+            ) : null}
             {meeting.status === "live" ? <span className="badge warn">Live</span> : null}
           </div>
           {flash ? <p className="muted-line">{flash}</p> : null}
@@ -177,8 +200,23 @@ export function MeetingDetailClient() {
                 <p>{meeting.summary}</p>
               </div>
               <p className="panel-lead" style={{ marginTop: "1rem" }}>
-                {meeting.recorded}. Attendees: {meeting.attendees.join(", ")}.
+                {meeting.date} {meeting.startTime}–{meeting.endTime} · {meeting.location} · {meeting.recorded}
               </p>
+              <p className="panel-lead">Attendees: {meeting.attendees.join(", ")}.</p>
+              {meeting.status === "ended" && meeting.decisions.length > 0 ? (
+                <>
+                  <h3>Decisions</h3>
+                  <ul className="plain-list">
+                    {meeting.decisions.map((d) => <li key={d}>{d}</li>)}
+                  </ul>
+                  <h3>Action items</h3>
+                  <ul className="plain-list">
+                    {meeting.tasks.map((t) => (
+                      <li key={`${t.owner}-${t.task}`}>{t.owner} → {t.task} ({t.due})</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
             </section>
           ) : null}
 

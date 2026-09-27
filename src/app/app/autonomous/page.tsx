@@ -5,7 +5,7 @@ export default function AutonomousPage() {
   return (
     <AppShell
       title="AI Autonomous Mode"
-      subtitle="Instead of waiting for commands — Atlas works continuously and confirms with you when it matters."
+      subtitle="Atlas runs the routine company. You handle exceptions — levels, spending limits, a kill switch, and a 24/7 permission engine."
     >
       <AutonomousStudio />
     </AppShell>

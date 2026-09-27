@@ -4,9 +4,8 @@ import { MarketplaceStudio } from "@/components/MarketplaceStudio";
 export default function MarketplacePage() {
   return (
     <AppShell
-      title="AI Agent Marketplace"
-      subtitle="Install specialized AI employees — Sales, HR, Marketing, Accountant, Support, Legal, Real Estate, Fitness — or publish your own."
-      action={<button className="btn btn-dark">Publish listing</button>}
+      title="Atlas Marketplace"
+      subtitle="Agents, integrations, workflows, and industry packs — where businesses expand Atlas."
     >
       <MarketplaceStudio />
     </AppShell>

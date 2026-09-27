@@ -1,0 +1,69 @@
+# Local Atlas stack: Next.js + PostgreSQL + Redis + BullMQ worker.
+# Demos still work without Docker (JSON files + in-process job queue).
+#
+#   docker compose up -d postgres redis
+#   npm run db:migrate
+#   npm run worker
+#   npm run dev
+#
+# Full stack (app + worker in containers): docker compose --profile full up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas
+      POSTGRES_DB: atlas
+    ports:
+      - "5432:5432"
+    volumes:
+      - atlas_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    profiles: ["full"]
+    build: .
+    command: npm run worker
+    environment:
+      DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas
+      REDIS_URL: redis://redis:6379
+      ATLAS_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app:
+    profiles: ["full"]
+    build: .
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas
+      REDIS_URL: redis://redis:6379
+      ATLAS_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  atlas_pg:
