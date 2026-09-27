@@ -22,6 +22,7 @@ const required = [
   "0002_projects_and_assignees.sql",
   "0003_unified_memory.sql",
   "0004_workspace_domains.sql",
+  "0005_row_level_concurrency_and_durable_jobs.sql",
 ];
 for (const name of required) {
   if (!files.includes(name)) {

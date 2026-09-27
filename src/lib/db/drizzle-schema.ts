@@ -48,7 +48,10 @@ export const customers = pgTable("customers", {
   phone: text("phone"),
   status: text("status").notNull().default("lead"),
   createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at"),
   provenance: text("provenance").notNull().default("LIVE"),
+  /** Optimistic concurrency token — bumped on every row-level update. */
+  version: integer("version").notNull().default(1),
 });
 
 export const tasks = pgTable("tasks", {
@@ -67,6 +70,8 @@ export const tasks = pgTable("tasks", {
   notifyOnComplete: boolean("notify_on_complete").notNull().default(false),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  /** Optimistic concurrency token — bumped on every row-level update. */
+  version: integer("version").notNull().default(1),
 });
 
 export const projects = pgTable("projects", {
@@ -78,6 +83,8 @@ export const projects = pgTable("projects", {
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  /** Optimistic concurrency token — bumped on every row-level update. */
+  version: integer("version").notNull().default(1),
 });
 
 export const calendarEvents = pgTable("calendar_events", {
@@ -97,6 +104,9 @@ export const calendarEvents = pgTable("calendar_events", {
   recurringRule: text("recurring_rule"),
   externalCalendarId: text("external_calendar_id"),
   createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at"),
+  /** Optimistic concurrency token — bumped on every row-level update. */
+  version: integer("version").notNull().default(1),
 });
 
 export const transactions = pgTable("transactions", {
@@ -142,6 +152,29 @@ export const jobs = pgTable("jobs", {
   status: text("status").notNull().default("queued"),
   createdAt: text("created_at").notNull(),
   runAt: text("run_at"),
+  lane: text("lane").notNull().default("default"),
+  attempts: integer("attempts").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(5),
+  visibleAt: text("visible_at"),
+  claimedAt: text("claimed_at"),
+  claimedBy: text("claimed_by"),
+  lastError: text("last_error"),
+  updatedAt: text("updated_at"),
+  idempotencyKey: text("idempotency_key"),
+  deadLetteredAt: text("dead_lettered_at"),
+  version: integer("version").notNull().default(1),
+});
+
+export const jobDeadLetters = pgTable("job_dead_letters", {
+  id: text("id").primaryKey(),
+  jobId: text("job_id").notNull(),
+  organizationId: text("organization_id").notNull(),
+  kind: text("kind").notNull(),
+  lane: text("lane").notNull().default("default"),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  error: text("error").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: text("created_at").notNull(),
 });
 
 export const agents = pgTable("agents", {
@@ -302,6 +335,8 @@ export const workspaceDomains = pgTable(
     domain: text("domain").notNull(),
     data: jsonb("data"),
     updatedAt: text("updated_at").notNull(),
+    /** Optimistic concurrency token — bumped on every domain write. */
+    version: integer("version").notNull().default(1),
   },
   (table) => [uniqueIndex("workspace_domains_org_domain").on(table.organizationId, table.domain)],
 );
@@ -318,6 +353,7 @@ export const DRIZZLE_TABLES = [
   "approvals",
   "audit_logs",
   "jobs",
+  "job_dead_letters",
   "agents",
   "domain_events",
   "notifications",

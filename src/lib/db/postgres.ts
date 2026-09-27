@@ -394,11 +394,7 @@ export async function persistAtlasDatabase(data: AtlasDatabase): Promise<void> {
 }
 
 async function selectAll<T>(table: PgTable): Promise<T[]> {
-  try {
-    return (await getDrizzle().select().from(table)) as T[];
-  } catch {
-    return [];
-  }
+  return (await getDrizzle().select().from(table)) as T[];
 }
 
 export async function loadAtlasDatabaseFromPostgres(): Promise<AtlasDatabase | null> {

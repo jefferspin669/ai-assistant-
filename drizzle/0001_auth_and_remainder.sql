@@ -94,3 +94,11 @@ CREATE TABLE IF NOT EXISTS autonomy_policies (
   standing_orders jsonb NOT NULL DEFAULT '[]'::jsonb,
   updated_at text NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS workspace_domains (
+  organization_id text NOT NULL,
+  domain text NOT NULL,
+  data jsonb,
+  updated_at text NOT NULL,
+  PRIMARY KEY (organization_id, domain)
+);

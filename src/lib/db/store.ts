@@ -65,6 +65,11 @@ function getServerDb() {
   } else {
     g.__atlasServerDb = seedDatabase();
     writeJsonFile(DB_FILE, g.__atlasServerDb);
+    if (typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { resetSeedEmployees } = require("@/lib/services/employees") as typeof import("@/lib/services/employees");
+      resetSeedEmployees(g.__atlasServerDb.organizations[0].id);
+    }
   }
   return g.__atlasServerDb;
 }
@@ -309,6 +314,8 @@ function normalizeCalendarEvent(
 /** Seed a demo workspace so the architecture map and APIs have data. */
 export function seedDatabase(): AtlasDatabase {
   const userId = newId("user");
+  const memberUserId = newId("user");
+  const invitedUserId = newId("user");
   const orgId = newId("org");
   const stamp = nowIso();
 
@@ -324,26 +331,6 @@ export function seedDatabase(): AtlasDatabase {
     updated_at: stamp,
   };
 
-  const credential: DbUserCredential = {
-    user_id: userId,
-    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
-    mfa_secret: null,
-    mfa_enabled: false,
-  };
-
-  const org: DbOrganization = {
-    id: orgId,
-    owner_id: userId,
-    business_name: "Atlas Demo Co",
-    logo_url: null,
-    business_type: "HVAC",
-    tax_structure: "LLC",
-    state: "TX",
-    created_at: stamp,
-  };
-
-  const memberUserId = newId("user");
-  const invitedUserId = newId("user");
   const teammate: DbUser = {
     id: memberUserId,
     email: "alex@atlas.ai",
@@ -367,6 +354,12 @@ export function seedDatabase(): AtlasDatabase {
     updated_at: stamp,
   };
 
+  const credential: DbUserCredential = {
+    user_id: userId,
+    password_hash: hashPassword("atlas-demo", "seedatlasdemo12"),
+    mfa_secret: null,
+    mfa_enabled: false,
+  };
   const managerCredential: DbUserCredential = {
     user_id: memberUserId,
     password_hash: hashPassword("atlas-manager", "seedatlasmgr12"),
@@ -378,6 +371,17 @@ export function seedDatabase(): AtlasDatabase {
     password_hash: hashPassword("atlas-worker", "seedatlaswrk12"),
     mfa_secret: null,
     mfa_enabled: false,
+  };
+
+  const org: DbOrganization = {
+    id: orgId,
+    owner_id: userId,
+    business_name: "Atlas Demo Co",
+    logo_url: null,
+    business_type: "HVAC",
+    tax_structure: "LLC",
+    state: "TX",
+    created_at: stamp,
   };
 
   const organization_members: DbOrganizationMember[] = [
@@ -903,16 +907,40 @@ export function saveDatabase(db: AtlasDatabase) {
 /**
  * Await every queued Postgres write (and BullMQ enqueue). API handlers flush
  * before responding so PostgreSQL is authoritative — no fire-and-forget.
+ * Failed writes surface as PersistenceError (503), never quiet success.
  */
 export async function awaitDatabaseWrites(): Promise<void> {
   if (typeof window !== "undefined") return;
   const g = globalThis as AtlasGlobal;
-  if (g.__atlasPersistChain) await g.__atlasPersistChain;
+  try {
+    if (g.__atlasPersistChain) await g.__atlasPersistChain;
+  } catch (error) {
+    lastPersistError = error instanceof Error ? error : new Error(String(error));
+  }
   if (g.__atlasQueueChain) await g.__atlasQueueChain;
+  if (lastPersistError) {
+    const err = lastPersistError;
+    lastPersistError = null;
+    const { PersistenceError } = await import("@/lib/domain/errors");
+    throw new PersistenceError(err.message);
+  }
 }
 
 /** Alias used by Twilio webhooks and other side-effect routes. */
 export const flushDatabaseWrites = awaitDatabaseWrites;
+
+/** Test-only: simulate a failed Postgres write that flush must surface. */
+export function __setLastPersistErrorForTests(error: Error | null) {
+  lastPersistError = error;
+}
+
+/** Memory + JSON immediately; Postgres is awaited before returning. */
+export async function saveDatabaseAsync(db: AtlasDatabase) {
+  saveDatabase(db);
+  await flushDatabaseWrites();
+}
+
+let lastPersistError: Error | null = null;
 
 function enqueuePostgresPersist(next: AtlasDatabase) {
   const g = globalThis as AtlasGlobal;
@@ -920,12 +948,13 @@ function enqueuePostgresPersist(next: AtlasDatabase) {
   g.__atlasPersistChain = prior
     .then(async () => {
       // Static specifier so Turbopack/webpack can resolve the module (Next 16+).
-      // store.ts is server-gated via `typeof window` before this path runs.
       const mod = await import("@/lib/db/postgres");
       await mod.persistAtlasDatabase(next);
+      lastPersistError = null;
     })
     .catch((error) => {
-      console.error("[atlas:pg]", error instanceof Error ? error.message : error);
+      lastPersistError = error instanceof Error ? error : new Error(String(error));
+      console.error("[atlas:pg]", lastPersistError.message);
       throw error;
     });
 }

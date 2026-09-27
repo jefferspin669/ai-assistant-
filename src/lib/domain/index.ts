@@ -31,11 +31,19 @@ export type {
 };
 
 export {
+  AtlasError,
   AuthenticationError,
   AuthorizationError,
   ConflictError,
+  IntegrationError,
   NotFoundError,
+  PaymentRequiredError,
+  PersistenceError,
+  RateLimitError,
+  ReauthRequiredError,
   ValidationError,
+  asIntegrationError,
+  isAtlasError,
 } from "@/lib/domain/errors";
 export { decodeAtlasAction, executeAtlasAction } from "@/lib/domain/actions";
 export { atlasActionSchema, createCustomerSchema } from "@/lib/domain/schemas";

@@ -79,6 +79,9 @@ export type DbCalendarEvent = {
   recurring_rule: string | null;
   external_calendar_id: string | null;
   created_at: string;
+  updated_at?: string | null;
+  /** Optimistic concurrency token. */
+  version?: number;
 };
 
 /** @deprecated Use DbCalendarEvent */
@@ -114,6 +117,9 @@ export type DbTask = {
   notifyOnComplete: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Optimistic concurrency token. Both adapters carry it so conflicts are
+   * reproducible without Postgres. See `src/lib/db/repo/concurrency.ts`. */
+  version?: number;
 };
 
 export type DbCustomer = {
@@ -124,7 +130,10 @@ export type DbCustomer = {
   phone: string | null;
   status: "lead" | "active" | "inactive";
   created_at: string;
+  updated_at?: string | null;
   provenance?: "DEMO" | "LIVE" | "CONNECTED DATA";
+  /** Optimistic concurrency token. */
+  version?: number;
 };
 
 export type DbAgent = {
@@ -250,9 +259,16 @@ export type DbSession = {
   user_id: string;
   organization_id: string;
   created_at: string;
+  /** Absolute expiry — a session can never outlive this, even if it stays busy. */
   expires_at: string;
   revoked_at: string | null;
   device_name: string;
+  /** Rolling/idle window: last authenticated request on this session. */
+  last_seen_at?: string | null;
+  /** Why the session was revoked (logout, password_reset, role_change, employee_removed…). */
+  revoked_reason?: string | null;
+  /** Last time the holder re-proved identity (password or MFA) for a privileged action. */
+  reauth_at?: string | null;
 };
 
 export type DbAuditLog = {
@@ -305,14 +321,16 @@ export type DbLoginAttempt = {
   ip: string;
 };
 
+/** `token` stores a SHA-256 hash of the emailed token — never the raw link value. */
 export type DbPasswordReset = {
   token: string;
   user_id: string;
   expires_at: string;
   used_at: string | null;
+  created_at?: string;
 };
 
-/** Owner-issued invite to join an organization (email token link). */
+/** Owner-issued invite to join an organization (email token link). Single use. */
 export type DbOrganizationInvite = {
   token: string;
   organization_id: string;
@@ -322,6 +340,12 @@ export type DbOrganizationInvite = {
   expires_at: string;
   accepted_at: string | null;
   created_at: string;
+  /** Revoked/cancelled by an owner or admin — the link stops working immediately. */
+  revoked_at?: string | null;
+  revoked_by?: string | null;
+  /** Resend rotates the token; these track the latest resend. */
+  resent_at?: string | null;
+  resent_count?: number;
 };
 
 /** Short-lived MFA challenge — not a full session. */

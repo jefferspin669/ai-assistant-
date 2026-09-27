@@ -7,7 +7,7 @@ import { isAtlasError, AuthenticationError } from "@/lib/domain/errors";
 import type { Permission, SessionContext } from "@/lib/domain/types";
 import { requirePermission } from "@/lib/auth/permissions";
 import { ensureServerDatabase } from "@/lib/db/ensure";
-import { awaitDatabaseWrites } from "@/lib/db/store";
+import { awaitDatabaseWrites, flushDatabaseWrites } from "@/lib/db/store";
 import { readCachedSession } from "@/lib/auth/session-cache";
 import {
   provisionAtlasUserFromSupabase,
@@ -56,6 +56,32 @@ export function jsonError(error: unknown) {
   return apiResponse(err("Unexpected error.", 500));
 }
 
+async function flushAllPersistence() {
+  await awaitDatabaseWrites();
+}
+
+/**
+ * Run a mutating route: ensure DB, execute, then flush Postgres.
+ * Failed PG writes become PersistenceError (503) — never quiet 200s.
+ */
+export function withFlush(handler: (req: Request) => Promise<Response> | Response) {
+  return async (req: Request) => {
+    try {
+      await ensureServerDatabase();
+      const response = await handler(req);
+      await flushAllPersistence();
+      return response;
+    } catch (error) {
+      try {
+        await flushAllPersistence();
+      } catch (persistError) {
+        return jsonError(persistError);
+      }
+      return jsonError(error);
+    }
+  };
+}
+
 /** Identity comes from the session cookie, Redis session cache, or Supabase Auth — never from body userId. */
 export async function resolveSession(req: Request, _body?: Record<string, unknown>): Promise<SessionContext> {
   void _body;
@@ -64,12 +90,12 @@ export async function resolveSession(req: Request, _body?: Record<string, unknow
   if (cookie) {
     const cached = await readCachedSession(cookie);
     if (cached) {
-      return {
-        userId: cached.userId,
-        organizationId: cached.organizationId,
-        role: cached.role as SessionContext["role"],
-        sessionId: cached.sessionId,
-      };
+      // Prefer live membership check over Redis cache so revoked members cannot ride a stale entry.
+      try {
+        return sessionFromToken(cookie);
+      } catch {
+        throw new AuthenticationError("Session is no longer valid for this organization.");
+      }
     }
     return sessionFromToken(cookie);
   }
@@ -126,13 +152,13 @@ export function withAuth(handler: ApiHandler) {
           ? {}
           : await readJson(req);
       const response = await handler({ req, workspace, body });
-      await awaitDatabaseWrites();
+      await flushAllPersistence();
       return response;
     } catch (error) {
       try {
-        await awaitDatabaseWrites();
-      } catch {
-        /* surface the original handler error */
+        await flushAllPersistence();
+      } catch (persistError) {
+        return jsonError(persistError);
       }
       return jsonError(error);
     }
@@ -144,6 +170,48 @@ export const withWorkspace = withAuth;
 
 export function withPermission(permission: Permission, handler: ApiHandler) {
   return withAuth(async (ctx) => {
+    requirePermission(ctx.workspace, permission);
+    return handler(ctx);
+  });
+}
+
+/** Next.js dynamic-route context (`{ params: Promise<{ id: string }> }`). */
+export type RouteParams<P> = { params: Promise<P> };
+
+export type ApiRouteContext<P> = ApiHandlerContext & { params: P };
+
+type ApiRouteHandler<P> = (ctx: ApiRouteContext<P>) => Promise<Response> | Response;
+
+/**
+ * Same contract as `withAuth` for dynamic routes: session, parsed body, awaited
+ * params, persistence flush, and `jsonError` mapping. Use this instead of
+ * hand-rolling `resolveSession` + try/catch in `[id]` handlers.
+ */
+export function withAuthParams<P>(handler: ApiRouteHandler<P>) {
+  return async (req: Request, route: RouteParams<P>) => {
+    try {
+      const workspace = await resolveSession(req);
+      const params = await route.params;
+      const body =
+        req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS"
+          ? {}
+          : await readJson(req);
+      const response = await handler({ req, workspace, body, params });
+      await flushAllPersistence();
+      return response;
+    } catch (error) {
+      try {
+        await flushAllPersistence();
+      } catch (persistError) {
+        return jsonError(persistError);
+      }
+      return jsonError(error);
+    }
+  };
+}
+
+export function withPermissionParams<P>(permission: Permission, handler: ApiRouteHandler<P>) {
+  return withAuthParams<P>(async (ctx) => {
     requirePermission(ctx.workspace, permission);
     return handler(ctx);
   });
