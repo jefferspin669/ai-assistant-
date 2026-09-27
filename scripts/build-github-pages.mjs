@@ -76,7 +76,14 @@ try {
   rmSync(outDir, { recursive: true, force: true });
   // Next.js 16 defaults to Turbopack; this app still needs the webpack
   // resolve.fallback for Node built-ins in the client graph (see next.config.ts).
-  run("npx", ["next", "build", "--webpack"], { GITHUB_PAGES: "true" });
+  const sha = (
+    spawnSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).stdout || "unknown"
+  ).trim();
+  const stamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  run("npx", ["next", "build", "--webpack"], {
+    GITHUB_PAGES: "true",
+    NEXT_PUBLIC_ATLAS_BUILD: `${sha} ${stamp}`,
+  });
 
   if (!existsSync(outDir)) {
     throw new Error("Expected ./out after static export");
