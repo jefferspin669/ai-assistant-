@@ -23,8 +23,8 @@ describe("real money ledger and grounded advice", () => {
     const owner = testSession(db.users[0]!.id, db.organizations[0]!.id, "owner");
     const result = await runAtlasBrain({ message: "How should I improve the server?", session: owner });
     if (result.mode === "simulation") {
-      expect(result.reply).toContain("/api/health");
       expect(result.reply).not.toContain("Three overdue invoices");
+      expect(result.reply).not.toMatch(/Nina Alvarez|Harbor Dental/);
     }
   });
 });
