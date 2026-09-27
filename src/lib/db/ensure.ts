@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/driver";
 import {
   applyServerDatabase,
+  emptyDb,
   loadDatabase,
   seedDatabase,
 } from "@/lib/db/store";
@@ -27,15 +28,19 @@ function g() {
   return globalThis as AtlasGlobal;
 }
 
-function allowEmptyPgSeed() {
+function allowDemoSeed() {
+  if (isProduction()) return false;
+  // Prefer ATLAS_SEED_DEMO; keep ATLAS_SEED_EMPTY_PG as a legacy alias.
+  if (process.env.ATLAS_SEED_DEMO === "1") return true;
+  if (process.env.ATLAS_SEED_DEMO === "0") return false;
   if (process.env.ATLAS_SEED_EMPTY_PG === "1") return true;
   if (process.env.ATLAS_SEED_EMPTY_PG === "0") return false;
-  return !isProduction();
+  return false;
 }
 
 /**
  * Load Postgres into the process cache once per instance.
- * Empty databases may be seeded once in non-production (or when ATLAS_SEED_EMPTY_PG=1).
+ * Demo seeding is opt-in (`ATLAS_SEED_DEMO=1`); production never seeds.
  * Never reseeds when organizations already exist.
  * Hydrate failures are visible and do not silently win with stale JSON unless explicitly allowed.
  * Production requires DATABASE_URL — file fallback is refused.
@@ -61,7 +66,7 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
       }
       loadDatabase();
       const orgId = loadDatabase().organizations[0]?.id;
-      if (orgId) {
+      if (orgId && allowDemoSeed()) {
         const employees = await import("@/lib/services/employees");
         if (!employees.listEmployees(orgId).length) {
           employees.resetSeedEmployees(orgId);
@@ -81,27 +86,19 @@ export async function ensureServerDatabase(): Promise<EnsureResult> {
         g().__atlasEnsured = result;
         return result;
       }
-      if (!allowEmptyPgSeed()) {
-        const message =
-          "Postgres has no organizations — set ATLAS_SEED_EMPTY_PG=1 to seed, or restore a backup.";
-        const result: EnsureResult = {
-          driver: "postgres",
-          source: "error",
-          seeded: false,
-          error: message,
-        };
-        g().__atlasEnsured = result;
-        const { PersistenceError } = await import("@/lib/domain/errors");
-        throw new PersistenceError(message);
+      const shouldSeed = allowDemoSeed();
+      const initial = shouldSeed ? seedDatabase() : emptyDb();
+      applyServerDatabase(initial);
+      if (shouldSeed && initial.organizations[0]?.id) {
+        const employees = await import("@/lib/services/employees");
+        employees.resetSeedEmployees(initial.organizations[0].id);
       }
-      const seeded = seedDatabase();
-      applyServerDatabase(seeded);
-      const employees = await import("@/lib/services/employees");
-      if (seeded.organizations[0]?.id) {
-        employees.resetSeedEmployees(seeded.organizations[0].id);
-      }
-      await persistAtlasDatabase(seeded);
-      const result: EnsureResult = { driver: "postgres", source: "seeded-once", seeded: true };
+      await persistAtlasDatabase(initial);
+      const result: EnsureResult = {
+        driver: "postgres",
+        source: shouldSeed ? "seeded-once" : "postgres",
+        seeded: shouldSeed,
+      };
       g().__atlasEnsured = result;
       return result;
     } catch (error) {

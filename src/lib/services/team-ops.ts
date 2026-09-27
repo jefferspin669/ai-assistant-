@@ -3,6 +3,7 @@
  * Server-authoritative; no demo seed on this path.
  */
 
+import { randomBytes } from "crypto";
 import { hashPassword } from "@/lib/auth/password";
 import { AuthorizationError, ConflictError, NotFoundError, ValidationError } from "@/lib/domain/errors";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -52,7 +53,8 @@ export function inviteWorker(
     } satisfies DbUser;
     const credential: DbUserCredential = {
       user_id: userId,
-      password_hash: hashPassword("atlas-worker"),
+      // Invitation never grants a shared guessable password; worker must set their own.
+      password_hash: hashPassword(randomBytes(32).toString("hex")),
       mfa_secret: null,
       mfa_enabled: false,
     };
@@ -157,8 +159,10 @@ export function teamOpsSnapshot(ctx: SessionContext) {
     members,
     projects: listOrgProjects(ctx),
     tasks: listOrgTasks(ctx),
-    approvals: listApprovals(ctx).filter((row) => row.status === "pending"),
-    audit: listAudit(ctx.organizationId).slice(0, 40),
+    approvals: canManageProjectTasks(ctx.role)
+      ? listApprovals(ctx).filter((row) => row.status === "pending")
+      : [],
+    audit: canManageProjectTasks(ctx.role) ? listAudit(ctx.organizationId).slice(0, 40) : [],
   };
 }
 
