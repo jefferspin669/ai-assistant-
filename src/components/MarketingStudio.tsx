@@ -8,13 +8,12 @@ import {
   loadCampaigns,
   loadConnectedAccounts,
   marketingDataMode,
-  saveConnectedAccounts,
   type MarketingCampaign,
 } from "@/lib/marketing-workspace";
 
 export function MarketingStudio() {
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
-  const [accounts, setAccounts] = useState(loadConnectedAccounts());
+  const [accounts] = useState(loadConnectedAccounts());
   const [name, setName] = useState("Fall service reminder");
   const [channel, setChannel] = useState<MarketingCampaign["channel"]>("email");
   const [audience, setAudience] = useState("Customers — no visit in 90 days");
@@ -26,13 +25,6 @@ export function MarketingStudio() {
 
   const summary = campaignSummary();
   const mode = marketingDataMode();
-
-  function toggleAccount(id: string) {
-    const next = accounts.map((a) => (a.id === id ? { ...a, connected: !a.connected } : a));
-    setAccounts(next);
-    saveConnectedAccounts(next);
-    setNote(next.some((a) => a.connected) ? "Account connected (demo) — metrics will show LIVE when APIs sync." : "Disconnected.");
-  }
 
   function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -60,16 +52,20 @@ export function MarketingStudio() {
 
       <section className="panel">
         <h2>Connected accounts</h2>
+        <p className="panel-lead">
+          Local toggles cannot mark channels LIVE. Connect Twilio, Resend, or social OAuth under{" "}
+          <Link href="/app/commercial">Commercial</Link> with real credentials.
+        </p>
         <div className="list">
           {accounts.map((a) => (
             <div key={a.id} className="compliance-row">
               <div>
                 <p><strong>{a.name}</strong></p>
-                <p className="muted-line">{a.kind}</p>
+                <p className="muted-line">{a.kind} · Not connected</p>
               </div>
-              <button className="btn btn-outline" type="button" onClick={() => toggleAccount(a.id)}>
-                {a.connected ? "Connected" : "Connect"}
-              </button>
+              <Link className="btn btn-outline" href="/app/commercial">
+                Connect via Integrations
+              </Link>
             </div>
           ))}
         </div>
