@@ -73,7 +73,9 @@ export default function ChatbotPage() {
   }, []);
 
   async function createLead(note: string) {
-    const nameMatch = note.match(/(?:i(?:'m| am)|my name is)\s+([A-Za-z][A-Za-z\s'-]{1,60})/i);
+    const nameMatch = note.match(
+      /(?:i(?:'m| am)|my name is)\s+([A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*){0,2})/i,
+    );
     const name = nameMatch?.[1]?.trim() || "Website visitor";
     const result = await apiSend<Customer>("/api/customers", "POST", {
       name,
