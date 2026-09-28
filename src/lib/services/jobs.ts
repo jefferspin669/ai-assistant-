@@ -20,7 +20,13 @@ export function enqueueJob(
     run_at: null,
   };
   saveDatabase({ ...db, jobs: [job, ...db.jobs] });
-  if (typeof window === "undefined" && process.env.REDIS_URL?.trim()) {
+  // assign_task is drained by the durable DB queue on /api/autonomy/tick so policy
+  // can be rechecked immediately before createOrgTask. Other kinds may use BullMQ.
+  if (
+    typeof window === "undefined" &&
+    process.env.REDIS_URL?.trim() &&
+    kind !== "autonomy:assign_task"
+  ) {
     enqueueAwaitedSideEffect(() =>
       import("@/lib/queue/bullmq").then((mod) =>
         mod.addBullJob(kind, {
@@ -37,6 +43,9 @@ export function enqueueJob(
 
 export function processJobs(limit = 10) {
   const autonomy = processAutonomyQueue(limit);
+  // When Redis is up, BullMQ owns generic jobs — this tick must not race it and
+  // falsely mark an in-flight delivery failed.
+  if (process.env.REDIS_URL?.trim()) return { generic: [], autonomy };
   if (typeof window === "undefined") {
     void import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns()).catch(() => undefined);
   }

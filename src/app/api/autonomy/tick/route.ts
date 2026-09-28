@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { processJobs } from "@/lib/services/jobs";
 import type { SessionContext } from "@/lib/domain/types";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { awaitDatabaseWrites } from "@/lib/db/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ async function runTick(req: Request) {
     const auth = await authorizeTick(req);
     const processed = processJobs(20);
     const orch = await import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns());
+    await awaitDatabaseWrites();
     return apiResponse(ok({ via: auth.via, processed, orchestrator: orch.map((run) => run.id) }));
   } catch (error) {
     return jsonError(error);
