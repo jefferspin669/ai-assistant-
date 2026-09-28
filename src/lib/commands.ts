@@ -68,7 +68,7 @@ export function runOwnerCommand(input: string): CommandResult {
       reply:
         "I found John Smith · AC Repair at 2:00 PM. Proposed: tomorrow 2:00 PM. Calendar will update in this workspace. Customer and technician texts are DEMO until SMS is connected.",
       confirmPrompt: "Move John to tomorrow 2:00 PM?",
-      doneLabel: "Calendar updated.",
+      doneLabel: "Proposed move only until Calendar shows a successful server save and audit. Customer/tech texts stay unsent without Twilio approval.",
     };
   }
 
@@ -168,7 +168,7 @@ export function runOwnerCommand(input: string): CommandResult {
       reply:
         "Johnson Construction estimate is ready: remodel package $18,400, 40% deposit, start window next Tuesday. Sending email is DEMO until inbox is connected.",
       confirmPrompt: "Approve the $18,400 Johnson Construction estimate?",
-      doneLabel: "Estimate approved in this workspace.",
+      doneLabel: "Local preview only — open Quotes/Sales and confirm the estimate on the server before treating it as approved or sent.",
     };
   }
 
@@ -178,7 +178,7 @@ export function runOwnerCommand(input: string): CommandResult {
       agentLabel: "Atlas",
       needsConfirm: false,
       reply:
-        "Three overdue invoices: Nina Alvarez $890, Tom Rivera $960, and Harbor Dental $460. Total $2,310. I can send reminders automatically.",
+        "Three overdue invoices appear in this workspace demo brief: Nina Alvarez $890, Tom Rivera $960, and Harbor Dental $460. I have not sent reminders — stage them under Invoices & payments / Approvals for a real send and audit.",
     };
   }
 

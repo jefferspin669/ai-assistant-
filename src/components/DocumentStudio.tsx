@@ -33,7 +33,7 @@ export function DocumentStudio() {
     const doc = createDocumentFromPrompt(kind, description);
     refresh();
     setSelectedId(doc.id);
-    setNote(`Generated ${doc.kind} — edit, save, or export below.`);
+    setNote(`Generated ${doc.kind} — edit and save. Export/share stay disabled until Atlas can produce a real file or link.`);
   }
 
   function onEdit(mode: "professional" | "shorten" | "rewrite") {
@@ -48,7 +48,7 @@ export function DocumentStudio() {
     if (!selected) return;
     updateUserDocument(selected.id, { status: "ready" });
     refresh();
-    setNote("Document saved and ready to share.");
+    setNote("Document saved as ready. Export and share stay disabled until a real file or link exists.");
   }
 
   const kinds = useMemo(() => DOCUMENT_KINDS, []);
