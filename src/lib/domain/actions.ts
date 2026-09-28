@@ -50,6 +50,9 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
         task: createOrgTask(ctx, {
           title: action.payload.title,
           dueDate: action.payload.dueDate ?? null,
+          notes: action.payload.notes,
+          projectId: action.payload.projectId ?? null,
+          assigneeId: action.payload.assigneeId ?? null,
         }),
       };
     case "UPDATE_TASK":

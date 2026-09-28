@@ -6,9 +6,10 @@ import { getPolicy } from "@/lib/autonomy/policy";
 import type { AutonomyDecision, AutonomyKind, WorkIntent } from "@/lib/autonomy/types";
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
-import { notify } from "@/lib/services/jobs";
+import { notify, enqueueJob } from "@/lib/services/jobs";
 import { maxAutonomyLevelForPlan, subscriptionForOrg } from "@/lib/billing/entitlements";
 import { isAtlasActor } from "@/lib/safety/guards";
+import { createTaskSchema } from "@/lib/domain/schemas";
 
 export type SubmittedWork = {
   decision: AutonomyDecision;
@@ -88,7 +89,16 @@ export function submitWork(
   options: SubmitWorkOptions = {},
 ): SubmittedWork {
   const db = database();
-  requireOrgMember(db, ctx);
+  const member = requireOrgMember(db, ctx);
+  if (intent.kind === "assign_task" && !["owner", "admin", "manager"].includes(member.role)) {
+    return {
+      decision: {
+        ...decideWork(intent, getPolicy(ctx.organizationId)),
+        verdict: "blocked",
+        reason: "Only active managers can assign tasks.",
+      },
+    };
+  }
   const stored = getPolicy(ctx.organizationId);
   const sub = subscriptionForOrg(ctx.organizationId);
   const maxLevel = maxAutonomyLevelForPlan(sub?.plan || "free");
@@ -104,6 +114,34 @@ export function submitWork(
 
   if (decision.verdict === "execute") {
     if (options.enqueueOnExecute === false) return { decision };
+    if (intent.kind === "assign_task") {
+      const parsed = createTaskSchema.safeParse(intent.payload || {});
+      if (!parsed.success || !parsed.data.title?.trim()) {
+        return {
+          decision: {
+            ...decision,
+            verdict: "blocked",
+            reason: "A task title and valid task fields are required. Nothing was created.",
+          },
+        };
+      }
+      const job = enqueueJob(ctx, "autonomy:assign_task", {
+        userId: ctx.userId,
+        title: parsed.data.title,
+        notes: parsed.data.notes || "",
+        projectId: parsed.data.projectId || null,
+        assigneeId: parsed.data.assigneeId || null,
+        dueDate: parsed.data.dueDate || null,
+        source: "owner-authorized autonomy",
+      });
+      return {
+        decision: {
+          ...decision,
+          reason: "Task queued; Atlas will report completion only after the server saves it.",
+        },
+        jobId: job.id,
+      };
+    }
     // Do not enqueue a stub job that later gets marked "done" without a real side effect.
     return {
       decision: {
@@ -112,6 +150,26 @@ export function submitWork(
         reason:
           "No verified background executor is connected for this action. Nothing was sent, changed, or paid.",
         ownerPrompt: "This action cannot run automatically yet.",
+      },
+    };
+  }
+
+  if (intent.kind === "assign_task") {
+    const parsed = createTaskSchema.safeParse(intent.payload || {});
+    if (!parsed.success || !parsed.data.title?.trim()) {
+      return {
+        decision: {
+          ...decision,
+          verdict: "blocked",
+          reason: "A valid task is required before asking for approval.",
+        },
+      };
+    }
+    intent = {
+      ...intent,
+      payload: {
+        ...intent.payload,
+        atlasAction: { type: "CREATE_TASK", payload: parsed.data },
       },
     };
   }
