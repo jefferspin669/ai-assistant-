@@ -32,12 +32,30 @@ export async function sendSms(input: {
   to: string;
   body: string;
   organizationId?: string;
+  /** Optional Twilio statusCallback path (default /api/webhooks/twilio/sms/status). */
+  statusCallbackPath?: string;
 }): Promise<{ ok: boolean; sid?: string; mode: "live" | "simulation"; error?: string }> {
+  // Test-only failure knobs — never used for real customer numbers in seed data.
+  if (
+    process.env.ATLAS_SMS_FORCE_FAIL === "1" ||
+    /\+15555550{2,}|fail-sms/i.test(input.to)
+  ) {
+    return { ok: false, mode: "simulation", error: "Provider failure (test)" };
+  }
+
   const from = process.env.TWILIO_PHONE_NUMBER?.trim() || "";
   if (requireLive("twilio") && from) {
     try {
       const client = twilio(process.env.TWILIO_ACCOUNT_SID!.trim(), process.env.TWILIO_AUTH_TOKEN!.trim());
-      const message = await client.messages.create({ to: input.to, from, body: input.body });
+      const { getAppUrl } = await import("@/lib/integrations/config");
+      const statusPath = input.statusCallbackPath || "/api/webhooks/twilio/sms/status";
+      const statusCallback = `${getAppUrl().replace(/\/$/, "")}${statusPath.startsWith("/") ? statusPath : `/${statusPath}`}`;
+      const message = await client.messages.create({
+        to: input.to,
+        from,
+        body: input.body,
+        statusCallback,
+      });
       await atlasStore.writeAudit({
         organizationId: input.organizationId || atlasStore.defaultOrgId(),
         actor: "Twilio",
@@ -54,13 +72,80 @@ export async function sendSms(input: {
     }
   }
 
+  const sid = `sim_${Date.now()}`;
   await atlasStore.writeAudit({
     organizationId: input.organizationId || atlasStore.defaultOrgId(),
     actor: "Twilio(simulation)",
     action: "sms.simulated",
-    detail: { to: input.to, body: input.body },
+    detail: { to: input.to, body: input.body, sid },
   });
-  return { ok: true, sid: `sim_${Date.now()}`, mode: "simulation" };
+  return { ok: true, sid, mode: "simulation" };
+}
+
+/** Record outbound SMS delivery status from Twilio status callbacks. */
+export async function recordSmsDeliveryStatus(input: {
+  organizationId: string;
+  messageSid: string;
+  messageStatus: string;
+  to?: string;
+  errorCode?: string;
+}) {
+  const { loadDatabase, saveDatabase, nowIso, newId } = await import("@/lib/db/store");
+  const status = input.messageStatus.toLowerCase();
+  const delivered = status === "delivered";
+  const failed = ["failed", "undelivered"].includes(status);
+  const db = loadDatabase();
+  const stamp = nowIso();
+  const auditAction = delivered
+    ? "sms.delivered"
+    : failed
+      ? `sms.delivery_failed:${status}`
+      : `sms.status:${status}`;
+
+  saveDatabase({
+    ...db,
+    audit_logs: [
+      {
+        id: newId("aud"),
+        organization_id: input.organizationId,
+        actor_user_id: "twilio",
+        actor_label: "Twilio",
+        action: auditAction,
+        entity_type: "sms",
+        entity_id: input.messageSid,
+        created_at: stamp,
+      },
+      ...db.audit_logs,
+    ],
+    notifications: delivered
+      ? [
+          {
+            id: newId("note"),
+            userId: db.organizations.find((o) => o.id === input.organizationId)?.owner_id || "",
+            organizationId: input.organizationId,
+            title: "SMS delivered",
+            body: `Twilio confirmed delivery of ${input.messageSid}${input.to ? ` to ${input.to}` : ""}.`,
+            read: false,
+            createdAt: stamp,
+          },
+          ...db.notifications,
+        ]
+      : db.notifications,
+  });
+
+  await atlasStore.writeAudit({
+    organizationId: input.organizationId,
+    actor: "Twilio",
+    action: auditAction,
+    detail: {
+      sid: input.messageSid,
+      status,
+      to: input.to,
+      errorCode: input.errorCode,
+    },
+  });
+
+  return { ok: true, status, delivered, failed };
 }
 
 /** TwiML for inbound voice — answer, gather intent, or take message. */

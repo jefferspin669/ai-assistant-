@@ -53,22 +53,27 @@ CI / unit tests restore a JSON snapshot in `tests/safety.test.ts`. Production: S
 
 Health reports `environment` from `ATLAS_ENV` / `VERCEL_ENV`.
 
-### Local staging stack (Postgres + Redis)
+### Local staging stack (Postgres + Redis + one scheduler)
 
 ```bash
-# Docker (preferred)
-docker compose up -d postgres redis
+# Docker (preferred) — single scheduler replica only
+docker compose up -d postgres redis scheduler
 export DATABASE_URL=postgres://atlas:atlas@127.0.0.1:5432/atlas
 export REDIS_URL=redis://127.0.0.1:6379
 export ATLAS_ENV=staging
+export CRON_SECRET=atlas-staging-cron
+export ATLAS_SCHEDULER_ID=primary
 npm run db:migrate
-npm run worker &
+npm run worker &             # BullMQ consumer; do not scale until claim tests stay green
 npm run dev
 
 # Prove rails
 npm run drill:trust          # simulation adapters + JSON backup; pg_dump when DATABASE_URL set
 npm run smoke:staging        # migrate + redis ping + GET /api/health (app must be running)
+npm test -- tests/invoice-recovery-staging.test.ts
 ```
+
+See `docs/INVOICE_RECOVERY_STAGING.md` for the overdue-invoice overnight freeze gate.
 
 CI job `staging-stack` in `.github/workflows/atlas-ci.yml` boots Postgres 16 + Redis 7 service containers and runs the same drills.
 

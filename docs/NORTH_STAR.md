@@ -124,6 +124,16 @@ Before adding a backend system, check whether Atlas already owns that responsibi
 
 Try: `POST /api/orchestrator` with `{ "goal": "Get Johnson Construction's overdue invoice paid." }`
 
+## Feature freeze (invoice-recovery staging)
+
+Until the overdue-invoice chase (`docs/INVOICE_RECOVERY_STAGING.md`) runs successfully overnight on one Postgres + Redis + single scheduler stack:
+
+- **Do not add new `/app/*` feature pages**
+- Keep demo surfaces redirected (`/app/workflows` → autonomous, `/app/actions` → approvals, `/app/finance` → money)
+- Atomic job claim + idempotency keys must stay green before scaling workers
+
+Aspirational items (full self-learning Brain, bank imports, tax-law updates, undo history, customer automation builder, unattended multi-worker overnight) are explicitly **out of scope** until that overnight pass.
+
 ## How to work going forward
 
 | Do | Don’t |

@@ -14,6 +14,9 @@ const CONSOLIDATED = [
   ["src/app/app/security/page.tsx", "/app/governance"],
   ["src/app/app/capital/page.tsx", "/app/money"],
   ["src/app/app/digital-twin/page.tsx", "/app/business-engine?tab=simulate"],
+  ["src/app/app/workflows/page.tsx", "/app/autonomous"],
+  ["src/app/app/actions/page.tsx", "/app/approvals"],
+  ["src/app/app/finance/page.tsx", "/app/money"],
 ] as const;
 
 describe("product consolidation redirects", () => {
@@ -30,5 +33,8 @@ describe("product consolidation redirects", () => {
     expect(config).toContain('source: "/app/missed-calls"');
     expect(config).toContain('source: "/app/brain"');
     expect(config).toContain('destination: "/app/commercial"');
+    expect(config).toContain('source: "/app/workflows"');
+    expect(config).toContain('source: "/app/actions"');
+    expect(config).toContain('source: "/app/finance"');
   });
 });

@@ -24,7 +24,12 @@ export function planGoal(goal: string, capabilities: Capability[]): PlannerResul
   const channel = canSms ? "send_sms" : "send_email";
 
   // Missing critical info — pause and ask rather than inventing.
-  if (/invoice|collect|charge|refund|pay/.test(q) && !/(johnson|customer|@|\+?\d{7,})/.test(q)) {
+  // Accept possessives ("AcmeBeta's overdue…") and "for <name>" — not only the seed demo customer.
+  const hasCustomerHint =
+    /(johnson|customer|@|\+?\d{7,})/i.test(q) ||
+    /\b[a-z0-9][a-z0-9 &.'-]*'s\s+(?:overdue|invoice|unpaid|past due)/i.test(q) ||
+    /\bfor\s+[a-z0-9]/i.test(q);
+  if (/invoice|collect|charge|refund|pay/.test(q) && !hasCustomerHint) {
     return {
       intent: "needs_customer",
       clarifyingQuestion: "Which customer should this apply to?",
