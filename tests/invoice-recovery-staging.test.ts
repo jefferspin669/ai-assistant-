@@ -111,7 +111,9 @@ describe("invoice recovery staging beachhead", () => {
     expect(audits.some((row) => /approved invoice_reminder|queued customer message|sent customer notification|sms\./i.test(row.action))).toBe(true);
 
     // Simulate Twilio delivery status webhook (test-only SID).
+    // From = business number (tenant map); To = customer.
     process.env.TWILIO_AUTH_TOKEN = "test-twilio-token";
+    process.env.TWILIO_PHONE_NUMBER = "+15550001111";
     delete process.env.TWILIO_SKIP_SIGNATURE;
     const params = {
       MessageSid: "SMtest_invoice_chase_001",

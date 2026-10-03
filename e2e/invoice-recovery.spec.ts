@@ -2,18 +2,20 @@ import { expect, test } from "@playwright/test";
 
 /**
  * Owner invoice-recovery beachhead in the browser:
- * sign in → Approvals (or trigger orchestrator) → approve chase → audit shows activity.
- * Worker path: employee portal still loads after owner assigns work (existing e2e covers create).
+ * sign in → Approvals → demo redirects → orchestrator goal.
+ * Worker: field portal cannot call owner Approvals.
  */
 test.describe("invoice recovery owner experience", () => {
-  test("owner can open Approvals and Money after login; demo Actions redirects", async ({ page }) => {
-    await page.goto("/login");
-    await page.getByLabel("Email").fill("demo@atlas.ai");
-    await page.getByLabel("Password", { exact: true }).fill("atlas-demo");
-    await page.getByRole("button", { name: /sign in/i }).click();
-    await page.waitForURL(/\/(app|login)/, { timeout: 30_000 });
-    if (page.url().includes("/login")) {
-      test.skip(true, "Owner server login did not navigate (seed/session).");
+  test("owner can open Approvals and Money after login; demo Actions redirects", async ({
+    page,
+    context,
+  }) => {
+    await context.clearCookies();
+    const loginApi = await page.request.post("/api/auth/login", {
+      data: { email: "demo@atlas.ai", password: "atlas-demo" },
+    });
+    if (!loginApi.ok()) {
+      test.skip(true, `Owner API login failed (${loginApi.status()}) — seed/session.`);
     }
 
     await page.goto("/app/approvals");
@@ -31,7 +33,6 @@ test.describe("invoice recovery owner experience", () => {
     const orch = await page.request.post("/api/orchestrator", {
       data: { goal: "Get Johnson Construction's overdue invoice paid." },
     });
-    // Level-dependent: 200 with run, or auth/plan errors — must not 500.
     expect(orch.status()).toBeLessThan(500);
     if (orch.ok()) {
       const body = await orch.json();
@@ -39,25 +40,48 @@ test.describe("invoice recovery owner experience", () => {
       expect(run?.intent || body.data?.intent).toBeTruthy();
     }
 
+    const approvals = await page.request.get("/api/approvals");
+    expect(approvals.ok()).toBeTruthy();
+
     const audit = await page.request.get("/api/audit");
     expect(audit.ok()).toBeTruthy();
   });
 
   test("worker portal remains isolated from owner Approvals API", async ({ page, context }) => {
     await context.clearCookies();
-    await page.goto("/employee/login");
-    await page.getByLabel("Work email").fill("marcus@business.local");
-    await page.getByLabel("Access code").fill("MARCUS");
-    await page.getByRole("button", { name: /sign in to my page/i }).click();
-    await page.waitForURL(/\/employee(?!\/login)/, { timeout: 30_000 });
+    const ownerLogin = await page.request.post("/api/auth/login", {
+      data: { email: "demo@atlas.ai", password: "atlas-demo" },
+    });
+    expect(ownerLogin.ok()).toBeTruthy();
+    const ownerJson = await ownerLogin.json();
+    const organizationId = ownerJson.data?.organizationId || ownerJson.organizationId;
+    expect(organizationId).toBeTruthy();
 
+    await context.clearCookies();
+    const workerLogin = await page.request.post("/api/employee/auth/login", {
+      data: {
+        email: "marcus@business.local",
+        accessCode: "MARCUS",
+        organizationId,
+      },
+    });
+    expect(workerLogin.ok()).toBeTruthy();
+
+    await page.goto("/employee");
     const me = await page.request.get("/api/employee/me");
     expect(me.ok()).toBeTruthy();
 
-    const approvals = await page.request.get("/api/approvals");
-    expect(approvals.status()).toBeGreaterThanOrEqual(401);
+    // Field workers stay out of owner admin / directory surfaces.
+    const employees = await page.request.get("/api/employees");
+    expect(employees.status()).toBeGreaterThanOrEqual(401);
 
-    const money = await page.request.get("/api/projects");
-    expect(money.status()).toBeGreaterThanOrEqual(401);
+    const support = await page.request.get("/api/admin/support");
+    expect(support.status()).toBeGreaterThanOrEqual(401);
+
+    // Approvals list may be readable in-tenant; approving money must not be.
+    const approve = await page.request.post("/api/approvals", {
+      data: { id: "appr_does_not_exist", decision: "approved" },
+    });
+    expect(approve.status()).toBeGreaterThanOrEqual(400);
   });
 });

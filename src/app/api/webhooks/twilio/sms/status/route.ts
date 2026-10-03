@@ -23,7 +23,8 @@ export async function POST(req: Request) {
     if (!messageSid || !messageStatus) {
       return Response.json({ ok: true, data: { ignored: true, reason: "missing sid or status" } });
     }
-    const organizationId = resolveTwilioOrganizationId(form.To || form.From);
+    // Outbound status callbacks: From is the business Twilio number, To is the customer.
+    const organizationId = resolveTwilioOrganizationId(form.From || form.To);
     // Dedupe by sid+status so retries of the same status are no-ops; later statuses still apply.
     claimTwilioIdempotency(organizationId, `${messageSid}:status:${messageStatus.toLowerCase()}`);
     const result = await recordSmsDeliveryStatus({

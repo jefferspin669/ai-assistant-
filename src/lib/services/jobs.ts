@@ -115,10 +115,10 @@ export async function claimNextJobs(
 
   if (hasPostgres()) {
     try {
-      const claimed = await claimNextJobsPostgres(workerId, limit, now);
-      if (claimed.length) return claimed;
+      // Empty result means nothing is due — do not also claim from the JSON mirror.
+      return await claimNextJobsPostgres(workerId, limit, now);
     } catch {
-      /* fall through to in-memory claim when SQL claim is unavailable */
+      /* SQL claim unavailable — fall through to in-memory CAS below */
     }
   }
 
