@@ -389,6 +389,8 @@ export type DbAutonomyPolicy = {
   control_mode?: "manual" | "assisted" | "autonomous";
   auto_permissions?: Record<string, boolean>;
   kill_switch: boolean;
+  active_from?: string | null;
+  active_until?: string | null;
   auto_payment_limit_cents: number;
   refund_limit_cents: number;
   discount_cap_percent: number;
