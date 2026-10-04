@@ -106,26 +106,5 @@ if (cron) {
   console.log("[smoke:staging] scheduler tick skipped (set CRON_SECRET to exercise)");
 }
 
-// Optional: prove the single scheduler tick endpoint responds when CRON_SECRET is set.
-const cron = process.env.CRON_SECRET?.trim();
-if (cron) {
-  const tickRes = await fetch(`${baseUrl}/api/autonomy/tick`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${cron}`,
-      "content-type": "application/json",
-    },
-    body: "{}",
-  }).catch((e) => {
-    fail(`autonomy/tick failed — ${e.message}`);
-  });
-  if (!tickRes.ok) {
-    fail(`autonomy/tick HTTP ${tickRes.status}`);
-  }
-  console.log("[smoke:staging] scheduler tick ok");
-} else {
-  console.log("[smoke:staging] scheduler tick skipped (set CRON_SECRET to exercise)");
-}
-
 console.log("[smoke:staging] PASS");
 process.exit(0);
