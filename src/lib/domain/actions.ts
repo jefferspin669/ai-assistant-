@@ -50,6 +50,9 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
         task: createOrgTask(ctx, {
           title: action.payload.title,
           dueDate: action.payload.dueDate ?? null,
+          notes: action.payload.notes,
+          projectId: action.payload.projectId ?? null,
+          assigneeId: action.payload.assigneeId ?? null,
         }),
       };
     case "UPDATE_TASK":
@@ -208,11 +211,26 @@ export async function resolveApproval(
   );
   if (!row) throw new NotFoundError("Approval not found.");
   if (row.status !== "pending") throw new ValidationError("Approval already resolved.");
+  if (
+    decision === "approved" &&
+    !row.payload.atlasAction &&
+    ![ACTION_SMS, ACTION_INVOICE].includes(row.action_type)
+  ) {
+    throw new ValidationError("This action has no verified executor. Nothing was sent or paid.");
+  }
 
   // Owners/admins approve money; SMS/invoice can also be approved with action permissions.
+  // Task approvals (CREATE_TASK via atlasAction) need tasks.write.
   if (row.action_type === ACTION_SMS) {
     if (!hasPermission(ctx, "actions.sms") && !hasPermission(ctx, "payments.refund")) {
       requirePermission(ctx, "actions.sms");
+    }
+  } else if (row.payload.atlasAction && typeof row.payload.atlasAction === "object") {
+    const actionType = (row.payload.atlasAction as { type?: string }).type;
+    if (actionType === "CREATE_TASK" || actionType === "UPDATE_TASK") {
+      requirePermission(ctx, "tasks.write");
+    } else {
+      requirePermission(ctx, "payments.refund");
     }
   } else {
     requirePermission(ctx, "payments.refund");

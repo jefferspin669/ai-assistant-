@@ -1,7 +1,8 @@
 import { apiResponse, jsonError, resolveSession } from "@/lib/api/http";
 import { err, ok } from "@/lib/api/types";
 import { requirePermission } from "@/lib/auth/permissions";
-import { processJobs } from "@/lib/services/jobs";
+import { processServerJobs } from "@/lib/services/jobs";
+import { awaitDatabaseWrites } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { ensureServerDatabase } from "@/lib/db/ensure";
 
@@ -30,8 +31,9 @@ async function authorizeTick(
 async function runTick(req: Request) {
   try {
     const auth = await authorizeTick(req);
-    const processed = processJobs(20);
+    const processed = await processServerJobs(20);
     const orch = await import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns());
+    await awaitDatabaseWrites();
     return apiResponse(ok({ via: auth.via, processed, orchestrator: orch.map((run) => run.id) }));
   } catch (error) {
     return jsonError(error);

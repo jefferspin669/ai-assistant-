@@ -150,7 +150,7 @@ describe("Atlas autonomy queue", () => {
     patchPolicy(ctx.organizationId, { killSwitch: true });
     const tick = processAutonomyQueue();
     expect(tick.processed).toBe(0);
-    expect(tick.skippedKillSwitch).toBeGreaterThan(0);
+    expect(tick.unsupported).toBeGreaterThan(0);
   });
 
   it("legacy autonomy jobs fail visibly instead of reporting completion", () => {

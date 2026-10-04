@@ -112,17 +112,18 @@ describe("SDK simulation fallbacks", () => {
     expect(supabaseAuthConfigured()).toBe(false);
   });
 
-  it("worker handlers audit even when no phone/email is present", async () => {
+  it("unsupported worker jobs fail visibly instead of claiming completion", async () => {
     const orgId = loadDatabase().organizations[0]!.id;
     const userId = loadDatabase().users[0]!.id;
-    const result = await handleQueuedWork("file-indexed", {
-      jobId: "job_test",
-      organizationId: orgId,
-      userId,
-      payload: {},
-    });
-    expect(result.ok).toBe(true);
-    expect(loadDatabase().audit_logs.some((row) => row.action.includes("worker:file-indexed"))).toBe(true);
+    await expect(
+      handleQueuedWork("file-indexed", {
+        jobId: "job_test",
+        organizationId: orgId,
+        userId,
+        payload: {},
+      }),
+    ).rejects.toThrow(/No verified executor/);
+    expect(loadDatabase().audit_logs.some((row) => row.action.includes("worker:failed:file-indexed"))).toBe(true);
   });
 });
 

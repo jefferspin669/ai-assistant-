@@ -316,6 +316,8 @@ export const automations = pgTable("automations", {
 
 export const autonomyPolicies = pgTable("autonomy_policies", {
   organizationId: text("organization_id").primaryKey(),
+  controlMode: text("control_mode").notNull().default("manual"),
+  autoPermissions: jsonb("auto_permissions").$type<Record<string, boolean>>().notNull().default({}),
   level: integer("level").notNull().default(1),
   killSwitch: boolean("kill_switch").notNull().default(false),
   autoPaymentLimitCents: integer("auto_payment_limit_cents").notNull(),

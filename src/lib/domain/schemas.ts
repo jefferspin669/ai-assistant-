@@ -83,7 +83,10 @@ export const atlasActionSchema = z.discriminatedUnion("type", [
     type: z.literal("CREATE_TASK"),
     payload: z.object({
       title: z.string().trim().min(1),
-      dueDate: z.string().optional(),
+      dueDate: z.string().nullable().optional(),
+      notes: z.string().optional(),
+      projectId: z.string().nullable().optional(),
+      assigneeId: z.string().nullable().optional(),
     }),
   }),
   z.object({

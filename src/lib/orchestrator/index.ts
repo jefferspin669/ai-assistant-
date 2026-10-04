@@ -244,7 +244,16 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
         mark(step, "blocked", { approvalId: sent.approvalId, capabilityId }, "Send is waiting on approval.");
         return;
       }
-      mark(step, "done", { capabilityId, via: "atlas-actions", queued: "queued" in sent ? sent.queued : false });
+      if ("queued" in sent && sent.queued) {
+        mark(
+          step,
+          "blocked",
+          { capabilityId, approvalId: "approvalId" in sent ? sent.approvalId : undefined },
+          "Delivery queued; outcome is not verified.",
+        );
+        return;
+      }
+      mark(step, "done", { capabilityId, via: "atlas-actions" });
       return;
     }
     const invoked = await invokeAdapter(ctx, capabilityId, {

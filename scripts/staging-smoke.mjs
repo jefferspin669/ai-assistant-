@@ -75,14 +75,14 @@ console.log("[smoke:staging] health driver=", data.driver, "env=", env);
 console.log("[smoke:staging] postgres=", JSON.stringify(data.postgres));
 console.log("[smoke:staging] redis=", JSON.stringify(data.redis));
 
-if (!postgresOk && data.driver !== "postgres") {
-  // Soft check: process env was set but the running server may not have inherited it.
-  console.warn(
-    "[smoke:staging] WARN — running server did not report postgres driver. Restart `npm run dev` with DATABASE_URL/REDIS_URL exported.",
+if (!postgresOk || data.driver !== "postgres") {
+  fail(
+    "Running app did not report a healthy postgres driver. Restart `npm run dev` with DATABASE_URL/REDIS_URL exported.",
   );
 }
+if (!redisOk) fail("Running app reports Redis unhealthy.");
 if (env && atlasEnv === "staging" && env !== "staging" && env !== "development") {
-  console.warn(`[smoke:staging] WARN — expected staging/development environment, got ${env}`);
+  fail(`Expected staging/development environment, got ${env}`);
 }
 
 // Optional: prove the single scheduler tick endpoint responds when CRON_SECRET is set.

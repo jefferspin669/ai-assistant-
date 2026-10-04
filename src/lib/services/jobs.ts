@@ -73,7 +73,12 @@ export function enqueueJob(
     idempotency_key: key,
   });
   saveDatabase({ ...db, jobs: [job, ...db.jobs] });
-  if (typeof window === "undefined" && process.env.REDIS_URL?.trim()) {
+  // Autonomy assign_task is drained by the durable DB worker on tick — not BullMQ.
+  if (
+    typeof window === "undefined" &&
+    process.env.REDIS_URL?.trim() &&
+    kind !== "autonomy:assign_task"
+  ) {
     enqueueAwaitedSideEffect(() =>
       import("@/lib/queue/bullmq").then((mod) =>
         mod.addBullJob(kind, {
@@ -421,6 +426,15 @@ export function processJobs(limit = 10) {
   }
 
   return { generic: ran, unsupported: unsupported.length, autonomy, claimed: claimed.length };
+}
+
+/** Prefer the transactional Postgres task worker when DATABASE_URL is set. */
+export async function processServerJobs(limit = 20) {
+  if (process.env.DATABASE_URL?.trim()) {
+    const { processDurableAutonomyQueue } = await import("@/lib/autonomy/durable-worker");
+    return { generic: [] as DbJob[], autonomy: await processDurableAutonomyQueue(limit) };
+  }
+  return processJobs(limit);
 }
 
 export function notify(
