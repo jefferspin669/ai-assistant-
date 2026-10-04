@@ -97,17 +97,14 @@ function minutesAgo(mins: number) {
 }
 
 function seedConnections(): ServiceConnection[] {
-  return CATALOG.map((item, index) => {
-    const connected = index < 4;
-    return {
-      ...item,
-      connected,
-      accountLabel: connected ? `demo@${item.id === "banks" ? "firstnational.bank" : `${item.id}.com`}` : null,
-      connectedAt: connected ? minutesAgo(60 * 24 * (index + 2)) : null,
-      lastSyncAt: connected ? minutesAgo(12 + index * 7) : null,
-      health: connected ? (index === 3 ? "needs_attention" : "healthy") : "disconnected",
-    };
-  });
+  return CATALOG.map((item) => ({
+    ...item,
+    connected: false,
+    accountLabel: null,
+    connectedAt: null,
+    lastSyncAt: null,
+    health: "disconnected" as const,
+  }));
 }
 
 export function loadConnections(): ServiceConnection[] {

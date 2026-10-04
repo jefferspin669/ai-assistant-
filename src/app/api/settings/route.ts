@@ -13,6 +13,10 @@ const putSchema = z.object({
   logoUrl: z.string().max(2000).nullable().optional(),
   timezone: z.string().min(1).max(80).optional(),
   preferredLanguage: z.string().min(1).max(16).optional(),
+  publicHours: z.string().max(500).nullable().optional(),
+  publicServices: z.string().max(2000).nullable().optional(),
+  publicPricing: z.string().max(2000).nullable().optional(),
+  publicAddress: z.string().max(500).nullable().optional(),
 });
 
 export const GET = withPermission("workspace.read", async ({ workspace }) => {

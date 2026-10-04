@@ -129,7 +129,8 @@ export function setAutoReply(enabled: boolean) {
 }
 
 export function reputationMode(): "LIVE" | "DEMO" {
-  return loadReviewSources().some((s) => s.connected) ? "LIVE" : "DEMO";
+  // Local Connect toggles never make reputation LIVE — only real review APIs do.
+  return "DEMO";
 }
 
 export function classifySentiment(text: string, rating: number): ReviewItem["sentiment"] {

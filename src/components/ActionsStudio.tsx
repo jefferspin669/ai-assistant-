@@ -96,42 +96,19 @@ export function ActionsStudio() {
   function runPlan() {
     if (!plan || running) return;
     setConfirmed(true);
-    setRunning(true);
-    setNote("Running Atlas Action… synced to every device.");
-    pushTurn({
-      role: "atlas",
-      text: `Running now from ${deviceName(deviceId)}. You can keep talking on phone, watch, or car — same thread.`,
-      device: deviceId,
-      planId: plan.id,
-    });
-
+    setRunning(false);
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
-
-    plan.steps.forEach((_, index) => {
-      const startId = window.setTimeout(() => {
-        setSteps((prev) =>
-          prev.map((step, i) =>
-            i === index ? { ...step, status: "running" } : step,
-          ),
-        );
-      }, index * 700);
-      const doneId = window.setTimeout(() => {
-        setSteps((prev) =>
-          prev.map((step, i) => (i === index ? { ...step, status: "done" } : step)),
-        );
-        if (index === plan.steps.length - 1) {
-          setRunning(false);
-          setNote(plan.doneSummary);
-          pushTurn({
-            role: "atlas",
-            text: plan.doneSummary,
-            device: deviceId,
-            planId: plan.id,
-          });
-        }
-      }, index * 700 + 550);
-      timers.current.push(startId, doneId);
+    // Do not animate fake completions — invoices/SMS/refunds must go through server actions + Approvals.
+    setSteps((prev) => prev.map((step) => ({ ...step, status: "pending" as const })));
+    const honest =
+      "Plan only — nothing was sent, created, or paid. Use Invoices & payments, Approvals, or the matching API so each step gets a server response and audit row.";
+    setNote(honest);
+    pushTurn({
+      role: "atlas",
+      text: honest,
+      device: deviceId,
+      planId: plan.id,
     });
   }
 

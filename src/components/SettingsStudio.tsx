@@ -57,6 +57,10 @@ export function SettingsStudio() {
   const [plan, setPlan] = useState("free");
   const [notes, setNotes] = useState(0);
   const [flash, setFlash] = useState("");
+  const [publicHours, setPublicHours] = useState("");
+  const [publicServices, setPublicServices] = useState("");
+  const [publicPricing, setPublicPricing] = useState("");
+  const [publicAddress, setPublicAddress] = useState("");
 
   function loadRows() {
     void (async () => {
@@ -94,6 +98,10 @@ export function SettingsStudio() {
       setLogoUrl(settings.logoUrl);
       setTimezone((prev) => settings.timezone || prev);
       setLanguage((prev) => settings.preferredLanguage || prev);
+      setPublicHours(settings.publicHours || "");
+      setPublicServices(settings.publicServices || "");
+      setPublicPricing(settings.publicPricing || "");
+      setPublicAddress(settings.publicAddress || "");
       setOrg({
         id: "session-org",
         owner_id: "",
@@ -326,6 +334,10 @@ export function SettingsStudio() {
                   logoUrl,
                   timezone,
                   preferredLanguage: language,
+                  publicHours: publicHours.trim() || null,
+                  publicServices: publicServices.trim() || null,
+                  publicPricing: publicPricing.trim() || null,
+                  publicAddress: publicAddress.trim() || null,
                 });
                 if (!result.ok) {
                   setFlash(result.error);
@@ -409,6 +421,41 @@ export function SettingsStudio() {
             ) : (
               <p className="account-hint">No logo_url set.</p>
             )}
+            <label>
+              Public hours (website chatbot)
+              <textarea
+                rows={2}
+                value={publicHours}
+                onChange={(e) => setPublicHours(e.target.value)}
+                placeholder="Mon–Fri 8am–5pm CT"
+              />
+            </label>
+            <label>
+              Public services
+              <textarea
+                rows={2}
+                value={publicServices}
+                onChange={(e) => setPublicServices(e.target.value)}
+                placeholder="What you offer customers"
+              />
+            </label>
+            <label>
+              Public pricing
+              <textarea
+                rows={2}
+                value={publicPricing}
+                onChange={(e) => setPublicPricing(e.target.value)}
+                placeholder="Published rates or “call for quote”"
+              />
+            </label>
+            <label>
+              Public address
+              <input
+                value={publicAddress}
+                onChange={(e) => setPublicAddress(e.target.value)}
+                placeholder="Service area or street address"
+              />
+            </label>
             <button className="btn btn-dark" type="submit">
               Save organizations row
             </button>
