@@ -5,6 +5,7 @@ import { processServerJobs } from "@/lib/services/jobs";
 import { awaitDatabaseWrites } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { ensureServerDatabase } from "@/lib/db/ensure";
+import { awaitDatabaseWrites } from "@/lib/db/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

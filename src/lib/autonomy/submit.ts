@@ -6,10 +6,9 @@ import { getPolicy } from "@/lib/autonomy/policy";
 import type { AutonomyDecision, AutonomyKind, WorkIntent } from "@/lib/autonomy/types";
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
-import { notify } from "@/lib/services/jobs";
+import { notify, enqueueJob } from "@/lib/services/jobs";
 import { maxAutonomyLevelForPlan, subscriptionForOrg } from "@/lib/billing/entitlements";
 import { isAtlasActor } from "@/lib/safety/guards";
-import { enqueueJob } from "@/lib/services/jobs";
 import { createTaskSchema } from "@/lib/domain/schemas";
 
 export type SubmittedWork = {

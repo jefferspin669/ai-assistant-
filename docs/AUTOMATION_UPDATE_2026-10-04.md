@@ -15,7 +15,7 @@
 
 ## Deployment
 
-1. Run `npm run db:migrate` with the staging database. Migration `0007_autonomy_policy_controls.sql` persists autonomy modes and category switches. Existing policies with no stored switches have all categories disabled on upgrade; the owner must review and enable them explicitly.
+1. Run `npm run db:migrate` with the staging database. Migration `0008_autonomy_policy_controls.sql` persists autonomy modes and category switches (after main’s `0007_autonomy_active_window.sql`). Existing policies with no stored switches have all categories disabled on upgrade; the owner must review and enable them explicitly.
 2. Configure PostgreSQL, Redis, live test messaging credentials, the background worker, and `CRON_SECRET`. The scheduled `/api/autonomy/tick` calls the PostgreSQL task worker.
 3. Run `npm run smoke:staging` against the running app.
 4. Set `ATLAS_QUEUE_TEST_DATABASE_URL` to a disposable PostgreSQL test database and run `npm run test:queue:live`. This drill creates and removes only its own randomly named test schema. It checks two concurrent workers, transactional rollback/retry, an assignee from another business, and emergency pause.

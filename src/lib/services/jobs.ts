@@ -73,7 +73,8 @@ export function enqueueJob(
     idempotency_key: key,
   });
   saveDatabase({ ...db, jobs: [job, ...db.jobs] });
-  // Autonomy assign_task is drained by the durable DB worker on tick — not BullMQ.
+  // assign_task is drained by the durable DB queue on /api/autonomy/tick so policy
+  // can be rechecked immediately before createOrgTask. Other kinds may use BullMQ.
   if (
     typeof window === "undefined" &&
     process.env.REDIS_URL?.trim() &&

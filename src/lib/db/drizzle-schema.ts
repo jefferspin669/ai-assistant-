@@ -320,6 +320,8 @@ export const autonomyPolicies = pgTable("autonomy_policies", {
   autoPermissions: jsonb("auto_permissions").$type<Record<string, boolean>>().notNull().default({}),
   level: integer("level").notNull().default(1),
   killSwitch: boolean("kill_switch").notNull().default(false),
+  activeFrom: text("active_from"),
+  activeUntil: text("active_until"),
   autoPaymentLimitCents: integer("auto_payment_limit_cents").notNull(),
   refundLimitCents: integer("refund_limit_cents").notNull(),
   discountCapPercent: integer("discount_cap_percent").notNull(),

@@ -8,6 +8,10 @@ export type OrgSettingsState = {
   logoUrl: string | null;
   timezone: string;
   preferredLanguage: string;
+  publicHours: string | null;
+  publicServices: string | null;
+  publicPricing: string | null;
+  publicAddress: string | null;
   updatedAt: string;
 };
 
@@ -22,6 +26,10 @@ function defaultSettings(): OrgSettingsState {
     logoUrl: null,
     timezone: "America/Chicago",
     preferredLanguage: "en",
+    publicHours: null,
+    publicServices: null,
+    publicPricing: null,
+    publicAddress: null,
     updatedAt: new Date().toISOString(),
   };
 }
