@@ -84,15 +84,24 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
       const db = database();
       const customer = requireCustomer(db, ctx, action.payload.customerId);
       const to = customer.phone || customer.email || "";
-      const job = enqueueJob(ctx, "send_message", {
-        ...action.payload,
-        userId: ctx.userId,
-        to,
-        phone: customer.phone,
-        email: customer.email,
-        body: action.payload.message,
-        taskId: action.payload.taskId,
-      });
+      const idempotencyKey =
+        typeof action.payload.taskId === "string" && action.payload.taskId
+          ? `send_message:task:${action.payload.taskId}`
+          : `send_message:${ctx.organizationId}:${action.payload.customerId}:${String(action.payload.message).slice(0, 64)}`;
+      const job = enqueueJob(
+        ctx,
+        "send_message",
+        {
+          ...action.payload,
+          userId: ctx.userId,
+          to,
+          phone: customer.phone,
+          email: customer.email,
+          body: action.payload.message,
+          taskId: action.payload.taskId,
+        },
+        { idempotencyKey, lane: "sms" },
+      );
       writeAudit(ctx, {
         action: "Atlas queued customer message",
         entityType: "customer",
@@ -266,6 +275,11 @@ export async function resolveApproval(
       entityType: "approval",
       entityId: row.id,
     });
+    const runId = typeof row.payload.runId === "string" ? row.payload.runId : "";
+    if (runId && sms.ok) {
+      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
+      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent: true });
+    }
     return {
       approval: { ...row, status: decision as "approved" },
       result: {
@@ -283,7 +297,16 @@ export async function resolveApproval(
   const atlasAction = row.payload.atlasAction;
   if (atlasAction) {
     const action = decodeAtlasAction(atlasAction);
-    return { approval: { ...row, status: decision }, result: executeApprovedAction(action, ctx) };
+    const result = executeApprovedAction(action, ctx);
+    const runId = typeof row.payload.runId === "string" ? row.payload.runId : "";
+    if (runId) {
+      // Flush in-process send_message side effect before advancing the run.
+      const { flushDatabaseWrites } = await import("@/lib/db/store");
+      await flushDatabaseWrites();
+      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
+      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent: true });
+    }
+    return { approval: { ...row, status: decision }, result };
   }
   enqueueJob(ctx, `autonomy:${row.action_type}`, { ...row.payload, userId: ctx.userId });
   return { approval: { ...row, status: decision }, result: { queued: true, type: row.action_type } };

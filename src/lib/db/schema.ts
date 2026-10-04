@@ -303,6 +303,18 @@ export type DbJob = {
   status: "queued" | "running" | "done" | "failed";
   created_at: string;
   run_at: string | null;
+  /** Durable queue fields (drizzle/0005) — claim + retry + idempotency. */
+  lane?: string;
+  attempts?: number;
+  max_attempts?: number;
+  visible_at?: string | null;
+  claimed_at?: string | null;
+  claimed_by?: string | null;
+  last_error?: string | null;
+  updated_at?: string | null;
+  idempotency_key?: string | null;
+  dead_lettered_at?: string | null;
+  version?: number;
 };
 
 export type DbIntegration = {

@@ -1,13 +1,6 @@
-import { AppShell } from "@/components/AppShell";
-import { MoneyWorkspace } from "@/components/MoneyWorkspace";
+import { redirect } from "next/navigation";
 
-export default function FinancePage() {
-  return (
-    <AppShell
-      title="Banking"
-      subtitle="Connected accounts and recorded transactions, without sample balances."
-    >
-      <MoneyWorkspace view="banking" />
-    </AppShell>
-  );
+/** Banking lives under Money — one surface for the money beachhead. */
+export default function FinanceRedirectPage() {
+  redirect("/app/money");
 }
