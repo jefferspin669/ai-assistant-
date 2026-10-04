@@ -914,6 +914,8 @@ export function saveDatabase(db: AtlasDatabase) {
  * Await every queued Postgres write (and BullMQ enqueue). API handlers flush
  * before responding so PostgreSQL is authoritative — no fire-and-forget.
  * Failed writes surface as PersistenceError (503), never quiet success.
+ * Queue side-effect failures (e.g. live SMS unavailable) surface as thrown Errors
+ * without leaving the chain permanently rejected.
  */
 export async function awaitDatabaseWrites(): Promise<void> {
   if (typeof window !== "undefined") return;
@@ -927,8 +929,14 @@ export async function awaitDatabaseWrites(): Promise<void> {
   if (lastPersistError) {
     const err = lastPersistError;
     lastPersistError = null;
+    lastQueueError = null;
     const { PersistenceError } = await import("@/lib/domain/errors");
     throw new PersistenceError(err.message);
+  }
+  if (lastQueueError) {
+    const err = lastQueueError;
+    lastQueueError = null;
+    throw err;
   }
 }
 
@@ -947,6 +955,7 @@ export async function saveDatabaseAsync(db: AtlasDatabase) {
 }
 
 let lastPersistError: Error | null = null;
+let lastQueueError: Error | null = null;
 
 function enqueuePostgresPersist(next: AtlasDatabase) {
   const g = globalThis as AtlasGlobal;
@@ -970,13 +979,25 @@ export function enqueueAwaitedSideEffect(work: () => Promise<unknown>) {
   if (typeof window !== "undefined") return;
   const g = globalThis as AtlasGlobal;
   const prior = g.__atlasQueueChain || Promise.resolve();
-  g.__atlasQueueChain = prior.then(() => work()).then(() => undefined);
+  // Catch failures so one rejected send does not poison later flushes / webhooks.
+  g.__atlasQueueChain = prior
+    .catch(() => undefined)
+    .then(() => work())
+    .then(() => undefined)
+    .catch((error) => {
+      lastQueueError = error instanceof Error ? error : new Error(String(error));
+    });
 }
 
 export function resetDatabase() {
   const seeded = seedDatabase();
   saveDatabase(seeded);
   if (typeof window === "undefined") {
+    const g = globalThis as AtlasGlobal;
+    g.__atlasQueueChain = undefined;
+    g.__atlasPersistChain = undefined;
+    lastQueueError = null;
+    lastPersistError = null;
     const hook = (
       globalThis as typeof globalThis & {
         __atlasResetSeedEmployees?: (organizationId: string) => void;

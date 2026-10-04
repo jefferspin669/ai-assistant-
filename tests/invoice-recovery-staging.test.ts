@@ -100,15 +100,25 @@ describe("invoice recovery staging beachhead", () => {
 
     const resolved = await resolveApproval(ctx, approvalId, "approved");
     expect(resolved.result).toBeTruthy();
-    await flushDatabaseWrites();
+    // Without live Twilio, approve records honest queued/failed delivery — not a fake send.
+    const delivery = resolved.result as { messageSent?: boolean; deliveryError?: string; queued?: boolean };
+    expect(delivery.messageSent).not.toBe(true);
+    await flushDatabaseWrites().catch(() => undefined);
 
     const advanced = getRun(run!.id, ctx.organizationId);
     expect(advanced).toBeTruthy();
-    expect(["waiting", "completed", "running"]).toContain(advanced!.status);
+    // Approval is done; without verified SMS the run stays blocked or waits after advance.
+    expect(["waiting", "completed", "running", "blocked"]).toContain(advanced!.status);
     expect(advanced!.steps.find((s) => s.kind === "approval")?.status).toBe("done");
 
     const audits = listAudit(ctx.organizationId);
-    expect(audits.some((row) => /approved invoice_reminder|queued customer message|sent customer notification|sms\./i.test(row.action))).toBe(true);
+    expect(
+      audits.some((row) =>
+        /approved invoice_reminder|queued customer message|customer notification delivery failed|sms\./i.test(
+          row.action,
+        ),
+      ),
+    ).toBe(true);
 
     // Simulate Twilio delivery status webhook (test-only SID).
     // From = business number (tenant map); To = customer.

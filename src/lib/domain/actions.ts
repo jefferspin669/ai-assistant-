@@ -314,14 +314,39 @@ export async function resolveApproval(
     const action = decodeAtlasAction(atlasAction);
     const result = executeApprovedAction(action, ctx);
     const runId = typeof row.payload.runId === "string" ? row.payload.runId : "";
-    if (runId) {
-      // Flush in-process send_message side effect before advancing the run.
+    let messageSent = false;
+    let deliveryError: string | undefined;
+    if (action.type === "SEND_MESSAGE") {
+      // Flush in-process send_message; live provider may reject simulation.
+      // Approval stays recorded — never claim sent when delivery is unverified.
+      try {
+        const { flushDatabaseWrites } = await import("@/lib/db/store");
+        await flushDatabaseWrites();
+        messageSent = true;
+      } catch (error) {
+        deliveryError = error instanceof Error ? error.message : String(error);
+        writeAudit(ctx, {
+          action: `customer notification delivery failed: ${deliveryError}`,
+          entityType: "customer",
+          entityId: String(action.payload.customerId || ""),
+        });
+      }
+    } else if (runId) {
       const { flushDatabaseWrites } = await import("@/lib/db/store");
       await flushDatabaseWrites();
-      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
-      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent: true });
+      messageSent = true;
     }
-    return { approval: { ...row, status: decision }, result };
+    if (runId) {
+      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
+      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent });
+    }
+    return {
+      approval: { ...row, status: decision },
+      result:
+        action.type === "SEND_MESSAGE"
+          ? { ...result, messageSent, deliveryError, queued: true }
+          : result,
+    };
   }
   enqueueJob(ctx, `autonomy:${row.action_type}`, { ...row.payload, userId: ctx.userId });
   return { approval: { ...row, status: decision }, result: { queued: true, type: row.action_type } };
