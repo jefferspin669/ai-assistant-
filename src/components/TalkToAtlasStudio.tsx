@@ -5,7 +5,6 @@ import { attentionSummary, ceoAttention } from "@/lib/ceo-attention";
 import {
   appendTranscript,
   clearTranscript,
-  createApprovalRequest,
   evaluateAction,
   loadTranscript,
   loadVoiceHistory,
@@ -13,7 +12,6 @@ import {
   loadVoiceRetention,
   pushVoiceHistory,
   saveVoiceNote,
-  seedApprovalsIfEmpty,
   setVoicePerm,
   setVoiceRetention,
   VOICE_ABILITIES,
@@ -22,6 +20,7 @@ import {
   type VoiceNote,
   type VoicePermLevel,
 } from "@/lib/surface-workspace";
+import { apiSend } from "@/lib/backend/client";
 import {
   blockTask,
   createTeamTask,
@@ -109,7 +108,6 @@ export function TalkToAtlasStudio() {
 
   useEffect(() => {
     seedDemoTeamIfEmpty();
-    seedApprovalsIfEmpty();
     const list = loadTeamMembers();
     setMembers(list);
     const sarah = list.find((m) => m.name === "Sarah Williams");
@@ -240,12 +238,12 @@ export function TalkToAtlasStudio() {
       }
       if (reschedule === "offered" && /thursday|thu\b|option 1|9 ?am/.test(ql)) {
         setReschedule(null);
-        say("You're rescheduled for Thursday at 9 AM. I've sent you a confirmation.", { kind: "list", heading: "Confirmed", items: [{ title: "New appointment", sub: "Thursday at 9:00 AM · confirmation emailed" }] });
+        say("I can hold Thursday at 9 AM as the preferred slot, but I have not moved a calendar event or emailed a confirmation from this chat. Confirm the change in Calendar after a successful server save.", { kind: "list", heading: "Not sent yet", items: [{ title: "Preferred slot", sub: "Thursday at 9:00 AM · no email sent" }] });
         return;
       }
       if (reschedule === "offered" && /friday|fri\b|option 2|1 ?pm/.test(ql)) {
         setReschedule(null);
-        say("You're rescheduled for Friday at 1 PM. I've sent you a confirmation.", { kind: "list", heading: "Confirmed", items: [{ title: "New appointment", sub: "Friday at 1:00 PM · confirmation emailed" }] });
+        say("I can hold Friday at 1 PM as the preferred slot, but I have not moved a calendar event or emailed a confirmation from this chat. Confirm the change in Calendar after a successful server save.", { kind: "list", heading: "Not sent yet", items: [{ title: "Preferred slot", sub: "Friday at 1:00 PM · no email sent" }] });
         return;
       }
       if (/what time.*appointment|when.*appointment/.test(ql)) {
@@ -312,8 +310,7 @@ export function TalkToAtlasStudio() {
       return;
     }
     if (/prepare (that )?recommendation|send.*to my coo|for my coo/.test(ql)) {
-      logAudit("CEO", "prepared recommendation (voice)", "Dallas Expansion — add a project manager");
-      say("Done — I drafted the recommendation and shared it with your COO.", { kind: "list", heading: "Recommendation prepared", items: [{ title: "Dallas Expansion — add a PM", sub: "Shared with COO · summary + simulation attached" }] });
+      say("I can draft that recommendation here, but I have not shared it with your COO — no email or message was sent from this chat.", { kind: "list", heading: "Draft only", items: [{ title: "Dallas Expansion — add a PM", sub: "Not shared · no outbound message" }] });
       return;
     }
 
@@ -342,9 +339,9 @@ export function TalkToAtlasStudio() {
       if (t0 && persona) {
         saveTeamTasks(replaceTask(loadTeamTasks(), blockTask(t0, "Waiting on approval")));
         logAudit(persona.name, "blocked task (voice)", t0.title);
-        say(`Marked “${t0.title}” as blocked and notified your manager.`, { kind: "list", heading: "Blocked", items: [{ title: t0.title, sub: "Manager notified" }] });
+        say(`Marked “${t0.title}” blocked in this device’s task list. Your manager was not notified — no SMS or email was sent.`, { kind: "list", heading: "Local task update", items: [{ title: t0.title, sub: "No manager message sent" }] });
       } else {
-        say("Marked as blocked and notified your manager.");
+        say("I could not update a task, and I did not notify your manager.");
       }
       return;
     }
@@ -359,11 +356,11 @@ export function TalkToAtlasStudio() {
       return;
     }
     if (/message my manager.*(waiting|approval)|tell my manager.*approval/.test(ql)) {
-      say("Done — I messaged your manager: “I'm waiting on approval.”", { kind: "list", heading: "Message sent", items: [{ title: "To your manager", sub: "I'm waiting on approval." }] });
+      say("I have not messaged your manager. Stage an SMS from Approvals / Send SMS so a server confirmation and audit exist first.", { kind: "list", heading: "Not sent", items: [{ title: "Draft", sub: "I'm waiting on approval." }] });
       return;
     }
     if (/message my manager.*(late|running late)/.test(ql)) {
-      say("Done — I let your manager know you're running late.", { kind: "list", heading: "Message sent", items: [{ title: "To your manager", sub: "Running late." }] });
+      say("I have not messaged your manager. Stage an SMS from Approvals / Send SMS so a server confirmation and audit exist first.", { kind: "list", heading: "Not sent", items: [{ title: "Draft", sub: "Running late." }] });
       return;
     }
 
@@ -403,25 +400,19 @@ export function TalkToAtlasStudio() {
     }
     const message = q.match(/message (\w+)[,: ]*(?:and )?(?:tell (?:her|him|them) )?(.+)/i);
     if (message) {
-      say(`Done — I messaged ${message[1]}: “${message[2].trim()}”.`, { kind: "list", heading: "Message sent", items: [{ title: `To ${message[1]}`, sub: message[2].trim() }] });
+      say(`I have not messaged ${message[1]}. Outbound SMS needs a staged approval and a successful Twilio send with an audit row.`, { kind: "list", heading: "Not sent", items: [{ title: `Draft for ${message[1]}`, sub: message[2].trim() }] });
       return;
     }
     if (/mark (?:this |my )?task (?:as )?complete|complete (?:this|my) task/.test(ql)) {
-      say("Done — I marked your current task complete.");
+      say("I have not marked a server task complete from this chat. Complete it in Tasks so the write and audit land on the server.");
       return;
     }
     const refund = ql.match(/refund.*?\$?\s*([\d,]+)/);
     if (refund) {
       const amount = Number(refund[1].replace(/,/g, "")) || 0;
       const label = `Refund — $${amount.toLocaleString()}`;
-      const decision = persona ? evaluateAction(persona, "refund_customers", amount) : { outcome: "needs_approval" as const, message: "" };
-      if (decision.outcome === "auto" || decision.outcome === "allowed") {
-        logAudit(persona?.name ?? "User", "issued refund (voice)", label);
-        say(`Done — I refunded the customer $${amount.toLocaleString()} (within your limit).`);
-      } else {
-        setPending({ type: "refund", amount, label });
-        say(`This refund of $${amount.toLocaleString()} requires manager approval. Would you like me to submit the request?`);
-      }
+      setPending({ type: "refund", amount, label });
+      say(`Refunds always need a server approval. I have not refunded $${amount.toLocaleString()}. Submit it in Approvals if you want Atlas to stage the request.`);
       return;
     }
     if (/delete (?:this )?customer(?: account)?/.test(ql)) {
@@ -470,18 +461,45 @@ export function TalkToAtlasStudio() {
     say("I can help with briefings, tasks, projects, customers, scheduling, messages, and actions. Try a suggestion below.");
   }
 
-  function confirmPending() {
+  async function confirmPending() {
     if (!pending) return;
     if (pending.type === "delete") {
-      logAudit(persona?.name ?? "User", "deleted customer account (voice, confirmed)", pending.label);
       setPending(null);
-      say("The customer account has been permanently deleted and recorded in the audit log.");
-    } else {
-      createApprovalRequest({ kind: "Refund", title: pending.label, amount: pending.amount, requestedBy: persona ? first(persona.name) : "Employee", reason: "Requested via Atlas voice", priority: pending.amount >= 500 ? "urgent" : "normal" });
-      logAudit(persona?.name ?? "Employee", "submitted approval request (voice)", pending.label);
-      setPending(null);
-      say("Submitted for manager approval. It's now in the Approval Inbox.");
+      say(
+        "I have not deleted any customer. Use Customers or Privacy so the server removes the record and writes an audit row — this chat cannot claim a delete from a local confirm.",
+      );
+      return;
     }
+    const amount = pending.amount;
+    const label = pending.label;
+    setPending(null);
+    await fetch("/api/session").catch(() => undefined);
+    const result = await apiSend<{
+      decision?: { verdict?: string; reason?: string };
+      approvalId?: string | null;
+    }>("/api/autonomy/work", "POST", {
+      kind: "refund",
+      title: label,
+      summary: `${label} requested via Talk to Atlas`,
+      amount,
+    });
+    if (!result.ok) {
+      say(
+        `I could not stage “${label}” on the server (${result.error}). Nothing was refunded. Open Approvals or Money to submit it with a real customer and audit trail.`,
+      );
+      return;
+    }
+    const approvalId = result.data.approvalId;
+    if (approvalId) {
+      say(
+        `Staged “${label}” on the server approval queue (${approvalId}). Nothing was refunded — approve it in Approvals first.`,
+        { kind: "list", heading: "Waiting for approval", items: [{ title: label, sub: approvalId }] },
+      );
+      return;
+    }
+    say(
+      `Server response for “${label}”: ${result.data.decision?.verdict || "received"}${result.data.decision?.reason ? ` — ${result.data.decision.reason}` : ""}. Check Approvals and the audit log before assuming money moved.`,
+    );
   }
 
   function submit(e: FormEvent) {
@@ -580,9 +598,15 @@ export function TalkToAtlasStudio() {
           {pending ? (
             <div className="confirm-card" style={{ marginBottom: "0.6rem" }}>
               <div className="confirm-prompt">{pending.type === "delete" ? "⛔ Confirm permanent deletion" : "⚠️ Approval required"}</div>
-              <p>{pending.type === "delete" ? "This permanently removes the customer account. This can't be undone." : `Submit “${pending.label}” to your manager for approval?`}</p>
+              <p>
+                {pending.type === "delete"
+                  ? "Voice cannot delete customers. Confirm only acknowledges that — you still need Customers or Privacy on the server."
+                  : `Stage “${pending.label}” on the server approval queue? Nothing is refunded until an owner approves.`}
+              </p>
               <div className="train-actions" style={{ marginTop: "0.4rem" }}>
-                <button className="btn btn-dark" type="button" onClick={confirmPending}>{pending.type === "delete" ? "Yes, permanently delete" : "Submit request"}</button>
+                <button className="btn btn-dark" type="button" onClick={() => void confirmPending()}>
+                  {pending.type === "delete" ? "I understand — no delete yet" : "Stage on server"}
+                </button>
                 <button className="btn btn-outline" type="button" onClick={() => { setPending(null); say("Okay, cancelled."); }}>Cancel</button>
               </div>
             </div>

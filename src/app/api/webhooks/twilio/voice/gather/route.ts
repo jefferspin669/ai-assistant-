@@ -1,5 +1,5 @@
 import { getAppUrl } from "@/lib/integrations/config";
-import { buildVoiceGatherTwiml, sendSms } from "@/lib/integrations/twilio";
+import { buildVoiceGatherTwiml } from "@/lib/integrations/twilio";
 import {
   assertTwilioWebhook,
   claimTwilioIdempotency,
@@ -16,19 +16,11 @@ export async function POST(req: Request) {
     const raw = await req.text();
     const form = await assertTwilioWebhook(req, "/api/webhooks/twilio/voice/gather", raw);
     const speech = form.SpeechResult || form.Digits || "";
-    const from = form.From || "";
     const organizationId = resolveTwilioOrganizationId(form.To);
     claimTwilioIdempotency(organizationId, form.CallSid ? `${form.CallSid}:gather` : form.MessageSid);
     const bookUrl = `${getAppUrl()}/api/webhooks/twilio/voice/book`;
 
-    if ((speech.includes("1") || /book|schedule/i.test(speech)) && from) {
-      await sendSms({
-        to: from,
-        body: `Atlas here — reply BOOK tomorrow or send a day/time and I’ll hold a slot.`,
-        organizationId,
-      });
-      await flushDatabaseWrites();
-    }
+    await flushDatabaseWrites();
 
     const twiml = buildVoiceGatherTwiml(speech, bookUrl);
     return new Response(twiml, { headers: { "Content-Type": "text/xml" } });

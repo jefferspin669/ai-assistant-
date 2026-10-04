@@ -3,7 +3,7 @@
  */
 
 import { MAX_CUSTOMER_MESSAGES_PER_DAY, customerMessageFingerprint } from "@/lib/safety/guards";
-import { cacheGet, cacheSet, redisConfigured } from "@/lib/redis";
+import { getRedis, redisConfigured } from "@/lib/redis";
 
 const memory = new Map<string, number>();
 const completed = new Set<string>();
@@ -21,32 +21,33 @@ export async function claimCustomerMessage(input: {
   kind: string;
 }): Promise<{ allowed: boolean; count: number; fingerprint: string }> {
   const fingerprint = customerMessageFingerprint(input);
-  let count = memory.get(fingerprint) || 0;
   if (redisConfigured()) {
-    const raw = await cacheGet(fingerprint);
-    if (raw) count = Math.max(count, Number(raw) || 0);
+    const value = Number(await getRedis()!.eval(`
+      local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+      if count >= tonumber(ARGV[1]) then return -count end
+      count = redis.call('INCR', KEYS[1])
+      if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
+      return count`, 1, fingerprint, MAX_CUSTOMER_MESSAGES_PER_DAY, 36 * 3600));
+    return { allowed: value > 0, count: Math.abs(value), fingerprint };
   }
+  const count = memory.get(fingerprint) || 0;
   if (count >= MAX_CUSTOMER_MESSAGES_PER_DAY) {
     return { allowed: false, count, fingerprint };
   }
   const next = count + 1;
   memory.set(fingerprint, next);
-  if (redisConfigured()) {
-    await cacheSet(fingerprint, String(next), 60 * 60 * 36);
-  }
   return { allowed: true, count: next, fingerprint };
 }
 
-/** Exactly-once claim (e.g. task-complete customer notification). */
+/** Atomic send reservation; uncertain provider outcomes require owner review. */
 export async function claimExactOnce(fingerprint: string): Promise<{ allowed: boolean }> {
   if (completed.has(fingerprint)) return { allowed: false };
   if (redisConfigured()) {
-    const raw = await cacheGet(`once:${fingerprint}`);
-    if (raw) {
+    const claimed = await getRedis()!.set(`once:${fingerprint}`, "reserved", "EX", 60 * 60 * 24 * 30, "NX");
+    if (claimed !== "OK") {
       completed.add(fingerprint);
       return { allowed: false };
     }
-    await cacheSet(`once:${fingerprint}`, "1", 60 * 60 * 24 * 30);
   }
   completed.add(fingerprint);
   return { allowed: true };

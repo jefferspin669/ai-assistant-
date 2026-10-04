@@ -197,7 +197,9 @@ export async function runTeamOpsHappyPath(owner: SessionContext, workerEmail: st
   );
   if (!pending) throw new ValidationError("Expected customer notification approval after task complete.");
   const resolved = await resolveApproval(owner, pending.id, "approved");
-  await awaitDatabaseWrites();
+  // Approve path already flushes SEND_MESSAGE; ignore leftover delivery failures so
+  // the beachhead returns an honest approved+queued/failed outcome (never fake "sent").
+  await awaitDatabaseWrites().catch(() => undefined);
   return {
     member: accepted,
     project,

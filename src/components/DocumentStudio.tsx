@@ -33,7 +33,7 @@ export function DocumentStudio() {
     const doc = createDocumentFromPrompt(kind, description);
     refresh();
     setSelectedId(doc.id);
-    setNote(`Generated ${doc.kind} — edit, save, or export below.`);
+    setNote(`Generated ${doc.kind} — edit and save. Export/share stay disabled until Atlas can produce a real file or link.`);
   }
 
   function onEdit(mode: "professional" | "shorten" | "rewrite") {
@@ -48,7 +48,7 @@ export function DocumentStudio() {
     if (!selected) return;
     updateUserDocument(selected.id, { status: "ready" });
     refresh();
-    setNote("Document saved and ready to share.");
+    setNote("Document saved as ready. Export and share stay disabled until a real file or link exists.");
   }
 
   const kinds = useMemo(() => DOCUMENT_KINDS, []);
@@ -106,9 +106,33 @@ export function DocumentStudio() {
               <button className="btn btn-outline" type="button" onClick={() => onEdit("shorten")}>Shorten</button>
               <button className="btn btn-outline" type="button" onClick={() => onEdit("professional")}>Make professional</button>
               <button className="btn btn-dark" type="button" onClick={onSaveReady}>Save</button>
-              <button className="btn btn-outline" type="button" onClick={() => setNote("PDF export queued (demo).")}>Download PDF</button>
-              <button className="btn btn-outline" type="button" onClick={() => setNote("Word export queued (demo).")}>Download Word</button>
-              <button className="btn btn-outline" type="button" onClick={() => setNote("Share link copied (demo).")}>Share</button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                disabled
+                title="Export is disabled until Atlas can produce a real downloadable file."
+                onClick={() => setNote("PDF export is not available yet — no file was generated.")}
+              >
+                Download PDF
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                disabled
+                title="Export is disabled until Atlas can produce a real downloadable file."
+                onClick={() => setNote("Word export is not available yet — no file was generated.")}
+              >
+                Download Word
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                disabled
+                title="Share is disabled until Atlas can mint a real share link."
+                onClick={() => setNote("Share is not available yet — no link was created.")}
+              >
+                Share
+              </button>
             </div>
           </section>
           <section className="panel">

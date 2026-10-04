@@ -83,6 +83,7 @@ Copy `.env.example` → `.env.local` and fill credentials to go live. Without th
 - Standard scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm start`, `npm test`. Setup: `npm install`.
 - Optional local stack: `docker compose up -d postgres redis`, then `npm run db:migrate`, `npm run worker`, `npm run dev`.
 - Staging drills (no cloud sandbox keys required): `npm run drill:trust`; with Postgres/Redis + running app, `npm run smoke:staging`.
+- Invoice-recovery staging: `docker compose up -d postgres redis scheduler` (one scheduler), then `npm test -- tests/invoice-recovery-staging.test.ts`. See `docs/INVOICE_RECOVERY_STAGING.md` — feature freeze until overnight pass.
 - Dev server: `http://localhost:3000` via `npm run dev`.
 - Optional env: copy `.env.example` → `.env.local`. `ATLAS_LLM_API_KEY` for live Brain; `DATABASE_URL` / `REDIS_URL` for Postgres + workers.
 - Interactive hello world: open `/app`, Talk to Atlas. Try “How is business?” or “Going home — handle tonight”.

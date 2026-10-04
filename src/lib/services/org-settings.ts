@@ -76,6 +76,11 @@ export type OrgSettingsState = {
   logoUrl: string | null;
   timezone: string;
   preferredLanguage: string;
+  /** Customer-facing FAQ copy for the website chatbot (optional). */
+  publicHours: string | null;
+  publicServices: string | null;
+  publicPricing: string | null;
+  publicAddress: string | null;
   updatedAt: string;
 };
 
@@ -94,6 +99,10 @@ export function getOrgSettings(ctx: SessionContext): OrgSettingsState {
     logoUrl: remote?.logoUrl !== undefined ? remote.logoUrl : org?.logo_url ?? null,
     timezone: remote?.timezone || user?.timezone || "America/Chicago",
     preferredLanguage: remote?.preferredLanguage || user?.preferred_language || "en",
+    publicHours: remote?.publicHours ?? null,
+    publicServices: remote?.publicServices ?? null,
+    publicPricing: remote?.publicPricing ?? null,
+    publicAddress: remote?.publicAddress ?? null,
     updatedAt: remote?.updatedAt || org?.created_at || nowIso(),
   };
 }
@@ -118,6 +127,30 @@ export function putOrgSettings(
         : current.logoUrl,
     timezone: (patch.timezone ?? current.timezone).trim() || "America/Chicago",
     preferredLanguage: (patch.preferredLanguage ?? current.preferredLanguage).trim() || "en",
+    publicHours:
+      patch.publicHours !== undefined
+        ? patch.publicHours
+          ? String(patch.publicHours).trim() || null
+          : null
+        : current.publicHours,
+    publicServices:
+      patch.publicServices !== undefined
+        ? patch.publicServices
+          ? String(patch.publicServices).trim() || null
+          : null
+        : current.publicServices,
+    publicPricing:
+      patch.publicPricing !== undefined
+        ? patch.publicPricing
+          ? String(patch.publicPricing).trim() || null
+          : null
+        : current.publicPricing,
+    publicAddress:
+      patch.publicAddress !== undefined
+        ? patch.publicAddress
+          ? String(patch.publicAddress).trim() || null
+          : null
+        : current.publicAddress,
     updatedAt: nowIso(),
   };
   if (next.businessName.length < 2) throw new ValidationError("Business name is required.");

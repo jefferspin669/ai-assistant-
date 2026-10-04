@@ -16,6 +16,9 @@ const CONSOLIDATED = [
   ["src/app/app/analytics/page.tsx", "/app"],
   ["src/app/app/dna/page.tsx", "/app/memory"],
   ["src/app/app/knowledge/page.tsx", "/app/files"],
+  ["src/app/app/workflows/page.tsx", "/app/autonomous"],
+  ["src/app/app/actions/page.tsx", "/app/approvals"],
+  ["src/app/app/finance/page.tsx", "/app/money"],
 ] as const;
 
 describe("product consolidation redirects", () => {
@@ -31,6 +34,10 @@ describe("product consolidation redirects", () => {
     const config = readFileSync(path.join(ROOT, "next.config.ts"), "utf8");
     expect(config).toContain('source: "/app/brain"');
     expect(config).toContain('destination: "/app/ask"');
+    expect(config).toContain('source: "/app/workflows"');
+    expect(config).toContain('source: "/app/actions"');
+    expect(config).toContain('source: "/app/finance"');
+    // Phone surfaces stay real pages with honest empty states (not demo redirects).
     expect(config).not.toContain('source: "/app/missed-calls"');
     expect(config).not.toContain('source: "/app/call-summaries"');
   });

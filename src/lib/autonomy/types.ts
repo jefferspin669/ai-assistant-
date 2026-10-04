@@ -49,6 +49,10 @@ export type AutonomyPolicy = {
   controlMode: ControlMode;
   autoPermissions: Record<AutoPermissionKey, boolean>;
   killSwitch: boolean;
+  /** Automatic authority starts at this instant; null means already open. */
+  activeFrom: string | null;
+  /** Automatic authority ends at this instant; null means until explicitly paused. */
+  activeUntil: string | null;
   autoPaymentLimitCents: number;
   refundLimitCents: number;
   discountCapPercent: number;

@@ -7,8 +7,10 @@ import { processAutonomyQueue } from "../src/lib/autonomy/worker";
 import { enqueueJob, processJobs } from "../src/lib/services/jobs";
 import type { AutonomyLevel, AutonomyPolicy, WorkIntent } from "../src/lib/autonomy/types";
 import { AUTONOMOUS_AUTO_PERMISSIONS, levelToControlMode } from "../src/lib/autonomy/permissions";
-import { resetDatabase } from "../src/lib/db/store";
+import { resetDatabase, saveDatabase } from "../src/lib/db/store";
 import { database, testSession } from "../src/lib/services/access";
+import { createOrgProject } from "../src/lib/services/workspace";
+import { resolveApproval } from "../src/lib/domain/actions";
 
 function policy(level: AutonomyLevel, extra: Partial<AutonomyPolicy> = {}): AutonomyPolicy {
   return {
@@ -105,6 +107,16 @@ describe("Atlas autonomy engine", () => {
     expect(decision.verdict).toBe("ask_owner");
     expect(decision.reason).toMatch(/reminder/i);
   });
+
+  it("expired automatic authority asks the owner", () => {
+    const expired = {
+      ...defaultPolicy("org_test"),
+      level: 4 as const,
+      controlMode: "autonomous" as const,
+      activeUntil: "2020-01-01T00:00:00.000Z",
+    };
+    expect(decideWork(reminder(), expired).verdict).toBe("ask_owner");
+  });
 });
 
 describe("Atlas autonomy queue", () => {
@@ -116,6 +128,101 @@ describe("Atlas autonomy queue", () => {
     const db = database();
     return testSession(db.users[0]!.id, db.organizations[0]!.id, "owner");
   }
+
+  function allowAutomaticTasks(ctx: ReturnType<typeof ownerCtx>) {
+    const db = database();
+    saveDatabase({
+      ...db,
+      subscriptions: db.subscriptions.map((item) =>
+        item.orgId === ctx.organizationId ? { ...item, plan: "business" as const } : item,
+      ),
+    });
+    patchPolicy(ctx.organizationId, { level: 3 });
+  }
+
+  it("persists an assigned task and reports its real ID only after a tick", () => {
+    const ctx = ownerCtx();
+    allowAutomaticTasks(ctx);
+    const project = createOrgProject(ctx, { name: "Autonomy test" });
+    const submitted = submitWork(ctx, {
+      kind: "assign_task",
+      title: "Inspect site",
+      summary: "Inspect site",
+      payload: { title: "Inspect site", projectId: project.id },
+    });
+    expect(submitted.jobId).toBeTruthy();
+    expect(database().tasks.some((row) => row.title === "Inspect site")).toBe(false);
+    const tick = processAutonomyQueue();
+    expect(tick.processed).toBe(1);
+    const job = database().jobs.find((row) => row.id === submitted.jobId);
+    expect(job?.status).toBe("done");
+    expect(database().tasks.find((row) => row.id === job?.payload.resultTaskId)?.projectId).toBe(
+      project.id,
+    );
+    expect(processAutonomyQueue().processed).toBe(0);
+    expect(database().tasks.filter((row) => row.title === "Inspect site")).toHaveLength(1);
+  });
+
+  it("honors a kill switch activated after a task was queued", () => {
+    const ctx = ownerCtx();
+    allowAutomaticTasks(ctx);
+    const submitted = submitWork(ctx, {
+      kind: "assign_task",
+      title: "Paused task",
+      summary: "Pause",
+      payload: { title: "Paused task" },
+    });
+    patchPolicy(ctx.organizationId, { killSwitch: true });
+    expect(processAutonomyQueue().skippedKillSwitch).toBe(1);
+    expect(database().jobs.find((row) => row.id === submitted.jobId)?.status).toBe("failed");
+    expect(database().tasks.some((row) => row.title === "Paused task")).toBe(false);
+  });
+
+  it("rejects a stale requester and an assignee from another business", () => {
+    const ctx = ownerCtx();
+    allowAutomaticTasks(ctx);
+    const submitted = submitWork(ctx, {
+      kind: "assign_task",
+      title: "No access",
+      summary: "Test",
+      payload: { title: "No access", assigneeId: "other_business_employee" },
+    });
+    expect(processAutonomyQueue().processed).toBe(0);
+    expect(database().jobs.find((row) => row.id === submitted.jobId)?.status).toBe("failed");
+    const next = submitWork(ctx, {
+      kind: "assign_task",
+      title: "Revoked manager",
+      summary: "Test",
+      payload: { title: "Revoked manager" },
+    });
+    const db = database();
+    saveDatabase({
+      ...db,
+      organization_members: db.organization_members.map((row) =>
+        row.user_id === ctx.userId && row.organization_id === ctx.organizationId
+          ? { ...row, status: "suspended" as const }
+          : row,
+      ),
+    });
+    expect(processAutonomyQueue().processed).toBe(0);
+    expect(database().jobs.find((row) => row.id === next.jobId)?.status).toBe("failed");
+    expect(database().tasks.some((row) => row.title === "Revoked manager")).toBe(false);
+  });
+
+  it("executes a manually approved task with its selected project", async () => {
+    const ctx = ownerCtx();
+    const project = createOrgProject(ctx, { name: "Approval test" });
+    const submitted = submitWork(ctx, {
+      kind: "assign_task",
+      title: "Review roof",
+      summary: "Review roof",
+      payload: { title: "Review roof", projectId: project.id },
+    });
+    expect(submitted.approvalId).toBeTruthy();
+    expect(database().tasks.some((row) => row.title === "Review roof")).toBe(false);
+    await resolveApproval(ctx, submitted.approvalId!, "approved");
+    expect(database().tasks.find((row) => row.title === "Review roof")?.projectId).toBe(project.id);
+  });
 
   it("demo vendor payment creates a pending owner card", () => {
     const ctx = ownerCtx();
@@ -150,7 +257,7 @@ describe("Atlas autonomy queue", () => {
     patchPolicy(ctx.organizationId, { killSwitch: true });
     const tick = processAutonomyQueue();
     expect(tick.processed).toBe(0);
-    expect(tick.skippedKillSwitch).toBeGreaterThan(0);
+    expect(tick.unsupported).toBeGreaterThan(0);
   });
 
   it("legacy autonomy jobs fail visibly instead of reporting completion", () => {
@@ -160,6 +267,16 @@ describe("Atlas autonomy queue", () => {
     const tick = processAutonomyQueue();
     expect(tick.processed).toBe(0);
     expect(tick.unsupported).toBe(1);
+    expect(database().jobs.find((entry) => entry.id === job.id)?.status).toBe("failed");
+  });
+
+  it("kill switch fails unsupported queued jobs visibly", () => {
+    const ctx = ownerCtx();
+    patchPolicy(ctx.organizationId, { level: 4 });
+    const job = enqueueJob(ctx, "autonomy:send_reminder", { userId: ctx.userId });
+    patchPolicy(ctx.organizationId, { killSwitch: true });
+    const tick = processAutonomyQueue();
+    expect(tick.processed).toBe(0);
     expect(database().jobs.find((entry) => entry.id === job.id)?.status).toBe("failed");
   });
 

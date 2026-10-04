@@ -3,7 +3,7 @@ import { resetDatabase, saveDatabase, newId, nowIso, loadDatabase } from "../src
 import { database, testSession } from "../src/lib/services/access";
 import { patchPolicy } from "../src/lib/autonomy/policy";
 import { AUTONOMOUS_AUTO_PERMISSIONS } from "../src/lib/autonomy/permissions";
-import { orchestrate, tickRun } from "../src/lib/orchestrator";
+import { advanceRunAfterApproval, orchestrate, tickRun } from "../src/lib/orchestrator";
 import { resetOrchestratorForTests } from "../src/lib/orchestrator/store";
 import { listMemoryOutcomes, searchUnifiedMemories } from "../src/lib/memory/unified";
 import { planGoal } from "../src/lib/orchestrator/planner";
@@ -42,7 +42,10 @@ describe("Brain / orchestrator outcome verification", () => {
     });
 
     const { run } = await orchestrate(ctx, "Get Johnson Construction's overdue invoice paid.");
-    expect(run.status).toBe("waiting");
+    // Honest: queued SMS without verified delivery blocks before wait.
+    expect(run.status).toBe("blocked");
+    const advanced = await advanceRunAfterApproval(ctx.organizationId, run.id, { messageSent: true });
+    expect(advanced?.status).toBe("waiting");
 
     // Simulate the customer paying during the wait window.
     const db = loadDatabase();
@@ -66,9 +69,9 @@ describe("Brain / orchestrator outcome verification", () => {
       ],
     });
 
-    const waiting = run.steps.find((s) => s.kind === "wait")!;
+    const waiting = advanced!.steps.find((s) => s.kind === "wait")!;
     waiting.waitUntil = new Date(Date.now() - 1000).toISOString();
-    const resumed = await tickRun(run, { now: Date.now() });
+    const resumed = await tickRun(advanced!, { now: Date.now() });
 
     const check = resumed.steps.find((s) => s.kind === "check_payment");
     expect(check?.status).toBe("done");
@@ -97,9 +100,12 @@ describe("Brain / orchestrator outcome verification", () => {
     });
 
     const { run } = await orchestrate(ctx, "Get Johnson Construction's overdue invoice paid.");
-    const waiting = run.steps.find((s) => s.kind === "wait")!;
+    expect(run.status).toBe("blocked");
+    const advanced = await advanceRunAfterApproval(ctx.organizationId, run.id, { messageSent: true });
+    expect(advanced?.status).toBe("waiting");
+    const waiting = advanced!.steps.find((s) => s.kind === "wait")!;
     waiting.waitUntil = new Date(Date.now() - 1000).toISOString();
-    const resumed = await tickRun(run, { now: Date.now() });
+    const resumed = await tickRun(advanced!, { now: Date.now() });
 
     expect(resumed.steps.find((s) => s.kind === "check_payment")?.result?.paid).toBe(false);
     expect(resumed.steps.find((s) => s.kind === "escalate")?.status).toBe("done");

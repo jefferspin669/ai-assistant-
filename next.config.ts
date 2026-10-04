@@ -128,6 +128,10 @@ const nextConfig: NextConfig = {
             { source: "/app/digital-twin", destination: "/app/business-engine?tab=simulate", permanent: false },
             { source: "/app/capital", destination: "/app/money", permanent: false },
             { source: "/app/reputation-command", destination: "/app/reviews", permanent: false },
+            // Invoice-recovery beachhead — fold demo surfaces into live ops
+            { source: "/app/workflows", destination: "/app/autonomous", permanent: false },
+            { source: "/app/actions", destination: "/app/approvals", permanent: false },
+            { source: "/app/finance", destination: "/app/money", permanent: false },
           ];
         },
         async headers() {
