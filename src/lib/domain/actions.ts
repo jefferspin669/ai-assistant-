@@ -211,11 +211,26 @@ export async function resolveApproval(
   );
   if (!row) throw new NotFoundError("Approval not found.");
   if (row.status !== "pending") throw new ValidationError("Approval already resolved.");
+  if (
+    decision === "approved" &&
+    !row.payload.atlasAction &&
+    ![ACTION_SMS, ACTION_INVOICE].includes(row.action_type)
+  ) {
+    throw new ValidationError("This action has no verified executor. Nothing was sent or paid.");
+  }
 
   // Owners/admins approve money; SMS/invoice can also be approved with action permissions.
+  // Task approvals (CREATE_TASK via atlasAction) need tasks.write.
   if (row.action_type === ACTION_SMS) {
     if (!hasPermission(ctx, "actions.sms") && !hasPermission(ctx, "payments.refund")) {
       requirePermission(ctx, "actions.sms");
+    }
+  } else if (row.payload.atlasAction && typeof row.payload.atlasAction === "object") {
+    const actionType = (row.payload.atlasAction as { type?: string }).type;
+    if (actionType === "CREATE_TASK" || actionType === "UPDATE_TASK") {
+      requirePermission(ctx, "tasks.write");
+    } else {
+      requirePermission(ctx, "payments.refund");
     }
   } else {
     requirePermission(ctx, "payments.refund");
@@ -299,14 +314,39 @@ export async function resolveApproval(
     const action = decodeAtlasAction(atlasAction);
     const result = executeApprovedAction(action, ctx);
     const runId = typeof row.payload.runId === "string" ? row.payload.runId : "";
-    if (runId) {
-      // Flush in-process send_message side effect before advancing the run.
+    let messageSent = false;
+    let deliveryError: string | undefined;
+    if (action.type === "SEND_MESSAGE") {
+      // Flush in-process send_message; live provider may reject simulation.
+      // Approval stays recorded — never claim sent when delivery is unverified.
+      try {
+        const { flushDatabaseWrites } = await import("@/lib/db/store");
+        await flushDatabaseWrites();
+        messageSent = true;
+      } catch (error) {
+        deliveryError = error instanceof Error ? error.message : String(error);
+        writeAudit(ctx, {
+          action: `customer notification delivery failed: ${deliveryError}`,
+          entityType: "customer",
+          entityId: String(action.payload.customerId || ""),
+        });
+      }
+    } else if (runId) {
       const { flushDatabaseWrites } = await import("@/lib/db/store");
       await flushDatabaseWrites();
-      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
-      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent: true });
+      messageSent = true;
     }
-    return { approval: { ...row, status: decision }, result };
+    if (runId) {
+      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
+      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent });
+    }
+    return {
+      approval: { ...row, status: decision },
+      result:
+        action.type === "SEND_MESSAGE"
+          ? { ...result, messageSent, deliveryError, queued: true }
+          : result,
+    };
   }
   enqueueJob(ctx, `autonomy:${row.action_type}`, { ...row.payload, userId: ctx.userId });
   return { approval: { ...row, status: decision }, result: { queued: true, type: row.action_type } };

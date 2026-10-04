@@ -250,6 +250,16 @@ describe("Atlas autonomy queue", () => {
     expect(tick.processed).toBe(0);
   });
 
+  it("kill switch leaves queued autonomy jobs unprocessed", () => {
+    const ctx = ownerCtx();
+    patchPolicy(ctx.organizationId, { level: 4 });
+    enqueueJob(ctx, "autonomy:send_reminder", { userId: ctx.userId });
+    patchPolicy(ctx.organizationId, { killSwitch: true });
+    const tick = processAutonomyQueue();
+    expect(tick.processed).toBe(0);
+    expect(tick.unsupported).toBeGreaterThan(0);
+  });
+
   it("legacy autonomy jobs fail visibly instead of reporting completion", () => {
     const ctx = ownerCtx();
     patchPolicy(ctx.organizationId, { level: 4 });

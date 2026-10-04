@@ -158,19 +158,21 @@ describe("Atlas autonomy safety", () => {
     expect(blocked.count).toBeGreaterThanOrEqual(MAX_CUSTOMER_MESSAGES_PER_DAY);
   });
 
-  it("worker SMS path stops after the daily cap even with new job ids", async () => {
+  it("worker SMS path refuses unapproved outreach in manual mode", async () => {
     const ctx = ownerCtx();
     const to = "+15555550999";
     for (let i = 0; i < MAX_CUSTOMER_MESSAGES_PER_DAY + 2; i += 1) {
-      await handleQueuedWork("missed-call-follow-up", {
-        jobId: `job_sms_${i}`,
-        organizationId: ctx.organizationId,
-        userId: "atlas",
-        payload: { phone: to },
-      });
+      await expect(
+        handleQueuedWork("missed-call-follow-up", {
+          jobId: `job_sms_${i}`,
+          organizationId: ctx.organizationId,
+          userId: "atlas",
+          payload: { phone: to },
+        }),
+      ).rejects.toThrow(/owner review/);
     }
     const logs = listAudit(ctx.organizationId);
-    expect(logs.some((row) => row.action.includes("worker:rate_limited:"))).toBe(true);
+    expect(logs.some((row) => row.action.includes("worker:sent:"))).toBe(false);
   });
 
   it("retries a job after a crash (in-flight is not treated as completed)", () => {

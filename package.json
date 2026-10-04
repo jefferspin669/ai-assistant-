@@ -14,6 +14,7 @@
     "ci:links": "node scripts/validate-internal-links.mjs",
     "ci:acceptance": "npx tsc --noEmit && npm test && npm run ci:migrations && npm run ci:links && npm run build",
     "smoke:staging": "node scripts/staging-smoke.mjs",
+    "test:queue:live": "tsx scripts/test-durable-queue.ts",
     "drill:trust": "node scripts/trust-drills.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",

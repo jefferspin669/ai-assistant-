@@ -11,6 +11,22 @@ import {
 } from "@/lib/autonomy/permissions";
 import { maxAutonomyLevelForPlan, subscriptionForOrg } from "@/lib/billing/entitlements";
 
+/** Background sends read current server authority rather than a boot-time snapshot. */
+export async function getExecutionPolicy(organizationId: string): Promise<AutonomyPolicy> {
+  if (!process.env.DATABASE_URL?.trim()) {
+    const stored = getPolicy(organizationId);
+    const max = maxAutonomyLevelForPlan(subscriptionForOrg(organizationId)?.plan || "free");
+    return { ...stored, level: Math.min(stored.level, max) as AutonomyPolicy["level"] };
+  }
+  const { getPostgresClient } = await import("@/lib/db/postgres");
+  const sql = getPostgresClient();
+  const [row] = await sql`SELECT * FROM autonomy_policies WHERE organization_id = ${organizationId}`;
+  const [sub] = await sql`SELECT plan FROM subscriptions WHERE org_id = ${organizationId}`;
+  const stored = row ? fromRow(row as DbAutonomyPolicy) : defaultPolicy(organizationId);
+  const max = maxAutonomyLevelForPlan((sub?.plan || "free") as Parameters<typeof maxAutonomyLevelForPlan>[0]);
+  return { ...stored, level: Math.min(stored.level, max) as AutonomyPolicy["level"] };
+}
+
 export { defaultPolicy };
 
 export function getPolicy(organizationId: string): AutonomyPolicy {

@@ -298,9 +298,6 @@ export function failClaimedJob(jobId: string, workerId: string, error: string) {
  */
 export function processJobs(limit = 10) {
   const autonomy = processAutonomyQueue(limit);
-  // When Redis is up, BullMQ owns generic jobs — this tick must not race it and
-  // falsely mark an in-flight delivery failed.
-  if (process.env.REDIS_URL?.trim()) return { generic: [], autonomy };
   if (typeof window === "undefined") {
     void import("@/lib/orchestrator").then((mod) => mod.tickDueOrchestratorRuns()).catch(() => undefined);
   }
@@ -430,6 +427,15 @@ export function processJobs(limit = 10) {
   }
 
   return { generic: ran, unsupported: unsupported.length, autonomy, claimed: claimed.length };
+}
+
+/** Prefer the transactional Postgres task worker when DATABASE_URL is set. */
+export async function processServerJobs(limit = 20) {
+  if (process.env.DATABASE_URL?.trim()) {
+    const { processDurableAutonomyQueue } = await import("@/lib/autonomy/durable-worker");
+    return { generic: [] as DbJob[], autonomy: await processDurableAutonomyQueue(limit) };
+  }
+  return processJobs(limit);
 }
 
 export function notify(

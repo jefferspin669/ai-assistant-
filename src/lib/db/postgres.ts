@@ -34,6 +34,12 @@ export function getPostgres() {
   return getDrizzle();
 }
 
+/** Raw postgres.js client for transactional workers (SKIP LOCKED claims). */
+export function getPostgresClient() {
+  getDrizzle();
+  return client!;
+}
+
 export async function pingPostgres(): Promise<{ ok: boolean; error?: string }> {
   if (!hasPostgres()) return { ok: false, error: "DATABASE_URL unset" };
   try {
@@ -210,29 +216,37 @@ export async function persistAtlasDatabase(data: AtlasDatabase): Promise<void> {
       createdAt: a.created_at,
     })),
   );
-  await upsertRows(
-    schema.jobs,
-    data.jobs.map((j) => ({
-      id: j.id,
-      organizationId: j.organization_id,
-      kind: j.kind,
-      payload: j.payload,
-      status: j.status,
-      createdAt: j.created_at,
-      runAt: j.run_at,
-      lane: j.lane || "default",
-      attempts: j.attempts ?? 0,
-      maxAttempts: j.max_attempts ?? 5,
-      visibleAt: j.visible_at ?? j.run_at ?? j.created_at,
-      claimedAt: j.claimed_at ?? null,
-      claimedBy: j.claimed_by ?? null,
-      lastError: j.last_error ?? null,
-      updatedAt: j.updated_at ?? j.created_at,
-      idempotencyKey: j.idempotency_key ?? null,
-      deadLetteredAt: j.dead_lettered_at ?? null,
-      version: j.version ?? 1,
-    })),
-  );
+  // Queue state belongs to the worker. Stale process snapshots must never
+  // resurrect a completed job or overwrite another worker's claim.
+  if (data.jobs.length) {
+    await getDrizzle()
+      .insert(schema.jobs)
+      .values(
+        data.jobs.map((j) => ({
+          id: j.id,
+          organizationId: j.organization_id,
+          kind: j.kind,
+          payload: j.payload,
+          status: j.status,
+          createdAt: j.created_at,
+          runAt: j.run_at,
+          lane: j.lane || "default",
+          attempts: j.attempts ?? 0,
+          maxAttempts: j.max_attempts ?? 5,
+          visibleAt: j.visible_at ?? j.run_at ?? j.created_at,
+          claimedAt: j.claimed_at ?? null,
+          claimedBy: j.claimed_by ?? null,
+          lastError: j.last_error ?? null,
+          updatedAt: j.updated_at ?? j.created_at,
+          idempotencyKey:
+            j.idempotency_key ??
+            (typeof j.payload.idempotencyKey === "string" ? j.payload.idempotencyKey : null),
+          deadLetteredAt: j.dead_lettered_at ?? null,
+          version: j.version ?? 1,
+        })),
+      )
+      .onConflictDoNothing();
+  }
   await upsertRows(
     schema.agents,
     data.agents.map((a) => ({
@@ -389,8 +403,12 @@ export async function persistAtlasDatabase(data: AtlasDatabase): Promise<void> {
     schema.autonomyPolicies,
     data.autonomy_policies.map((p) => ({
       organizationId: p.organization_id,
+      controlMode: p.control_mode || "manual",
+      autoPermissions: p.auto_permissions || {},
       level: p.level,
       killSwitch: p.kill_switch,
+      activeFrom: p.active_from ?? null,
+      activeUntil: p.active_until ?? null,
       autoPaymentLimitCents: p.auto_payment_limit_cents,
       refundLimitCents: p.refund_limit_cents,
       discountCapPercent: p.discount_cap_percent,
@@ -716,8 +734,12 @@ export async function loadAtlasDatabaseFromPostgres(): Promise<AtlasDatabase | n
     })),
     autonomy_policies: autonomyPolicies.map((p) => ({
       organization_id: p.organizationId,
+      control_mode: (p.controlMode || "manual") as "manual" | "assisted" | "autonomous",
+      auto_permissions: (p.autoPermissions || {}) as Record<string, boolean>,
       level: p.level as AtlasDatabase["autonomy_policies"][number]["level"],
       kill_switch: p.killSwitch,
+      active_from: p.activeFrom ?? null,
+      active_until: p.activeUntil ?? null,
       auto_payment_limit_cents: p.autoPaymentLimitCents,
       refund_limit_cents: p.refundLimitCents,
       discount_cap_percent: p.discountCapPercent,

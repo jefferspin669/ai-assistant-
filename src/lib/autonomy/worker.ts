@@ -12,11 +12,11 @@ import type { SessionContext } from "@/lib/domain/types";
 /**
  * Only assign_task has a verified, persisted autonomy executor today.
  * Every queued action is re-authorized immediately before execution.
- * Unsupported kinds fail visibly instead of claiming completion.
  */
 export function processAutonomyQueue(limit = 20) {
-  const queued = database()
-    .jobs.filter((job) => job.status === "queued" && String(job.kind).startsWith("autonomy:"))
+  if (process.env.DATABASE_URL?.trim()) throw new Error("PostgreSQL tasks must use the durable server worker.");
+  const queued = database().jobs
+    .filter((job) => job.status === "queued" && job.kind.startsWith("autonomy:"))
     .slice(0, limit);
   let processed = 0;
   let unsupported = 0;
@@ -24,16 +24,11 @@ export function processAutonomyQueue(limit = 20) {
   const jobs: Array<{ id: string; status: "done" | "failed"; taskId?: string; error?: string }> = [];
 
   for (const job of queued) {
-    const current = database().jobs.find(
-      (row) => row.id === job.id && row.organization_id === job.organization_id,
-    );
+    const current = database().jobs.find((row) => row.id === job.id && row.organization_id === job.organization_id);
     if (!current || current.status !== "queued") continue;
     const userId = String(current.payload.userId || "");
     const ctx: SessionContext = {
-      userId,
-      organizationId: current.organization_id,
-      role: "owner",
-      sessionId: "worker",
+      userId, organizationId: current.organization_id, role: "owner", sessionId: "worker",
     };
     let taskId: string | undefined;
     let error: string | undefined;
@@ -51,14 +46,10 @@ export function processAutonomyQueue(limit = 20) {
       const stored = getPolicy(ctx.organizationId);
       const max = maxAutonomyLevelForPlan(subscriptionForOrg(ctx.organizationId)?.plan || "free");
       const policy = stored.level > max ? { ...stored, level: max } : stored;
-      const verdict = decideWork(
-        {
-          kind: "assign_task",
-          title: String(current.payload.title || "Task"),
-          summary: "Create an assigned task",
-        },
-        policy,
-      );
+      const verdict = decideWork({
+        kind: "assign_task", title: String(current.payload.title || "Task"),
+        summary: "Create an assigned task",
+      }, policy);
       if (verdict.verdict !== "execute") {
         if (stored.killSwitch) skippedKillSwitch += 1;
         throw new Error(verdict.reason);
@@ -80,25 +71,14 @@ export function processAutonomyQueue(limit = 20) {
     const latest = database();
     saveDatabase({
       ...latest,
-      jobs: latest.jobs.map((row) =>
-        row.id === job.id && row.organization_id === job.organization_id
-          ? {
-              ...row,
-              status: taskId ? ("done" as const) : ("failed" as const),
-              run_at: nowIso(),
-              payload: {
-                ...row.payload,
-                ...(taskId ? { resultTaskId: taskId } : { error }),
-              },
-            }
-          : row,
-      ),
+      jobs: latest.jobs.map((row) => row.id === job.id && row.organization_id === job.organization_id
+        ? { ...row, status: taskId ? "done" as const : "failed" as const,
+          run_at: nowIso(), payload: { ...row.payload, ...(taskId ? { resultTaskId: taskId } : { error }) } }
+        : row),
     });
     writeAudit(ctx, {
       action: taskId ? "autonomy:completed:assign_task" : `autonomy:failed:${current.kind}`,
-      entityType: "job",
-      entityId: job.id,
-      actorLabel: "Atlas Worker",
+      entityType: "job", entityId: job.id, actorLabel: "Atlas Worker",
     });
     if (error) notify(ctx, "Atlas automation needs attention", error);
     jobs.push({ id: job.id, status: taskId ? "done" : "failed", ...(taskId ? { taskId } : { error }) });

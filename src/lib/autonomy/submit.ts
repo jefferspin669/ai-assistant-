@@ -125,15 +125,23 @@ export function submitWork(
           },
         };
       }
-      const job = enqueueJob(ctx, "autonomy:assign_task", {
-        userId: ctx.userId,
-        title: parsed.data.title,
-        notes: parsed.data.notes || "",
-        projectId: parsed.data.projectId || null,
-        assigneeId: parsed.data.assigneeId || null,
-        dueDate: parsed.data.dueDate || null,
-        source: "owner-authorized autonomy",
-      });
+      const idempotencyKey =
+        typeof intent.payload?.idempotencyKey === "string" ? intent.payload.idempotencyKey : undefined;
+      const job = enqueueJob(
+        ctx,
+        "autonomy:assign_task",
+        {
+          userId: ctx.userId,
+          title: parsed.data.title,
+          notes: parsed.data.notes || "",
+          projectId: parsed.data.projectId || null,
+          assigneeId: parsed.data.assigneeId || null,
+          dueDate: parsed.data.dueDate || null,
+          source: "owner-authorized autonomy",
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+        { idempotencyKey, lane: "default" },
+      );
       return {
         decision: {
           ...decision,

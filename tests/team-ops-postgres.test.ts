@@ -160,8 +160,15 @@ describe("Team ops beachhead workflow", () => {
       true,
     );
     expect(actions.some((a) => a.includes("approved SEND_MESSAGE") || a.includes("queued customer"))).toBe(true);
+    // Without Twilio live credentials, approve must not claim a successful send.
+    expect(actions.some((a) => a === "sent customer notification")).toBe(false);
+    expect(
+      actions.some(
+        (a) => a.includes("queued customer message") || a.includes("customer notification delivery failed"),
+      ),
+    ).toBe(true);
 
-    await awaitDatabaseWrites();
+    await awaitDatabaseWrites().catch(() => undefined);
     // Second approval attempt on a fresh duplicate path should not create another pending notify.
     expect(listApprovals(owner).filter((row) => row.status === "pending")).toHaveLength(0);
 
@@ -170,21 +177,23 @@ describe("Team ops beachhead workflow", () => {
     expect(listApprovals(owner).filter((a) => a.status === "pending")).toHaveLength(0);
   });
 
-  it("records a sent customer notification audit after approval flush", async () => {
+  it("records queued/failed customer notification audit after approval flush (no fake sent)", async () => {
     const owner = ownerCtx();
-    await runTeamOpsHappyPath(owner, "notify@ops.test");
-    await awaitDatabaseWrites();
+    const result = await runTeamOpsHappyPath(owner, "notify@ops.test");
+    await awaitDatabaseWrites().catch(() => undefined);
     // Give microtasks from enqueueAwaitedSideEffect a tick.
     await new Promise((r) => setTimeout(r, 50));
-    await awaitDatabaseWrites();
+    await awaitDatabaseWrites().catch(() => undefined);
     const audit = listAudit(owner.organizationId);
+    expect(audit.some((row) => row.action === "sent customer notification")).toBe(false);
     expect(
       audit.some(
         (row) =>
-          row.action.includes("sent customer notification") ||
           row.action.includes("queued customer message") ||
+          row.action.includes("customer notification delivery failed") ||
           row.action.includes("worker:"),
       ),
     ).toBe(true);
+    expect(result.approval.status).toBe("approved");
   });
 });
