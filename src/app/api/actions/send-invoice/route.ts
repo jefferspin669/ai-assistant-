@@ -27,8 +27,13 @@ export const POST = withPermission("actions.invoice", async ({ req, workspace, b
   const amountCents = Number(
     parsed.amountCents ?? Math.round(Number(parsed.amount || 0) * 100),
   );
-  if (!customerName || !amountCents) {
-    throw new ValidationError("customerName and amountCents required");
+  if (!customerName || !Number.isSafeInteger(amountCents) || amountCents < 50 || amountCents > 100_000_000) {
+    throw new ValidationError(
+      "A customer name and invoice amount between $0.50 and $1,000,000.00 are required.",
+    );
+  }
+  if (!parsed.customerEmail || !z.string().email().safeParse(parsed.customerEmail).success) {
+    throw new ValidationError("A valid customer email is required for Stripe invoice delivery.");
   }
   const result = await createAndSendInvoice(workspace, {
     customerName,

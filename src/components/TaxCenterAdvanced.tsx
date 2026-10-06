@@ -334,11 +334,6 @@ export function TaxDocumentsPanel({
 }) {
   const [docStatus, setDocStatus] = useState<Record<string, string>>({});
   const [packageBuilt, setPackageBuilt] = useState(false);
-  const [exports, setExports] = useState<{ pdf: boolean; sheet: boolean }>({
-    pdf: false,
-    sheet: false,
-  });
-  const [authorized, setAuthorized] = useState(false);
 
   const docs = taxDocuments.map((doc) => ({
     ...doc,
@@ -395,21 +390,7 @@ export function TaxDocumentsPanel({
         <div className="list">
           {taxPrepPackageParts.map((part) => (
             <div className="list-row" key={part.id}>
-              <Badge
-                status={
-                  packageBuilt
-                    ? part.id === "pkg-pdf"
-                      ? exports.pdf
-                        ? "Exported"
-                        : "Staged"
-                      : part.id === "pkg-xls"
-                        ? exports.sheet
-                          ? "Exported"
-                          : "Staged"
-                        : "Staged"
-                    : "Partial"
-                }
-              />
+              <Badge status={packageBuilt ? "Staged" : "Partial"} />
               <div>
                 <p>
                   <strong>{part.title}</strong>
@@ -447,37 +428,33 @@ export function TaxDocumentsPanel({
             <button
               className="btn btn-outline"
               type="button"
-              disabled={!packageBuilt}
-              onClick={() => {
-                setExports((prev) => ({ ...prev, pdf: true }));
-                setNote("Accountant-ready PDF exported.");
-              }}
+              disabled
+              title="Export is disabled until Atlas can produce a real PDF file."
+              onClick={() => setNote("PDF export is not available yet — no file was generated.")}
             >
-              {exports.pdf ? "PDF ready" : "Export PDF"}
+              Export PDF
             </button>
             <button
               className="btn btn-outline"
               type="button"
-              disabled={!packageBuilt}
-              onClick={() => {
-                setExports((prev) => ({ ...prev, sheet: true }));
-                setNote("Spreadsheet export ready (income, expenses, mileage).");
-              }}
+              disabled
+              title="Export is disabled until Atlas can produce a real spreadsheet file."
+              onClick={() => setNote("Spreadsheet export is not available yet — no file was generated.")}
             >
-              {exports.sheet ? "Sheet ready" : "Export spreadsheet"}
+              Export spreadsheet
             </button>
             <button
               className="btn btn-dark"
               type="button"
-              disabled={!packageBuilt || authorized}
-              onClick={() => {
-                setAuthorized(true);
+              disabled
+              title="Handoff is disabled until a real share link or secure portal transfer exists."
+              onClick={() =>
                 setNote(
-                  "You authorized CPA handoff. Atlas shared the package with your professional — filing still requires your final signature.",
-                );
-              }}
+                  "CPA handoff is not available yet — nothing was shared. Filing still requires your final signature when a real package exists.",
+                )
+              }
             >
-              {authorized ? "Authorized" : "Authorize handoff"}
+              Authorize handoff
             </button>
           </div>
         </div>
@@ -666,10 +643,10 @@ export function TaxPortalPanel({
           <button
             className="btn btn-outline"
             type="button"
-            disabled={!invited}
+            disabled
+            title="Download is disabled until Atlas can produce a real tax package file."
             onClick={() => {
-              pushAudit("Downloaded package", "PDF + spreadsheet tax package");
-              setNote("Professional downloaded the Tax Preparation Package.");
+              setNote("Package download is not available yet — no file was generated.");
             }}
           >
             Download package (pro)
@@ -825,7 +802,7 @@ export function TaxPayrollPanel({
               type="button"
               onClick={() => {
                 setEnabled(true);
-                setNote("Atlas Payroll & Tax enabled for this business (demo). Tracking is live.");
+                setNote("Atlas Payroll & Tax preference saved locally — payroll tracking is not live until a real payroll integration is connected.");
               }}
             >
               {enabled ? "Add-on enabled" : "Enable Atlas Payroll & Tax"}

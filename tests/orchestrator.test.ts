@@ -1,10 +1,18 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDatabase } from "../src/lib/db/store";
 import { database, testSession } from "../src/lib/services/access";
 import { patchPolicy } from "../src/lib/autonomy/policy";
 import { AUTONOMOUS_AUTO_PERMISSIONS } from "../src/lib/autonomy/permissions";
 import { listAudit } from "../src/lib/services/audit";
-import { orchestrate, tickRun, getRun, listCapabilities, planGoal, evaluateRules } from "../src/lib/orchestrator";
+import {
+  orchestrate,
+  tickRun,
+  getRun,
+  listCapabilities,
+  planGoal,
+  evaluateRules,
+  advanceRunAfterApproval,
+} from "../src/lib/orchestrator";
 import { resetOrchestratorForTests, getTrace, listRuns } from "../src/lib/orchestrator/store";
 import { compensateRun } from "../src/lib/orchestrator/saga";
 import { routeEvent, subscribersFor } from "../src/lib/events/router";
@@ -14,8 +22,15 @@ import type { OrchestratorRun } from "../src/lib/orchestrator/types";
 
 describe("Atlas orchestrator", () => {
   beforeEach(() => {
+    // Quiet hours (after 21:00 local) force SMS approval and flake CI evening runs.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-15T15:00:00.000Z"));
     resetDatabase();
     resetOrchestratorForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function owner() {
@@ -54,8 +69,12 @@ describe("Atlas orchestrator", () => {
     expect(found?.status).toBe("done");
     expect(found?.result?.customerName).toBe("Johnson Construction");
     expect(run.steps.find((s) => s.kind === "find_invoice")?.status).toBe("done");
-    expect(run.status).toBe("waiting");
-    expect(run.steps.find((s) => s.kind === "wait")?.status).toBe("waiting");
+    // Queued send without verified Twilio delivery must block — not pretend wait started.
+    expect(run.status).toBe("blocked");
+    const send = run.steps.find((s) => s.kind === "invoke");
+    expect(send?.status).toBe("blocked");
+    expect(String(send?.error || "")).toMatch(/Delivery queued|outcome is not verified/i);
+    expect(run.steps.find((s) => s.kind === "wait")?.status).toBe("pending");
     expect(run.steps.find((s) => s.kind === "escalate")?.status).toBe("pending");
     const trace = getTrace(traceId, ctx.organizationId);
     expect(trace?.spans.some((s) => s.name === "planner")).toBe(true);
@@ -69,9 +88,13 @@ describe("Atlas orchestrator", () => {
       autoPermissions: { ...AUTONOMOUS_AUTO_PERMISSIONS, customer_replies: true },
     });
     const { run } = await orchestrate(ctx, "Get Johnson Construction's overdue invoice paid.");
-    const waiting = run.steps.find((s) => s.kind === "wait")!;
+    expect(run.status).toBe("blocked");
+    // Simulate verified delivery so the run can enter the wait window.
+    const advanced = await advanceRunAfterApproval(ctx.organizationId, run.id, { messageSent: true });
+    expect(advanced?.status).toBe("waiting");
+    const waiting = advanced!.steps.find((s) => s.kind === "wait")!;
     waiting.waitUntil = new Date(Date.now() - 1000).toISOString();
-    const resumed = await tickRun(run, { now: Date.now() });
+    const resumed = await tickRun(advanced!, { now: Date.now() });
     expect(resumed.steps.find((s) => s.kind === "wait")?.status).toBe("done");
     expect(resumed.steps.find((s) => s.kind === "escalate")?.status).toBe("done");
     expect(resumed.status).toBe("completed");

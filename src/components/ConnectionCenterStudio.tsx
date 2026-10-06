@@ -268,14 +268,21 @@ export function ConnectionCenterStudio() {
                     <button
                       type="button"
                       className="btn btn-dark"
-                      onClick={() =>
-                        refresh(
-                          connectService(conn.id, accountDraft || undefined),
-                          `Connected ${conn.name}.`,
-                        )
-                      }
+                      onClick={() => {
+                        if (conn.id.startsWith("custom-")) {
+                          refresh(
+                            connectService(conn.id, accountDraft || undefined),
+                            `Marked ${conn.name} as a custom local connection — not a verified OAuth/provider link.`,
+                          );
+                          return;
+                        }
+                        setMessage(
+                          `${conn.name} needs a real provider connection under Commercial / Integrations. A local toggle cannot mark it LIVE.`,
+                        );
+                        window.location.href = "/app/commercial";
+                      }}
                     >
-                      Connect
+                      Connect via Integrations
                     </button>
                     <button type="button" className="btn btn-outline" onClick={() => startEdit(conn)}>
                       Change

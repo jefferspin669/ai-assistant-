@@ -16,7 +16,7 @@ const smsPayloadSchema = z.object({
 
 const invoicePayloadSchema = z.object({
   customerName: z.string().min(1).max(200),
-  amountCents: z.number().int().positive().max(50_000_000),
+  amountCents: z.number().int().positive().max(100_000_000),
   customerPhone: z.string().max(40).optional(),
   customerEmail: z.string().email().max(200).optional(),
   memo: z.string().max(500).optional(),

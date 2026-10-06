@@ -17,7 +17,7 @@ import { enqueueAwaitedSideEffect, newId, nowIso, saveDatabase } from "@/lib/db/
 import { database, requireCustomer } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
 import { hasPermission, requirePermission } from "@/lib/auth/permissions";
-import { ACTION_SMS, smsPayloadSchema } from "@/lib/services/action-confirmations";
+import { ACTION_INVOICE, ACTION_SMS, smsPayloadSchema } from "@/lib/services/action-confirmations";
 import { sendSms } from "@/lib/integrations/twilio";
 
 export type AtlasActionResult =
@@ -50,6 +50,9 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
         task: createOrgTask(ctx, {
           title: action.payload.title,
           dueDate: action.payload.dueDate ?? null,
+          notes: action.payload.notes,
+          projectId: action.payload.projectId ?? null,
+          assigneeId: action.payload.assigneeId ?? null,
         }),
       };
     case "UPDATE_TASK":
@@ -81,15 +84,24 @@ export function executeApprovedAction(action: AtlasAction, ctx: SessionContext):
       const db = database();
       const customer = requireCustomer(db, ctx, action.payload.customerId);
       const to = customer.phone || customer.email || "";
-      const job = enqueueJob(ctx, "send_message", {
-        ...action.payload,
-        userId: ctx.userId,
-        to,
-        phone: customer.phone,
-        email: customer.email,
-        body: action.payload.message,
-        taskId: action.payload.taskId,
-      });
+      const idempotencyKey =
+        typeof action.payload.taskId === "string" && action.payload.taskId
+          ? `send_message:task:${action.payload.taskId}`
+          : `send_message:${ctx.organizationId}:${action.payload.customerId}:${String(action.payload.message).slice(0, 64)}`;
+      const job = enqueueJob(
+        ctx,
+        "send_message",
+        {
+          ...action.payload,
+          userId: ctx.userId,
+          to,
+          phone: customer.phone,
+          email: customer.email,
+          body: action.payload.message,
+          taskId: action.payload.taskId,
+        },
+        { idempotencyKey, lane: "sms" },
+      );
       writeAudit(ctx, {
         action: "Atlas queued customer message",
         entityType: "customer",
@@ -199,11 +211,26 @@ export async function resolveApproval(
   );
   if (!row) throw new NotFoundError("Approval not found.");
   if (row.status !== "pending") throw new ValidationError("Approval already resolved.");
+  if (
+    decision === "approved" &&
+    !row.payload.atlasAction &&
+    ![ACTION_SMS, ACTION_INVOICE].includes(row.action_type)
+  ) {
+    throw new ValidationError("This action has no verified executor. Nothing was sent or paid.");
+  }
 
   // Owners/admins approve money; SMS/invoice can also be approved with action permissions.
+  // Task approvals (CREATE_TASK via atlasAction) need tasks.write.
   if (row.action_type === ACTION_SMS) {
     if (!hasPermission(ctx, "actions.sms") && !hasPermission(ctx, "payments.refund")) {
       requirePermission(ctx, "actions.sms");
+    }
+  } else if (row.payload.atlasAction && typeof row.payload.atlasAction === "object") {
+    const actionType = (row.payload.atlasAction as { type?: string }).type;
+    if (actionType === "CREATE_TASK" || actionType === "UPDATE_TASK") {
+      requirePermission(ctx, "tasks.write");
+    } else {
+      requirePermission(ctx, "payments.refund");
     }
   } else {
     requirePermission(ctx, "payments.refund");
@@ -221,6 +248,12 @@ export async function resolveApproval(
     entityId: row.id,
   });
   if (decision === "rejected") return { approval: { ...row, status: decision }, result: null };
+
+  // Invoice approval alone is not delivery — sender must consume confirmation via send-invoice.
+  if (row.action_type === ACTION_INVOICE) {
+    return { approval: { ...row, status: decision }, result: { awaitingSend: true } };
+  }
+
   emitEvent({
     type: "approval.granted",
     organizationId: ctx.organizationId,
@@ -257,6 +290,11 @@ export async function resolveApproval(
       entityType: "approval",
       entityId: row.id,
     });
+    const runId = typeof row.payload.runId === "string" ? row.payload.runId : "";
+    if (runId && sms.ok) {
+      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
+      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent: true });
+    }
     return {
       approval: { ...row, status: decision as "approved" },
       result: {
@@ -274,7 +312,41 @@ export async function resolveApproval(
   const atlasAction = row.payload.atlasAction;
   if (atlasAction) {
     const action = decodeAtlasAction(atlasAction);
-    return { approval: { ...row, status: decision }, result: executeApprovedAction(action, ctx) };
+    const result = executeApprovedAction(action, ctx);
+    const runId = typeof row.payload.runId === "string" ? row.payload.runId : "";
+    let messageSent = false;
+    let deliveryError: string | undefined;
+    if (action.type === "SEND_MESSAGE") {
+      // Flush in-process send_message; live provider may reject simulation.
+      // Approval stays recorded — never claim sent when delivery is unverified.
+      try {
+        const { flushDatabaseWrites } = await import("@/lib/db/store");
+        await flushDatabaseWrites();
+        messageSent = true;
+      } catch (error) {
+        deliveryError = error instanceof Error ? error.message : String(error);
+        writeAudit(ctx, {
+          action: `customer notification delivery failed: ${deliveryError}`,
+          entityType: "customer",
+          entityId: String(action.payload.customerId || ""),
+        });
+      }
+    } else if (runId) {
+      const { flushDatabaseWrites } = await import("@/lib/db/store");
+      await flushDatabaseWrites();
+      messageSent = true;
+    }
+    if (runId) {
+      const { advanceRunAfterApproval } = await import("@/lib/orchestrator");
+      await advanceRunAfterApproval(ctx.organizationId, runId, { messageSent });
+    }
+    return {
+      approval: { ...row, status: decision },
+      result:
+        action.type === "SEND_MESSAGE"
+          ? { ...result, messageSent, deliveryError, queued: true }
+          : result,
+    };
   }
   enqueueJob(ctx, `autonomy:${row.action_type}`, { ...row.payload, userId: ctx.userId });
   return { approval: { ...row, status: decision }, result: { queued: true, type: row.action_type } };

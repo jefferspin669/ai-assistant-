@@ -8,6 +8,8 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     // Password/security tests intentionally exercise scrypt and can be CPU-heavy in CI.
     testTimeout: 30_000,
+    // JSON adapters (.data/*.json) are process-shared on disk — parallel files race resets.
+    fileParallelism: false,
   },
   resolve: {
     alias: {

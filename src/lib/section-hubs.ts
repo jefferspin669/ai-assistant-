@@ -5,10 +5,9 @@ export type HubLink = {
 };
 
 export const moneyHub: HubLink[] = [
-  { href: "/app/finance", label: "Banking", blurb: "Cash, forecasts, and the books in one place." },
-  { href: "/app/payments", label: "Invoices & payments", blurb: "What customers owe and what you have collected." },
-  { href: "/app/tax", label: "Tax", blurb: "Estimates, receipts, and filing — clearly labeled." },
-  { href: "/app/accountant", label: "Accountant", blurb: "Packages for your bookkeeper or CPA." },
+  { href: "/app/finance", label: "Banking", blurb: "Connected accounts and recorded cash movement." },
+  { href: "/app/payments", label: "Invoices & payments", blurb: "Stage, approve, send, and verify settlement." },
+  { href: "/app/tax", label: "Tax", blurb: "Ledger totals for review — not a filed return." },
 ];
 
 export const memoryHub: HubLink[] = [

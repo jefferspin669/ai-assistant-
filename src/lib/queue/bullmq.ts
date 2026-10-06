@@ -33,16 +33,52 @@ export function startAtlasWorker() {
   if (!conn || !redisConfigured()) {
     throw new Error("REDIS_URL is required to start the Atlas worker");
   }
+  const workerId = `bullmq:${process.env.ATLAS_SCHEDULER_ID?.trim() || "primary"}`;
   return new Worker(
     QUEUE_NAME,
     async (job: Job) => {
-      await handleQueuedWork(job.name, {
-        jobId: String(job.data.jobId || job.id),
-        organizationId: String(job.data.organizationId || ""),
-        userId: String(job.data.userId || "atlas"),
-        payload: (job.data.payload || {}) as Record<string, unknown>,
-        attemptsMade: job.attemptsMade,
-      });
+      const jobId = String(job.data.jobId || job.id);
+      const { loadDatabase, saveDatabase, nowIso } = await import("@/lib/db/store");
+      const { completeClaimedJob, failClaimedJob } = await import("@/lib/services/jobs");
+      // Take the durable row lease so Redis workers and the scheduler cannot double-run.
+      const stamp = nowIso();
+      const db = loadDatabase();
+      const row = db.jobs.find((item) => item.id === jobId);
+      if (row && (row.status === "queued" || row.status === "running")) {
+        saveDatabase({
+          ...db,
+          jobs: db.jobs.map((item) =>
+            item.id === jobId
+              ? {
+                  ...item,
+                  status: "running" as const,
+                  claimed_at: stamp,
+                  claimed_by: workerId,
+                  attempts: Math.max(item.attempts ?? 0, job.attemptsMade || 0) + (item.status === "queued" ? 1 : 0),
+                  updated_at: stamp,
+                  version: (item.version ?? 1) + 1,
+                }
+              : item,
+          ),
+        });
+      }
+      try {
+        await handleQueuedWork(job.name, {
+          jobId,
+          organizationId: String(job.data.organizationId || ""),
+          userId: String(job.data.userId || "atlas"),
+          payload: (job.data.payload || {}) as Record<string, unknown>,
+          attemptsMade: job.attemptsMade,
+        });
+        completeClaimedJob(jobId, workerId);
+      } catch (error) {
+        failClaimedJob(
+          jobId,
+          workerId,
+          error instanceof Error ? error.message : "bullmq worker failed",
+        );
+        throw error;
+      }
     },
     { connection: conn, concurrency: 4 },
   );

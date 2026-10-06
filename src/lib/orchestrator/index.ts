@@ -3,7 +3,7 @@
  * Does not replace those systems.
  */
 
-import { newId, nowIso } from "@/lib/db/store";
+import { newId, nowIso, saveDatabase } from "@/lib/db/store";
 import type { SessionContext } from "@/lib/domain/types";
 import { database, requireOrgMember } from "@/lib/services/access";
 import { writeAudit } from "@/lib/services/audit";
@@ -172,12 +172,22 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
       mark(step, "skipped", { reason: "Within Atlas authority" });
       return;
     }
+    const customerId = String(state.customerId || "");
+    const message = String(state.message || run.goal);
     const submitted = submitWork(ctx, {
       kind: "invoice_reminder",
       title: run.goal.slice(0, 80),
-      summary: String(state.message || run.goal),
+      summary: message.slice(0, 140),
       amountCents: typeof state.amountCents === "number" ? state.amountCents : undefined,
-      payload: { runId: run.id, customerId: state.customerId },
+      // Wire atlasAction so Approvals execute a real SEND_MESSAGE on approve.
+      payload: {
+        runId: run.id,
+        customerId,
+        atlasAction: {
+          type: "SEND_MESSAGE",
+          payload: { customerId, message },
+        },
+      },
     });
     if (submitted.decision.verdict !== "execute") {
       mark(step, "blocked", { approvalId: submitted.approvalId, decision: submitted.decision }, "Waiting on owner approval.");
@@ -221,10 +231,29 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
         ctx,
       );
       if ("requiresApproval" in sent && sent.requiresApproval && sent.approvalId && sent.approvalId !== "executed") {
+        // Attach runId so Approvals can advance this orchestrator run after send.
+        const latest = database();
+        saveDatabase({
+          ...latest,
+          approvals: latest.approvals.map((row) =>
+            row.id === sent.approvalId
+              ? { ...row, payload: { ...row.payload, runId: run.id } }
+              : row,
+          ),
+        });
         mark(step, "blocked", { approvalId: sent.approvalId, capabilityId }, "Send is waiting on approval.");
         return;
       }
-      mark(step, "done", { capabilityId, via: "atlas-actions", queued: "queued" in sent ? sent.queued : false });
+      if ("queued" in sent && sent.queued) {
+        mark(
+          step,
+          "blocked",
+          { capabilityId, approvalId: "approvalId" in sent ? sent.approvalId : undefined },
+          "Delivery queued; outcome is not verified.",
+        );
+        return;
+      }
+      mark(step, "done", { capabilityId, via: "atlas-actions" });
       return;
     }
     const invoked = await invokeAdapter(ctx, capabilityId, {
@@ -318,6 +347,50 @@ async function executeStep(run: OrchestratorRun, step: RunStep, ctx: SessionCont
     compensateRun(run);
     mark(step, "done", { compensated: true });
   }
+}
+
+/**
+ * After the owner approves a chase SMS (approval or invoke step blocked),
+ * mark that step done, skip a redundant Send if the message already went out,
+ * and continue the run (wait → check payment → escalate).
+ */
+export async function advanceRunAfterApproval(
+  organizationId: string,
+  runId: string,
+  options: { messageSent?: boolean } = {},
+): Promise<OrchestratorRun | null> {
+  const run = getRun(runId, organizationId);
+  if (!run) return null;
+  const step = run.steps[run.cursor];
+  if (!step || (step.status !== "blocked" && step.status !== "waiting")) return run;
+
+  if (step.kind === "approval" || step.kind === "invoke") {
+    mark(step, "done", {
+      ...(step.result || {}),
+      approved: true,
+      messageSent: Boolean(options.messageSent),
+    });
+    run.cursor += 1;
+    // If approval step already sent the SMS, skip the following invoke send.
+    const next = run.steps[run.cursor];
+    if (
+      options.messageSent &&
+      step.kind === "approval" &&
+      next &&
+      next.kind === "invoke" &&
+      (next.capability === "send_sms" || next.status === "pending")
+    ) {
+      mark(next, "skipped", { reason: "Message already sent on approval" });
+      run.cursor += 1;
+    }
+  } else {
+    return run;
+  }
+
+  run.status = "running";
+  run.updatedAt = nowIso();
+  saveRun(run);
+  return tickRun(run);
 }
 
 export async function resumeRun(

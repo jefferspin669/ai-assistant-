@@ -1,12 +1,14 @@
-# Local Atlas stack: Next.js + PostgreSQL + Redis + BullMQ worker.
+# Local Atlas stack: Next.js + PostgreSQL + Redis + one scheduler (+ optional worker).
 # Demos still work without Docker (JSON files + in-process job queue).
 #
-#   docker compose up -d postgres redis
+# Staging beachhead (invoice recovery):
+#   docker compose up -d postgres redis scheduler
 #   npm run db:migrate
-#   npm run worker
+#   npm run worker   # only after claim/idempotency tests stay green
 #   npm run dev
 #
 # Full stack (app + worker in containers): docker compose --profile full up --build
+# Keep a single scheduler replica until multi-worker claiming is proven overnight.
 
 services:
   postgres:
@@ -35,6 +37,32 @@ services:
       timeout: 3s
       retries: 10
 
+  # One tick loop for autonomy + orchestrator due runs. Do not scale this service.
+  scheduler:
+    image: curlimages/curl:8.12.1
+    environment:
+      APP_URL: http://host.docker.internal:3000
+      CRON_SECRET: ${CRON_SECRET:-atlas-staging-cron}
+      ATLAS_SCHEDULER_ID: primary
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "[atlas-scheduler] ticking $$APP_URL (id=primary)";
+        while true; do
+          curl -sf -X POST "$$APP_URL/api/autonomy/tick" \
+            -H "Authorization: Bearer $$CRON_SECRET" \
+            -H "content-type: application/json" \
+            -d '{}' || echo "[atlas-scheduler] tick failed (is npm run dev up?)";
+          sleep 30;
+        done
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
   worker:
     profiles: ["full"]
     build: .
@@ -42,7 +70,8 @@ services:
     environment:
       DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas
       REDIS_URL: redis://redis:6379
-      ATLAS_ENV: development
+      ATLAS_ENV: staging
+      ATLAS_SCHEDULER_ID: primary
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,7 +87,8 @@ services:
     environment:
       DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas
       REDIS_URL: redis://redis:6379
-      ATLAS_ENV: development
+      ATLAS_ENV: staging
+      CRON_SECRET: ${CRON_SECRET:-atlas-staging-cron}
     depends_on:
       postgres:
         condition: service_healthy

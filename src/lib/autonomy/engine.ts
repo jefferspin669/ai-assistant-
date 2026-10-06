@@ -67,6 +67,29 @@ export function decideWork(intent: WorkIntent, policy: AutonomyPolicy): Autonomy
     };
   }
 
+  if (
+    policy.activeUntil &&
+    (!Number.isFinite(Date.parse(policy.activeUntil)) || Date.now() >= Date.parse(policy.activeUntil))
+  ) {
+    return {
+      ...base,
+      verdict: "ask_owner",
+      reason: "The autonomous window has ended.",
+      ownerPrompt: ownerCard(intent, policy, "Set a new end time to resume automatic actions."),
+    };
+  }
+  if (
+    policy.activeFrom &&
+    (!Number.isFinite(Date.parse(policy.activeFrom)) || Date.now() < Date.parse(policy.activeFrom))
+  ) {
+    return {
+      ...base,
+      verdict: "ask_owner",
+      reason: "The autonomous window has not started.",
+      ownerPrompt: ownerCard(intent, policy, "Automatic actions start at the time you selected."),
+    };
+  }
+
   if (band === "restricted") {
     const overLimit =
       intent.amountCents != null && limit != null && intent.amountCents > limit;

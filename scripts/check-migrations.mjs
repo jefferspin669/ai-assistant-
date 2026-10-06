@@ -23,6 +23,9 @@ const required = [
   "0003_unified_memory.sql",
   "0004_workspace_domains.sql",
   "0005_row_level_concurrency_and_durable_jobs.sql",
+  "0006_projects_version.sql",
+  "0007_autonomy_active_window.sql",
+  "0008_autonomy_policy_controls.sql",
 ];
 for (const name of required) {
   if (!files.includes(name)) {

@@ -59,8 +59,9 @@ export const DEFAULT_ACCOUNTS: ConnectedAccount[] = [
 ];
 
 export function loadConnectedAccounts(): ConnectedAccount[] {
-  const saved = loadJson<ConnectedAccount[]>(ACCOUNTS_KEY, []);
-  return saved.length ? saved : DEFAULT_ACCOUNTS;
+  // Never trust a browser toggle for connection status — always start from catalog defaults.
+  void ACCOUNTS_KEY;
+  return DEFAULT_ACCOUNTS.map((account) => ({ ...account, connected: false }));
 }
 
 export function saveConnectedAccounts(accounts: ConnectedAccount[]) {
@@ -96,8 +97,8 @@ export function createCampaign(input: {
 }
 
 export function marketingDataMode(): "LIVE" | "DEMO" {
-  const accounts = loadConnectedAccounts();
-  return accounts.some((a) => a.connected) ? "LIVE" : "DEMO";
+  // Local toggles never make marketing LIVE — only real provider credentials do.
+  return "DEMO";
 }
 
 export function campaignSummary(): {

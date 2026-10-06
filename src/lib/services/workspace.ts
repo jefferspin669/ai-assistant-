@@ -441,6 +441,9 @@ export function createOrgTransaction(
   const db = database();
   requireOrgMember(db, ctx);
   requirePermission(ctx, "payments.read");
+  if (!["owner", "admin", "accountant"].includes(ctx.role)) {
+    throw new ValidationError("Only owners, admins, or accountants can record money movement.");
+  }
   const duplicate = db.transactions.find(
     (row) =>
       row.orgId === ctx.organizationId &&
@@ -464,6 +467,7 @@ export function createOrgTransaction(
     date: input.date,
     receiptName: null,
     createdAt: nowIso(),
+    provenance: "LIVE" as const,
   };
   saveDatabase({ ...db, transactions: [row, ...db.transactions] });
   return toTransaction(row);

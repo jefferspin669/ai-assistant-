@@ -9,6 +9,7 @@ import {
   stageActionApproval,
 } from "@/lib/services/action-confirmations";
 import { writeAudit } from "@/lib/services/audit";
+import { sendStripeInvoice } from "@/lib/integrations/stripe";
 
 /**
  * Real side-effect actions. Money / outreach require a server-side approved confirmation.
@@ -82,8 +83,14 @@ export async function createAndSendInvoice(
       status: "needs_approval" as const,
       approvalId: approval.id,
       proposal: approval,
-      message: "Invoice drafted — approve in Approvals, then resend with confirmationId.",
+      message: "Invoice drafted — approve in Approvals, then return to Invoices & payments to send.",
     };
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error(
+      "Configure Stripe invoicing and its signed payment webhook before sending. Approval was not consumed.",
+    );
   }
 
   const confirmation = consumeApprovedConfirmation(ctx, input.confirmationId, ACTION_INVOICE);
@@ -97,32 +104,41 @@ export async function createAndSendInvoice(
 
   const customerName = String(payload.customerName || input.customerName);
   const amountCents = Number(payload.amountCents ?? input.amountCents);
-  const customerPhone = payload.customerPhone || input.customerPhone;
+  const customerEmail = payload.customerEmail || input.customerEmail;
   const memo = payload.memo || input.memo;
   const orgId = ctx.organizationId;
 
+  if (!customerEmail || !process.env.STRIPE_SECRET_KEY) {
+    throw new Error(
+      "A customer email and configured Stripe account are required to send a real invoice. Nothing was sent or recorded as paid.",
+    );
+  }
+  if (!Number.isSafeInteger(amountCents) || amountCents < 50 || amountCents > 100_000_000) {
+    throw new Error("Invoice amount must be between $0.50 and $1,000,000.00.");
+  }
+
+  let delivered: Awaited<ReturnType<typeof sendStripeInvoice>>;
+  try {
+    delivered = await sendStripeInvoice({
+      organizationId: orgId,
+      customerName,
+      customerEmail,
+      amountCents,
+      memo,
+      idempotencyKey: confirmation.id,
+    });
+  } catch {
+    throw new Error(
+      "Stripe could not confirm delivery. Check the Stripe dashboard for a draft or sent invoice before trying again; no payment was recorded.",
+    );
+  }
+
   const db = loadDatabase();
   const stamp = nowIso();
-  const invoiceId = newId("inv");
-  const amount = amountCents / 100;
+  const invoiceId = delivered.id;
 
   saveDatabase({
     ...db,
-    transactions: [
-      {
-        id: invoiceId,
-        orgId,
-        userId: ctx.userId,
-        kind: "income",
-        label: `Invoice · ${customerName}`,
-        amount,
-        category: "invoice",
-        date: stamp.slice(0, 10),
-        receiptName: null,
-        createdAt: stamp,
-      },
-      ...db.transactions,
-    ],
     documents: [
       {
         id: newId("doc"),
@@ -134,7 +150,8 @@ export async function createAndSendInvoice(
           customer: customerName,
           amountCents,
           memo,
-          status: "sent",
+          status: "sent_unpaid",
+          hostedInvoiceUrl: delivered.hostedInvoiceUrl,
         }),
         createdAt: stamp,
         updatedAt: stamp,
@@ -142,14 +159,6 @@ export async function createAndSendInvoice(
       ...db.documents,
     ],
   });
-
-  if (customerPhone) {
-    await sendSms({
-      to: customerPhone,
-      body: `Invoice from ${db.organizations.find((o) => o.id === orgId)?.business_name || "Atlas"}: $${amount.toFixed(2)}${memo ? ` — ${memo}` : ""}. Reply with questions anytime.`,
-      organizationId: orgId,
-    });
-  }
 
   writeAudit(ctx, {
     action: "invoice.sent",
@@ -167,6 +176,7 @@ export async function createAndSendInvoice(
     status: "sent" as const,
     invoiceId,
     amountCents,
+    hostedInvoiceUrl: delivered.hostedInvoiceUrl,
     confirmationId: confirmation.id,
   };
 }
