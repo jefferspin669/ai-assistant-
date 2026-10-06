@@ -15,6 +15,7 @@ describe("persistence: failed writes are visible", () => {
     __setLastPersistErrorForTests(null);
     delete process.env.ATLAS_ALLOW_JSON_FALLBACK;
     delete process.env.ATLAS_SEED_EMPTY_PG;
+    delete process.env.ATLAS_SEED_DEMO;
   });
 
   it("flushDatabaseWrites throws PersistenceError (503) when a PG write failed", async () => {

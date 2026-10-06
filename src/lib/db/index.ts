@@ -6,6 +6,7 @@ export {
   resetDatabase,
   databaseStats,
   seedDatabase,
+  emptyDb,
   applyServerDatabase,
   serverPersistenceInfo,
 } from "@/lib/db/store";

@@ -5,14 +5,16 @@ import { campaignSummary, loadConnectedAccounts, marketingDataMode } from "../sr
 import { reputationMode, loadReviewSources, saveReviewSources } from "../src/lib/reputation-workspace";
 import { loadConnections } from "../src/lib/connections";
 import { enterPreviewWorkspace } from "../src/lib/workspace-mode";
-import { resetDatabase, loadDatabase } from "../src/lib/db/store";
+import { resetDatabase, loadDatabase, saveDatabase } from "../src/lib/db/store";
 import { mintDevSession } from "../src/lib/auth/session";
 import { GET as settingsGet, PUT as settingsPut } from "../src/app/api/settings/route";
 import { GET as approvalsGet } from "../src/app/api/approvals/route";
 import { POST as customersPost, GET as customersGet } from "../src/app/api/customers/route";
 
 beforeEach(() => {
-  resetDatabase();
+  // Seed server memory first; stubbing `window` below switches loadDatabase to the
+  // client path, which no longer auto-seeds empty localStorage (live-data beachhead).
+  const seeded = resetDatabase();
   vi.stubEnv("DATABASE_URL", "");
   vi.stubEnv("ATLAS_ENV", "development");
   const store: Record<string, string> = {};
@@ -30,6 +32,7 @@ beforeEach(() => {
   };
   vi.stubGlobal("localStorage", storage);
   vi.stubGlobal("window", { localStorage: storage });
+  saveDatabase(seeded);
   enterPreviewWorkspace();
 });
 

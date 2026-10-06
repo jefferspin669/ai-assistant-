@@ -5,7 +5,6 @@ import path from "path";
 const ROOT = path.resolve(__dirname, "..");
 
 const CONSOLIDATED = [
-  ["src/app/app/missed-calls/page.tsx", "/app/commercial"],
   ["src/app/app/brain/page.tsx", "/app/ask"],
   ["src/app/app/voice/page.tsx", "/app/ask?tab=voice"],
   ["src/app/app/meetings/page.tsx", "/app/appointments"],
@@ -14,6 +13,9 @@ const CONSOLIDATED = [
   ["src/app/app/security/page.tsx", "/app/governance"],
   ["src/app/app/capital/page.tsx", "/app/money"],
   ["src/app/app/digital-twin/page.tsx", "/app/business-engine?tab=simulate"],
+  ["src/app/app/analytics/page.tsx", "/app"],
+  ["src/app/app/dna/page.tsx", "/app/memory"],
+  ["src/app/app/knowledge/page.tsx", "/app/files"],
   ["src/app/app/workflows/page.tsx", "/app/autonomous"],
   ["src/app/app/actions/page.tsx", "/app/approvals"],
   ["src/app/app/finance/page.tsx", "/app/money"],
@@ -30,11 +32,22 @@ describe("product consolidation redirects", () => {
 
   it("registers Phase 1 consolidations in next.config", () => {
     const config = readFileSync(path.join(ROOT, "next.config.ts"), "utf8");
-    expect(config).toContain('source: "/app/missed-calls"');
     expect(config).toContain('source: "/app/brain"');
-    expect(config).toContain('destination: "/app/commercial"');
+    expect(config).toContain('destination: "/app/ask"');
     expect(config).toContain('source: "/app/workflows"');
     expect(config).toContain('source: "/app/actions"');
     expect(config).toContain('source: "/app/finance"');
+    // Phone surfaces stay real pages with honest empty states (not demo redirects).
+    expect(config).not.toContain('source: "/app/missed-calls"');
+    expect(config).not.toContain('source: "/app/call-summaries"');
+  });
+
+  it("shows setup requirements for phone surfaces instead of fabricated data", () => {
+    const missed = readFileSync(path.join(ROOT, "src/app/app/missed-calls/page.tsx"), "utf8");
+    const summaries = readFileSync(path.join(ROOT, "src/app/app/call-summaries/page.tsx"), "utf8");
+    expect(missed).toContain("No calls to show");
+    expect(missed).toContain("/app/connections");
+    expect(summaries).toContain("No call summaries yet");
+    expect(summaries).toContain("/app/connections");
   });
 });

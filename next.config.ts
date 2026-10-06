@@ -114,7 +114,6 @@ const nextConfig: NextConfig = {
               permanent: false,
             },
             // Consolidation — one surface per capability
-            { source: "/app/missed-calls", destination: "/app/commercial", permanent: false },
             { source: "/app/brain", destination: "/app/ask", permanent: false },
             { source: "/app/voice", destination: "/app/ask?tab=voice", permanent: false },
             { source: "/app/meetings", destination: "/app/appointments", permanent: false },
@@ -126,7 +125,6 @@ const nextConfig: NextConfig = {
             { source: "/app/security", destination: "/app/governance", permanent: false },
             { source: "/app/risk-radar", destination: "/app/risk", permanent: false },
             { source: "/app/global-memory", destination: "/app/memory", permanent: false },
-            { source: "/app/call-summaries", destination: "/app/phone", permanent: false },
             { source: "/app/digital-twin", destination: "/app/business-engine?tab=simulate", permanent: false },
             { source: "/app/capital", destination: "/app/money", permanent: false },
             { source: "/app/reputation-command", destination: "/app/reviews", permanent: false },

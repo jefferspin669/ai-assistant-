@@ -63,9 +63,11 @@ function getServerDb() {
   if (fromDisk) {
     g.__atlasServerDb = hydrateDatabase(fromDisk);
   } else {
-    g.__atlasServerDb = seedDatabase();
+    // Demo seed is opt-in for local development. Production / staging start empty.
+    const shouldSeed = process.env.ATLAS_SEED_DEMO === "1";
+    g.__atlasServerDb = shouldSeed ? seedDatabase() : emptyDb();
     writeJsonFile(DB_FILE, g.__atlasServerDb);
-    if (typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
+    if (shouldSeed && typeof window === "undefined" && g.__atlasServerDb.organizations[0]?.id) {
       const hook = (
         globalThis as typeof globalThis & {
           __atlasResetSeedEmployees?: (organizationId: string) => void;
@@ -109,7 +111,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function emptyDb(): AtlasDatabase {
+export function emptyDb(): AtlasDatabase {
   return {
     users: [],
     user_credentials: [],
@@ -778,9 +780,9 @@ export function loadDatabase(): AtlasDatabase {
       }
     }
     if (!raw) {
-      const seeded = seedDatabase();
-      localStorage.setItem(DB_KEY, JSON.stringify(seeded));
-      return seeded;
+      const initial = emptyDb();
+      localStorage.setItem(DB_KEY, JSON.stringify(initial));
+      return initial;
     }
     type LegacyUser = Partial<DbUser> & {
       name?: string;
@@ -890,7 +892,7 @@ export function loadDatabase(): AtlasDatabase {
     localStorage.setItem(DB_KEY, JSON.stringify(state));
     return state;
   } catch {
-    return seedDatabase();
+    return emptyDb();
   }
 }
 
